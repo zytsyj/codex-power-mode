@@ -49,6 +49,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles or flashes.
 - `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
+- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.3` (about 78pt collapsed).
 
 ## Plugin layout
 

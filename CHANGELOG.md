@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 - 2026-07-17
+
+- Increased the default HUD to a balanced 78pt and added configurable `0.75×–1.6×` scaling.
+
 ## 0.5.1 - 2026-07-17
 
 - Reduced the native HUD from 96pt to 60pt and added a compact high-contrast status capsule.
