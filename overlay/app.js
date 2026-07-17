@@ -3,7 +3,8 @@ const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
 const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level"].map((id) => [id, element(id)]));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const preset = new URLSearchParams(location.search).get("preset") === "arcade" ? "arcade" : "focus";
+const parameters = new URLSearchParams(location.search);
+const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const particles = [];
 const rings = [];
@@ -13,6 +14,7 @@ let scale = devicePixelRatio || 1;
 let collapseTimer;
 
 document.body.dataset.preset = preset;
+if (parameters.get("preview") === "light") document.body.dataset.preview = "light";
 
 const palette = {
   observe: "#75dfff", act: "#a886ff", verify: "#62e3ad",
@@ -53,7 +55,8 @@ function burst(color, amount, power = 1, mode = "radial", start = codingOrigin()
       maxLife: 78,
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
       color,
-      drag: mode === "inward" ? 1.012 : .985
+      drag: mode === "inward" ? 1.012 : .985,
+      square: mode === "fragments"
     });
   }
 }
@@ -97,7 +100,8 @@ function frame() {
     if (item.life <= 0) { particles.splice(index, 1); continue; }
     context.globalAlpha = Math.min(.9, item.life / 18);
     context.fillStyle = item.color;
-    context.beginPath(); context.arc(item.x, item.y, item.size, 0, Math.PI * 2); context.fill();
+    if (item.square) context.fillRect(item.x - item.size, item.y - item.size, item.size * 2.4, item.size * 1.25);
+    else { context.beginPath(); context.arc(item.x, item.y, item.size, 0, Math.PI * 2); context.fill(); }
   }
   context.globalAlpha = 1;
   requestAnimationFrame(frame);
@@ -105,7 +109,7 @@ function frame() {
 
 function statusCopy(next) {
   if (next.phase === "wait") return "Your approval is needed";
-  if (next.phase === "recover") return "A failed check is being repaired";
+  if (next.phase === "recover") return "Confidence dropped; repairing the latest change";
   if (next.phase === "complete" && next.completion === "verified") return "Latest changes are backed by evidence";
   if (next.phase === "complete") return "Verification is still recommended";
   if (next.phase === "verify") return "Building confidence in the change";
@@ -161,7 +165,7 @@ function react(event) {
     burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
     setTimeout(() => burst(color, 38, .85, "radial", start), 280);
   } else if (event.type === "verification") {
-    burst(color, 44, .85, "radial", start); ring(color, .8, start);
+    burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
   } else if (event.state?.completion === "verified") {
     ring(color, 1.55, start); burst(color, 95, 1.2, "radial", start);
     setTimeout(() => { ring("#a886ff", 1.2, start); burst("#a886ff", 52, .9, "radial", start); }, 180);

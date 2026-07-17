@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 - 2026-07-17
+
+- Reduced the native HUD from 96pt to 60pt and added a compact high-contrast status capsule.
+- Added a real Momentum progress arc that remains readable over light and dark Codex themes.
+- Gave Observe, Act, Verify, Wait, Recover, and Complete distinct geometry and motion.
+- Replaced recovery dots with directional rectangular fragments and introduced inward verification charge.
+
 ## 0.5.0 - 2026-07-17
 
 - Added auto-collapse and Focus/Arcade visual presets.

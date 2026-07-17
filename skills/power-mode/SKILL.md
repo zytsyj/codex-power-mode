@@ -37,6 +37,12 @@ Make sure the HUD is open, then run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" demo
 ```
 
+To show every semantic state with enough delay for visual comparison, run:
+
+```bash
+node "${PLUGIN_ROOT}/scripts/power-mode.mjs" showcase
+```
+
 To replay up to 40 recent locally stored events without changing state:
 
 ```bash
