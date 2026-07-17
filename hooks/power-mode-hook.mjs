@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+import path from "node:path";
+import { eventFromHook } from "../src/events.mjs";
+import { recordEvent } from "../src/storage.mjs";
+
+async function readStdin() {
+  const chunks = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+}
+
+async function notifyServer(event, state) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 250);
+  try {
+    await fetch("http://127.0.0.1:4737/api/events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...event, state }),
+      signal: controller.signal
+    });
+  } catch {
+    // The HUD is optional; events remain persisted for its next launch.
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+try {
+  const input = await readStdin();
+  const event = eventFromHook(input);
+  if (event) {
+    const dataDir = process.env.PLUGIN_DATA || path.join(process.env.PLUGIN_ROOT || process.cwd(), ".power-mode");
+    const state = await recordEvent(dataDir, event);
+    await notifyServer(event, state);
+  }
+} catch (error) {
+  process.stderr.write(`Codex Power Mode hook skipped: ${error.message}\n`);
+}
