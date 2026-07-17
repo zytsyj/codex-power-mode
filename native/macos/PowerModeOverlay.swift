@@ -34,6 +34,8 @@ private struct Particle {
     let maxLife: CGFloat
     let radius: CGFloat
     let color: NSColor
+    var target: CGPoint? = nil
+    var square = false
 }
 
 private struct Shockwave {
@@ -45,10 +47,19 @@ private struct Shockwave {
     let color: NSColor
 }
 
+private struct ScanBeam {
+    let origin: CGPoint
+    let length: CGFloat
+    var life: CGFloat
+    let maxLife: CGFloat
+    let color: NSColor
+}
+
 @MainActor
 private final class PowerModeView: NSView {
     private var particles: [Particle] = []
     private var shockwaves: [Shockwave] = []
+    private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
@@ -95,12 +106,18 @@ private final class PowerModeView: NSView {
 
         switch event.type {
         case "activity-start":
-            let color: NSColor = event.phase == "verify" ? .systemGreen : event.phase == "act" ? .systemPurple : .systemCyan
-            shockwave(color: color, power: 0.65)
-            if event.phase != "observe" { burst(color: color, count: 24, power: 0.55) }
+            if event.phase == "observe" {
+                scan(color: .systemCyan)
+            } else if event.phase == "verify" {
+                charge(color: .systemGreen, count: arcadeMode ? 100 : 58)
+            } else {
+                directionalSparks(color: .systemPurple, count: arcadeMode ? 48 : 26)
+            }
         case "permission-request":
             shockwave(color: .systemYellow, power: 1.0)
-            burst(color: .systemYellow, count: 42, power: 0.7)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
+                self?.shockwave(color: .systemYellow, power: 0.8)
+            }
         case "edit":
             let added = event.addedLines ?? 0
             let removed = event.removedLines ?? 0
@@ -119,6 +136,7 @@ private final class PowerModeView: NSView {
             if passed {
                 shake = 4
             } else {
+                fragments(color: .systemRed, count: arcadeMode ? 120 : 72)
                 dangerAlpha = 0.38
                 shake = 10
             }
@@ -197,6 +215,70 @@ private final class PowerModeView: NSView {
         needsDisplay = true
     }
 
+    private func scan(color: NSColor, echo: Bool = true) {
+        guard !reducedMotion else { return }
+        let origin = CGPoint(x: bounds.width * 0.17, y: bounds.height * CGFloat.random(in: 0.28...0.72))
+        let life: CGFloat = 52
+        scanBeams.append(ScanBeam(origin: origin, length: bounds.width * 0.55, life: life, maxLife: life, color: color))
+        if arcadeMode && echo {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in self?.scan(color: color.withAlphaComponent(0.7), echo: false) }
+        }
+    }
+
+    private func directionalSparks(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let origin = codingOrigin()
+        for _ in 0..<count {
+            let life = CGFloat.random(in: 24...52)
+            particles.append(Particle(
+                position: origin,
+                velocity: CGVector(dx: CGFloat.random(in: 2.2...7.4), dy: CGFloat.random(in: -3.2...3.2)),
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.0...2.8),
+                color: color
+            ))
+        }
+    }
+
+    private func charge(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let target = codingOrigin()
+        for _ in 0..<count {
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let distance = CGFloat.random(in: 70...190)
+            let life = CGFloat.random(in: 38...58)
+            particles.append(Particle(
+                position: CGPoint(x: target.x + cos(angle) * distance, y: target.y + sin(angle) * distance),
+                velocity: .zero,
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.0...2.5),
+                color: color,
+                target: target
+            ))
+        }
+    }
+
+    private func fragments(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let origin = codingOrigin()
+        for _ in 0..<count {
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let speed = CGFloat.random(in: 2.5...8.5)
+            let life = CGFloat.random(in: 28...58)
+            particles.append(Particle(
+                position: origin,
+                velocity: CGVector(dx: cos(angle) * speed, dy: sin(angle) * speed),
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.8...4.2),
+                color: color,
+                square: true
+            ))
+        }
+    }
+
     private func deletionSparks(lines: Int) {
         let count = min(90, max(12, lines * 6))
         let origin = codingOrigin()
@@ -249,13 +331,22 @@ private final class PowerModeView: NSView {
     private func tick() {
         if !particles.isEmpty {
             for index in particles.indices {
+                if let target = particles[index].target {
+                    particles[index].velocity.dx = (target.x - particles[index].position.x) * 0.075
+                    particles[index].velocity.dy = (target.y - particles[index].position.y) * 0.075
+                } else {
+                    particles[index].velocity.dy -= 0.065
+                    particles[index].velocity.dx *= 0.992
+                }
                 particles[index].position.x += particles[index].velocity.dx
                 particles[index].position.y += particles[index].velocity.dy
-                particles[index].velocity.dy -= 0.065
-                particles[index].velocity.dx *= 0.992
                 particles[index].life -= 1
             }
             particles.removeAll { $0.life <= 0 }
+        }
+        if !scanBeams.isEmpty {
+            for index in scanBeams.indices { scanBeams[index].life -= 1 }
+            scanBeams.removeAll { $0.life <= 0 }
         }
         if !shockwaves.isEmpty {
             for index in shockwaves.indices {
@@ -273,7 +364,7 @@ private final class PowerModeView: NSView {
             hudWasExpanded = hudIsExpanded
             needsDisplay = true
         }
-        if !particles.isEmpty || !shockwaves.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded { needsDisplay = true }
+        if !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded { needsDisplay = true }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -282,6 +373,19 @@ private final class PowerModeView: NSView {
         context.clear(bounds)
 
         context.setBlendMode(.screen)
+        for beam in scanBeams {
+            let progress = 1 - beam.life / beam.maxLife
+            let head = beam.origin.x + beam.length * progress
+            let alpha = sin(progress * .pi) * 0.7
+            context.setStrokeColor(beam.color.withAlphaComponent(alpha).cgColor)
+            context.setLineWidth(1.5)
+            context.move(to: CGPoint(x: head - 120, y: beam.origin.y))
+            context.addLine(to: CGPoint(x: head, y: beam.origin.y))
+            context.strokePath()
+            context.move(to: CGPoint(x: head, y: beam.origin.y - 16))
+            context.addLine(to: CGPoint(x: head, y: beam.origin.y + 16))
+            context.strokePath()
+        }
         for wave in shockwaves {
             let progress = wave.life / wave.maxLife
             context.setStrokeColor(wave.color.withAlphaComponent(progress * 0.8).cgColor)
@@ -295,12 +399,8 @@ private final class PowerModeView: NSView {
         }
         for particle in particles {
             context.setFillColor(particle.color.withAlphaComponent(min(1, particle.life / min(24, particle.maxLife))).cgColor)
-            context.fillEllipse(in: CGRect(
-                x: particle.position.x - particle.radius,
-                y: particle.position.y - particle.radius,
-                width: particle.radius * 2,
-                height: particle.radius * 2
-            ))
+            let rect = CGRect(x: particle.position.x - particle.radius, y: particle.position.y - particle.radius, width: particle.radius * 2, height: particle.radius * 2)
+            if particle.square { context.fill(rect) } else { context.fillEllipse(in: rect) }
         }
         context.setBlendMode(.normal)
 
@@ -319,7 +419,7 @@ private final class PowerModeView: NSView {
 
     private func drawHUD() {
         let expanded = Date() < hudExpandedUntil
-        let size = expanded ? CGSize(width: 306, height: 112) : CGSize(width: 96, height: 96)
+        let size = expanded ? CGSize(width: 258, height: 64) : CGSize(width: 60, height: 60)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
             x: sin(shakePhase * 2.31) * shake,
@@ -329,20 +429,37 @@ private final class PowerModeView: NSView {
         let phase = (state.phase ?? "observe").uppercased()
         let phaseColor: NSColor = phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
 
-        let coreRect = CGRect(x: origin.x, y: origin.y, width: 96, height: 96)
+        let coreRect = CGRect(x: origin.x, y: origin.y, width: 60, height: 60)
         let core = NSBezierPath(ovalIn: coreRect)
-        NSColor.black.withAlphaComponent(0.30).setFill()
+        NSColor(calibratedWhite: 0.035, alpha: 0.88).setFill()
         core.fill()
-        phaseColor.withAlphaComponent(0.55).setStroke()
-        core.lineWidth = 1.5
+        NSColor.white.withAlphaComponent(0.14).setStroke()
+        core.lineWidth = 2
         core.stroke()
 
-        drawText("\(state.momentum ?? 0)", at: CGPoint(x: origin.x + 21, y: origin.y + 31), font: .systemFont(ofSize: 40, weight: .black), color: .white)
-        drawText("MOMENTUM", at: CGPoint(x: origin.x + 18, y: origin.y + 16), font: .monospacedSystemFont(ofSize: 7, weight: .medium), color: NSColor.white.withAlphaComponent(0.44), tracking: 1.0)
+        let momentum = min(100, max(0, state.momentum ?? 0))
+        let progress = CGFloat(momentum) / 100
+        let arc = NSBezierPath()
+        arc.appendArc(withCenter: CGPoint(x: origin.x + 30, y: origin.y + 30), radius: 29, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
+        arc.lineWidth = 2.5
+        arc.lineCapStyle = .round
+        phaseColor.setStroke()
+        arc.stroke()
+
+        let value = "\(momentum)"
+        drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 11 : 17), y: origin.y + 24), font: .systemFont(ofSize: 25, weight: .black), color: .white)
+        drawText("POWER", at: CGPoint(x: origin.x + 17, y: origin.y + 11), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.58), tracking: 1.0)
         guard expanded else { return }
-        drawText("CODEX  /  \(phase)", at: CGPoint(x: origin.x + 116, y: origin.y + 78), font: .monospacedSystemFont(ofSize: 9, weight: .bold), color: phaseColor, tracking: 1.3)
-        drawText(String(eventText.prefix(27)), at: CGPoint(x: origin.x + 116, y: origin.y + 50), font: .systemFont(ofSize: 12, weight: .semibold), color: NSColor.white.withAlphaComponent(0.90))
-        drawText("CONF \(state.confidence ?? 0)%   RISK \((state.riskLevel ?? "low").uppercased())", at: CGPoint(x: origin.x + 116, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 8, weight: .medium), color: NSColor.white.withAlphaComponent(0.5), tracking: 0.7)
+        let copyRect = CGRect(x: origin.x + 69, y: origin.y + 2, width: 189, height: 56)
+        let copy = NSBezierPath(roundedRect: copyRect, xRadius: 12, yRadius: 12)
+        NSColor(calibratedWhite: 0.025, alpha: 0.86).setFill()
+        copy.fill()
+        NSColor.white.withAlphaComponent(0.10).setStroke()
+        copy.lineWidth = 1
+        copy.stroke()
+        drawText(phase, at: CGPoint(x: origin.x + 82, y: origin.y + 40), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.2)
+        drawText(String(eventText.prefix(25)), at: CGPoint(x: origin.x + 82, y: origin.y + 22), font: .systemFont(ofSize: 11, weight: .semibold), color: .white)
+        drawText("CONF \(state.confidence ?? 0)%  ·  \((state.riskLevel ?? "low").uppercased()) RISK", at: CGPoint(x: origin.x + 82, y: origin.y + 8), font: .monospacedSystemFont(ofSize: 6.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.58), tracking: 0.55)
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

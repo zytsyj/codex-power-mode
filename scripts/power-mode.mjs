@@ -170,6 +170,26 @@ if (command === "start") {
     await emit(event);
     await new Promise((resolve) => setTimeout(resolve, 850));
   }
+} else if (command === "showcase") {
+  await start();
+  const events = [
+    { type: "activity-start", phase: "observe", toolGroup: "search" },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
+    { type: "edit", addedLines: 14, removedLines: 3, addedChars: 420, removedChars: 72 },
+    { type: "activity-start", phase: "verify", category: "test", toolGroup: "command" },
+    { type: "verification", category: "test", success: true },
+    { type: "permission-request", toolGroup: "command" },
+    { type: "verification", category: "build", success: false },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
+    { type: "edit", addedLines: 5, removedLines: 2, addedChars: 136, removedChars: 48 },
+    { type: "activity-start", phase: "verify", category: "build", toolGroup: "command" },
+    { type: "verification", category: "build", success: true },
+    { type: "turn-stop" }
+  ];
+  for (const event of events) {
+    await emit(event);
+    await new Promise((resolve) => setTimeout(resolve, 1_900));
+  }
 } else if (command === "replay") {
   await replay();
 } else if (command === "native") {
@@ -177,6 +197,6 @@ if (command === "start") {
 } else if (command === "native-stop") {
   await stopNative();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|replay|status> [--open]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|replay|status> [--open]\n");
   process.exitCode = 2;
 }

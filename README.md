@@ -26,10 +26,12 @@ Requires Node.js 20 or newer.
 ```bash
 npm start
 npm run demo
+npm run showcase
 npm run replay
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
+Use `npm run showcase` to play every semantic state with enough delay to compare their motion language.
 
 For the native macOS overlay:
 
