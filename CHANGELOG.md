@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-07-17
+
+- Made the Codex desktop window the exclusive native Power Mode surface.
+- Added automatic Codex window discovery, movement, resizing, clipping, and inactive-window hiding.
+- Added virtual typing replay scaled by patch character count.
+- Added shockwaves, deletion sparks, combo shake, danger borders, and stronger verification finishers.
+- Removed the planned VS Code bridge from the roadmap.
+
 ## 0.2.0 - 2026-07-17
 
 - Added a native macOS transparent, click-through overlay.
