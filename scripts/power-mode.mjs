@@ -60,6 +60,31 @@ async function emit(event) {
   }
 }
 
+async function broadcast(event) {
+  if (!(await isRunning())) await start();
+  await fetch(`${endpoint}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(event)
+  });
+}
+
+async function replay() {
+  await start();
+  let records;
+  try {
+    records = (await readFile(path.join(dataDir, "events.ndjson"), "utf8"))
+      .split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  } catch (error) {
+    if (error.code === "ENOENT") throw new Error("No recorded events yet. Run Codex or `npm run demo` first.");
+    throw error;
+  }
+  for (const event of records.slice(-40)) {
+    await broadcast(event);
+    await new Promise((resolve) => setTimeout(resolve, 420));
+  }
+}
+
 async function processIsAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -134,8 +159,10 @@ if (command === "start") {
 } else if (command === "demo") {
   await start();
   const events = [
-    { type: "edit", addedLines: 8, removedLines: 0, addedChars: 220, removedChars: 0 },
+    { type: "activity-start", phase: "observe", toolGroup: "search" },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
     { type: "edit", addedLines: 18, removedLines: 4, addedChars: 540, removedChars: 96 },
+    { type: "activity-start", phase: "verify", category: "test", toolGroup: "command" },
     { type: "verification", category: "test", success: true },
     { type: "turn-stop" }
   ];
@@ -143,11 +170,13 @@ if (command === "start") {
     await emit(event);
     await new Promise((resolve) => setTimeout(resolve, 850));
   }
+} else if (command === "replay") {
+  await replay();
 } else if (command === "native") {
   await startNative();
 } else if (command === "native-stop") {
   await stopNative();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|status> [--open]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|replay|status> [--open]\n");
   process.exitCode = 2;
 }

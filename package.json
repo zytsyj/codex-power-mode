@@ -1,6 +1,6 @@
 {
   "name": "codex-power-mode",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Reactive Power Mode effects for Codex",
   "type": "module",
@@ -12,6 +12,7 @@
     "native": "node scripts/power-mode.mjs native",
     "native:stop": "node scripts/power-mode.mjs native-stop",
     "demo": "node scripts/power-mode.mjs demo",
+    "replay": "node scripts/power-mode.mjs replay",
     "status": "node scripts/power-mode.mjs status",
     "test": "node --test",
     "check": "node scripts/validate-manifest.mjs && node --check hooks/power-mode-hook.mjs && node --check scripts/server.mjs && node --test"

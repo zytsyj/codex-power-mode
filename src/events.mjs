@@ -1,6 +1,8 @@
 const TEST_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b|\b(?:pytest|vitest|jest|go test|cargo test|swift test|dotnet test|mvn test|gradle test)\b/i;
 const BUILD_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?build\b|\b(?:cargo build|go build|swift build|dotnet build|mvn package|gradle build)\b/i;
 const LINT_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:lint|typecheck|check)\b|\b(?:eslint|ruff|mypy|tsc|biome check)\b/i;
+const OBSERVE_TOOLS = /^(?:Read|Glob|Grep|WebSearch|WebFetch|ListMcpResources|ReadMcpResource)$/i;
+const EDIT_TOOLS = /^(?:apply_patch|Edit|Write)$/i;
 
 export function parsePatch(command = "") {
   const lines = String(command).split(/\r?\n/);
@@ -25,11 +27,7 @@ export function parsePatch(command = "") {
 
 function responseText(response) {
   if (typeof response === "string") return response;
-  try {
-    return JSON.stringify(response ?? {});
-  } catch {
-    return String(response ?? "");
-  }
+  try { return JSON.stringify(response ?? {}); } catch { return String(response ?? ""); }
 }
 
 export function didCommandSucceed(response) {
@@ -55,6 +53,11 @@ export function classifyCommand(command = "", response = {}) {
   return null;
 }
 
+function commandCategory(command = "") {
+  const classified = classifyCommand(command, {});
+  return classified?.category ?? null;
+}
+
 export function eventFromHook(input, now = Date.now()) {
   const base = {
     id: `${now}-${Math.random().toString(36).slice(2, 9)}`,
@@ -63,24 +66,29 @@ export function eventFromHook(input, now = Date.now()) {
     turnId: input.turn_id ?? null,
     cwd: input.cwd ?? process.cwd()
   };
-
-  if (input.hook_event_name === "Stop") {
-    return { ...base, type: "turn-stop" };
-  }
-
-  if (input.hook_event_name !== "PostToolUse") return null;
+  const toolName = input.tool_name ?? "";
   const command = input.tool_input?.command ?? "";
 
-  if (input.tool_name === "apply_patch") {
+  if (input.hook_event_name === "Stop") return { ...base, type: "turn-stop" };
+  if (input.hook_event_name === "PermissionRequest") {
+    return { ...base, type: "permission-request", toolGroup: EDIT_TOOLS.test(toolName) ? "change" : "command" };
+  }
+  if (input.hook_event_name === "PreToolUse") {
+    const category = toolName === "Bash" ? commandCategory(command) : null;
+    const phase = category ? "verify" : OBSERVE_TOOLS.test(toolName) ? "observe" : "act";
+    const toolGroup = OBSERVE_TOOLS.test(toolName) ? "search" : toolName === "Bash" ? "command" : EDIT_TOOLS.test(toolName) ? "change" : "tool";
+    return { ...base, type: "activity-start", phase, category, toolGroup };
+  }
+  if (input.hook_event_name !== "PostToolUse") return null;
+
+  if (EDIT_TOOLS.test(toolName)) {
     const delta = parsePatch(command);
     if (!delta.addedLines && !delta.removedLines) return null;
     return { ...base, type: "edit", ...delta };
   }
-
-  if (input.tool_name === "Bash") {
+  if (toolName === "Bash") {
     const classified = classifyCommand(command, input.tool_response);
-    return classified ? { ...base, ...classified, command: String(command).slice(0, 240) } : null;
+    return classified ? { ...base, ...classified } : null;
   }
-
   return null;
 }

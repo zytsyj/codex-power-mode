@@ -41,3 +41,28 @@ test("eventFromHook converts apply_patch input into an edit event", () => {
   assert.equal(event.removedLines, 1);
   assert.equal(event.sessionId, "session-1");
 });
+
+test("eventFromHook maps read tools to observe activity", () => {
+  const event = eventFromHook({ hook_event_name: "PreToolUse", tool_name: "Grep" }, 1_000);
+  assert.equal(event.type, "activity-start");
+  assert.equal(event.phase, "observe");
+  assert.equal(event.toolGroup, "search");
+});
+
+test("eventFromHook recognizes verification before execution", () => {
+  const event = eventFromHook({
+    hook_event_name: "PreToolUse",
+    tool_name: "Bash",
+    tool_input: { command: "npm test" }
+  }, 1_000);
+  assert.equal(event.type, "activity-start");
+  assert.equal(event.phase, "verify");
+  assert.equal(event.category, "test");
+});
+
+test("eventFromHook exposes permission waits without command content", () => {
+  const event = eventFromHook({ hook_event_name: "PermissionRequest", tool_name: "Bash" }, 1_000);
+  assert.equal(event.type, "permission-request");
+  assert.equal(event.toolGroup, "command");
+  assert.equal("command" in event, false);
+});

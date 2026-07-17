@@ -1,19 +1,21 @@
 # Codex Power Mode
 
-Reactive visual effects for Codex edits and verification. Every supported code patch builds a combo, tests and builds charge Power Mode, failures trigger Danger mode, and only verified work earns a Victory finish.
+An agent activity feedback layer designed for Codex. Power Mode turns observing, acting, verifying, waiting, recovering, and completing into legible visual states—without pretending Codex is typing at a keyboard.
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-## Current MVP
+## Current v0.4
 
-- Captures Codex `apply_patch` activity through plugin hooks.
+- Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
+- Uses Momentum for useful steps, Confidence for verification evidence, and Risk for change scope.
+- Gives small and large edits equal Momentum; larger changes increase Risk instead.
+- Surfaces permission requests as an explicit attention state.
 - Measures added and removed lines without storing source code in the HUD event stream.
 - Recognizes common test, build, lint, and type-check commands.
-- Maintains combo, score, best combo, and verification state locally.
-- Streams events to a zero-dependency browser HUD with particle effects.
+- Requires successful post-edit verification for an evidence-backed completion.
+- Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay constrained to the Codex window.
-- Replays large patches as rapid virtual typing bursts with sparks, shockwaves, and combo shake.
-- Requires a successful post-edit verification before showing Victory.
+- Includes semantic demo and recent-event replay tools for visual tuning.
 
 ## Try it locally
 
@@ -22,6 +24,7 @@ Requires Node.js 20 or newer.
 ```bash
 npm start
 npm run demo
+npm run replay
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
@@ -61,13 +64,15 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 
 - All state stays on the local machine.
 - The HUD listens on `127.0.0.1` only.
-- Patch source text is reduced to line and character counts before persistence.
+- Patch source text is reduced to line and character counts before persistence; command contents are not stored.
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 
 ## Roadmap
 
+- Focus, Arcade, Review, and Accessible visual presets.
+- More granular tool-family feedback and long-running task milestones.
+- Multi-task and subagent presence.
 - Native overlays for Windows and Linux.
-- Per-language particle palettes and richer diff classification.
-- Configurable presets, reduced-motion mode, sound, and accessibility controls.
+- Optional sound and richer accessibility controls.
 - Signed releases and public-source readiness review.
