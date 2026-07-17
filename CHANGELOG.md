@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 - 2026-07-17
+
+- Replaced line-volume combo scoring with Codex-native Momentum, Confidence, Risk, and Evidence.
+- Added Observe, Act, Verify, Wait, Recover, and Complete semantic states.
+- Added pre-tool and permission-request feedback.
+- Redesigned the HUD as a compact transparent component floating over Codex.
+- Updated the native macOS overlay for semantic states and evidence-backed completion.
+- Added replay of recent local events for effect development.
+- Stopped persisting verification command text.
+
 ## 0.3.0 - 2026-07-17
 
 - Made the Codex desktop window the exclusive native Power Mode surface.

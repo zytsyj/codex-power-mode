@@ -2,10 +2,14 @@ import AppKit
 import Foundation
 
 private struct PowerState: Decodable {
-    let combo: Int?
-    let bestCombo: Int?
-    let score: Int?
-    let mode: String?
+    let phase: String?
+    let status: String?
+    let momentum: Int?
+    let bestMomentum: Int?
+    let confidence: Int?
+    let riskLevel: String?
+    let currentActivity: String?
+    let completion: String?
     let addedLines: Int?
     let removedLines: Int?
     let verifications: Int?
@@ -19,6 +23,7 @@ private struct PowerEvent: Decodable {
     let removedChars: Int?
     let category: String?
     let success: Bool?
+    let phase: String?
     let state: PowerState?
 }
 
@@ -45,7 +50,7 @@ private final class PowerModeView: NSView {
     private var particles: [Particle] = []
     private var shockwaves: [Shockwave] = []
     private var timer: Timer?
-    private var state = PowerState(combo: 0, bestCombo: 0, score: 0, mode: "idle", addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -80,6 +85,13 @@ private final class PowerModeView: NSView {
         }
 
         switch event.type {
+        case "activity-start":
+            let color: NSColor = event.phase == "verify" ? .systemGreen : event.phase == "act" ? .systemPurple : .systemCyan
+            shockwave(color: color, power: 0.65)
+            if event.phase != "observe" { burst(color: color, count: 24, power: 0.55) }
+        case "permission-request":
+            shockwave(color: .systemYellow, power: 1.0)
+            burst(color: .systemYellow, count: 42, power: 0.7)
         case "edit":
             let added = event.addedLines ?? 0
             let removed = event.removedLines ?? 0
@@ -101,7 +113,7 @@ private final class PowerModeView: NSView {
                 dangerAlpha = 0.38
                 shake = 10
             }
-        case "turn-stop" where event.state?.mode == "victory":
+        case "turn-stop" where event.state?.completion == "verified":
             shockwave(color: .systemGreen, power: 2.2)
             burst(color: NSColor.systemGreen, count: 180, power: 1.55)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
@@ -120,9 +132,11 @@ private final class PowerModeView: NSView {
 
     private func describe(_ event: PowerEvent) -> String {
         switch event.type {
-        case "edit": return "CODE SURGE  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
+        case "activity-start": return event.phase == "observe" ? "READING CONTEXT" : event.phase == "verify" ? "BUILDING EVIDENCE" : "STARTING TOOL"
+        case "permission-request": return "WAITING FOR YOUR APPROVAL"
+        case "edit": return "CHANGE APPLIED  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
         case "verification": return "\((event.category ?? "CHECK").uppercased()) \(event.success == true ? "PASSED" : "FAILED")"
-        case "turn-stop": return event.state?.mode == "victory" ? "MISSION COMPLETE" : "AWAITING VERIFICATION"
+        case "turn-stop": return event.state?.completion == "verified" ? "COMPLETED WITH EVIDENCE" : "VERIFICATION RECOMMENDED"
         case "connected": return "POWER MODE ONLINE"
         default: return event.type.uppercased()
         }
@@ -288,30 +302,29 @@ private final class PowerModeView: NSView {
     }
 
     private func drawHUD() {
-        let size = CGSize(width: 320, height: 170)
+        let size = CGSize(width: 306, height: 112)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
             x: sin(shakePhase * 2.31) * shake,
             y: cos(shakePhase * 1.73) * shake * 0.55
         )
         let origin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
-        let rect = CGRect(origin: origin, size: size)
-        let mode = (state.mode ?? "idle").uppercased()
-        let modeColor: NSColor = mode == "DANGER" ? .systemRed : mode == "VICTORY" ? .systemGreen : .systemCyan
+        let phase = (state.phase ?? "observe").uppercased()
+        let phaseColor: NSColor = phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
 
-        let path = NSBezierPath(roundedRect: rect, xRadius: 20, yRadius: 20)
-        NSColor.black.withAlphaComponent(0.58).setFill()
-        path.fill()
-        NSColor.white.withAlphaComponent(0.12).setStroke()
-        path.lineWidth = 1
-        path.stroke()
+        let coreRect = CGRect(x: origin.x + 4, y: origin.y + 8, width: 96, height: 96)
+        let core = NSBezierPath(ovalIn: coreRect)
+        NSColor.black.withAlphaComponent(0.30).setFill()
+        core.fill()
+        phaseColor.withAlphaComponent(0.55).setStroke()
+        core.lineWidth = 1.5
+        core.stroke()
 
-        drawText("CODEX POWER MODE", at: CGPoint(x: origin.x + 22, y: origin.y + 138), font: .monospacedSystemFont(ofSize: 11, weight: .semibold), color: NSColor.white.withAlphaComponent(0.7), tracking: 2.1)
-        drawText(mode, at: CGPoint(x: origin.x + 22, y: origin.y + 108), font: .monospacedSystemFont(ofSize: 13, weight: .bold), color: modeColor, tracking: 2.7)
-        drawText("\(state.combo ?? 0)", at: CGPoint(x: origin.x + 20, y: origin.y + 44), font: .systemFont(ofSize: 54, weight: .black), color: .white)
-        drawText("COMBO", at: CGPoint(x: origin.x + 128, y: origin.y + 73), font: .monospacedSystemFont(ofSize: 11, weight: .medium), color: NSColor.white.withAlphaComponent(0.45), tracking: 1.5)
-        drawText(eventText, at: CGPoint(x: origin.x + 22, y: origin.y + 20), font: .monospacedSystemFont(ofSize: 10, weight: .medium), color: NSColor.white.withAlphaComponent(0.62), tracking: 0.8)
-        drawText("BEST \(state.bestCombo ?? 0)   SCORE \(state.score ?? 0)", at: CGPoint(x: origin.x + 188, y: origin.y + 21), font: .monospacedSystemFont(ofSize: 9, weight: .regular), color: NSColor.white.withAlphaComponent(0.42))
+        drawText("\(state.momentum ?? 0)", at: CGPoint(x: origin.x + 25, y: origin.y + 35), font: .systemFont(ofSize: 40, weight: .black), color: .white)
+        drawText("MOMENTUM", at: CGPoint(x: origin.x + 22, y: origin.y + 20), font: .monospacedSystemFont(ofSize: 7, weight: .medium), color: NSColor.white.withAlphaComponent(0.44), tracking: 1.0)
+        drawText("CODEX  /  \(phase)", at: CGPoint(x: origin.x + 116, y: origin.y + 78), font: .monospacedSystemFont(ofSize: 9, weight: .bold), color: phaseColor, tracking: 1.3)
+        drawText(String(eventText.prefix(27)), at: CGPoint(x: origin.x + 116, y: origin.y + 50), font: .systemFont(ofSize: 12, weight: .semibold), color: NSColor.white.withAlphaComponent(0.90))
+        drawText("CONF \(state.confidence ?? 0)%   RISK \((state.riskLevel ?? "low").uppercased())", at: CGPoint(x: origin.x + 116, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 8, weight: .medium), color: NSColor.white.withAlphaComponent(0.5), tracking: 0.7)
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

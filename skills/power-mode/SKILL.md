@@ -1,6 +1,6 @@
 ---
 name: power-mode
-description: Start, inspect, or demonstrate Codex Power Mode. Use when the user asks to enable Power Mode, see the combo HUD, run the effect demo, or inspect Power Mode status.
+description: Start, inspect, replay, or demonstrate Codex Power Mode. Use when the user asks to enable Power Mode, see the semantic agent-state HUD, run the effect demo, replay recent activity, or inspect momentum and verification status.
 ---
 
 # Codex Power Mode
@@ -37,6 +37,12 @@ Make sure the HUD is open, then run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" demo
 ```
 
+To replay up to 40 recent locally stored events without changing state:
+
+```bash
+node "${PLUGIN_ROOT}/scripts/power-mode.mjs" replay
+```
+
 ## Show status
 
 Run:
@@ -45,12 +51,14 @@ Run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" status
 ```
 
-Summarize combo, best combo, score, edited lines, and verification count. Do not claim victory unless the stored mode is `victory`.
+Summarize phase, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`.
 
 ## Behavior
 
-- File additions and removals build combo through `PostToolUse` hooks.
-- Successful tests, builds, lint, or type checks add verification bonuses.
-- A failed verification resets the current combo and activates Danger mode.
-- A turn ends in Victory only when the latest edit is followed by a successful verification.
-- Do not run extra commands solely to farm combo points.
+- `PreToolUse` maps Codex activity into observe, act, and verify phases.
+- Permission requests enter a visible wait state that asks for user attention.
+- Each useful edit step adds the same momentum; large diffs raise risk instead of earning a larger reward.
+- Successful tests, builds, lint, or type checks add confidence and evidence.
+- Failed verification enters recovery and lowers confidence.
+- A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.
+- Do not run extra commands solely to increase momentum or confidence.
