@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Power Mode</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="effects" aria-hidden="true"></canvas>
+    <main>
+      <header>
+        <div class="brand"><span class="pulse"></span> CODEX POWER MODE</div>
+        <div id="connection" class="connection">CONNECTING</div>
+      </header>
+      <section class="stage" aria-live="polite">
+        <div id="mode" class="mode">IDLE</div>
+        <div class="combo"><span>COMBO</span><strong id="combo">0</strong></div>
+        <div id="event" class="event">Waiting for Codex activity</div>
+      </section>
+      <footer>
+        <div><span>SCORE</span><strong id="score">0</strong></div>
+        <div><span>BEST</span><strong id="best">0</strong></div>
+        <div><span>LINES</span><strong id="lines">+0 / −0</strong></div>
+        <div><span>CHECKS</span><strong id="checks">0</strong></div>
+      </footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

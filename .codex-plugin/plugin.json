@@ -1,0 +1,28 @@
+{
+  "name": "codex-power-mode",
+  "version": "0.1.0",
+  "description": "Reactive Power Mode effects for Codex edits, tests, builds, and verified task completions.",
+  "author": {
+    "name": "zytsyj",
+    "url": "https://github.com/zytsyj"
+  },
+  "homepage": "https://github.com/zytsyj/codex-power-mode",
+  "repository": "https://github.com/zytsyj/codex-power-mode",
+  "license": "UNLICENSED",
+  "keywords": ["codex", "power-mode", "productivity", "visual-effects", "hooks"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Power Mode",
+    "shortDescription": "Turn Codex edits and verification into reactive visual effects.",
+    "longDescription": "Adds combo scoring, particle bursts, danger states, and victory celebrations driven by Codex file edits and verification results.",
+    "developerName": "zytsyj",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read"],
+    "defaultPrompt": [
+      "Start Codex Power Mode for this workspace.",
+      "Show my current Power Mode combo.",
+      "Run a Codex Power Mode effect demo."
+    ],
+    "brandColor": "#7C5CFF"
+  }
+}
