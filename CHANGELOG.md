@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-07-17
+
+- Added auto-collapse and Focus/Arcade visual presets.
+- Reworked the overlay into a minimal energy orb with short-lived semantic status copy.
+- Added distinct scan, action, charge, attention, recovery, and verified-completion choreography.
+
 ## 0.4.0 - 2026-07-17
 
 - Replaced line-volume combo scoring with Codex-native Momentum, Confidence, Risk, and Evidence.

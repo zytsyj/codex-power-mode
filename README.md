@@ -16,6 +16,8 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay constrained to the Codex window.
 - Includes semantic demo and recent-event replay tools for visual tuning.
+- Auto-collapses to a small transparent Momentum orb between events.
+- Supports restrained `focus` and high-energy `arcade` effect presets.
 
 ## Try it locally
 
@@ -44,6 +46,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_EDGE`: `top-right` (default), `top-left`, `bottom-right`, `bottom-left`, or `center`.
 - `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles or flashes.
 - `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
+- `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
 
 ## Plugin layout
 

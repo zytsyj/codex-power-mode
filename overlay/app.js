@@ -1,75 +1,101 @@
 const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
-const byId = (id) => document.querySelector(`#${id}`);
-const elements = Object.fromEntries([
-  "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence",
-  "confidence-bar", "confidence-copy", "evidence", "evidence-count", "risk-level", "risk-copy",
-  "steps", "lines", "checks", "best"
-].map((id) => [id, byId(id)]));
+const element = (id) => document.querySelector(`#${id}`);
+const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level"].map((id) => [id, element(id)]));
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const preset = new URLSearchParams(location.search).get("preset") === "arcade" ? "arcade" : "focus";
+const intensity = preset === "arcade" ? 1.75 : 1;
 const particles = [];
 const rings = [];
+const scans = [];
 let state = {};
-let scale = window.devicePixelRatio || 1;
+let scale = devicePixelRatio || 1;
+let collapseTimer;
+
+document.body.dataset.preset = preset;
 
 const palette = {
-  observe: "#8d7cff", act: "#a17cff", verify: "#64e9a5",
-  wait: "#ffc76d", recover: "#ff6488", complete: "#71e6c0"
+  observe: "#75dfff", act: "#a886ff", verify: "#62e3ad",
+  wait: "#ffc568", recover: "#ff6486", complete: "#72e9bf"
 };
 
 function resize() {
-  scale = window.devicePixelRatio || 1;
+  scale = devicePixelRatio || 1;
   canvas.width = innerWidth * scale;
   canvas.height = innerHeight * scale;
   context.setTransform(scale, 0, 0, scale, 0, 0);
 }
 
-function origin() {
-  return {
-    x: innerWidth * (.28 + Math.random() * .38),
-    y: innerHeight * (.25 + Math.random() * .46)
-  };
+function codingOrigin() {
+  return { x: innerWidth * (.26 + Math.random() * .42), y: innerHeight * (.25 + Math.random() * .48) };
 }
 
-function burst(color, amount = 32, power = 1, directional = false) {
-  const start = origin();
-  for (let index = 0; index < Math.min(amount, 150); index += 1) {
-    const angle = directional ? (-.65 + Math.random() * 1.3) : Math.random() * Math.PI * 2;
-    const speed = (1 + Math.random() * 4.8) * power;
+function expand(duration = 2100) {
+  clearTimeout(collapseTimer);
+  elements.hud.classList.remove("collapsed");
+  if (duration > 0) collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
+}
+
+function burst(color, amount, power = 1, mode = "radial", start = codingOrigin()) {
+  if (reducedMotion) return;
+  const count = Math.min(220, Math.round(amount * intensity));
+  for (let index = 0; index < count; index += 1) {
+    const angle = mode === "forward" ? -.55 + Math.random() * 1.1 : Math.random() * Math.PI * 2;
+    const distance = mode === "inward" ? 75 + Math.random() * 150 : 0;
+    const x = start.x + Math.cos(angle) * distance;
+    const y = start.y + Math.sin(angle) * distance;
+    const speed = (1.1 + Math.random() * 4.7) * power * intensity;
     particles.push({
-      x: start.x, y: start.y,
-      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      life: 38 + Math.random() * 48, maxLife: 86,
-      size: 1 + Math.random() * 2.7, color
+      x, y,
+      vx: mode === "inward" ? (start.x - x) / (30 + Math.random() * 12) : Math.cos(angle) * speed,
+      vy: mode === "inward" ? (start.y - y) / (30 + Math.random() * 12) : Math.sin(angle) * speed,
+      life: 34 + Math.random() * 44,
+      maxLife: 78,
+      size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
+      color,
+      drag: mode === "inward" ? 1.012 : .985
     });
   }
 }
 
-function ring(color, power = 1) {
-  const start = origin();
-  rings.push({ ...start, radius: 120, life: 42, maxLife: 42, color, speed: 4 * power });
+function ring(color, power = 1, start = codingOrigin()) {
+  if (!reducedMotion) rings.push({ ...start, radius: 8, life: 38, maxLife: 38, color, speed: 4.4 * power * intensity });
+}
+
+function scan(color) {
+  if (!reducedMotion) scans.push({ x: innerWidth * .2, y: innerHeight * (.3 + Math.random() * .4), width: innerWidth * .5, life: 48, maxLife: 48, color });
 }
 
 function frame() {
   context.clearRect(0, 0, innerWidth, innerHeight);
   context.globalCompositeOperation = "lighter";
+  for (let index = scans.length - 1; index >= 0; index -= 1) {
+    const item = scans[index];
+    item.life -= 1;
+    if (item.life <= 0) { scans.splice(index, 1); continue; }
+    const progress = 1 - item.life / item.maxLife;
+    const head = item.x + item.width * progress;
+    const gradient = context.createLinearGradient(head - 90, 0, head, 0);
+    gradient.addColorStop(0, "transparent"); gradient.addColorStop(1, item.color);
+    context.globalAlpha = Math.sin(progress * Math.PI) * .36;
+    context.fillStyle = gradient;
+    context.fillRect(head - 90, item.y, 90, 1.2);
+  }
   for (let index = rings.length - 1; index >= 0; index -= 1) {
     const item = rings[index];
-    item.radius += item.speed;
-    item.life -= 1;
+    item.radius += item.speed; item.life -= 1;
     if (item.life <= 0) { rings.splice(index, 1); continue; }
-    context.globalAlpha = item.life / item.maxLife * .34;
+    context.globalAlpha = item.life / item.maxLife * .48;
     context.strokeStyle = item.color;
-    context.lineWidth = 1.2;
-    context.beginPath();
-    context.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
-    context.stroke();
+    context.lineWidth = preset === "arcade" ? 1.7 : 1;
+    context.beginPath(); context.arc(item.x, item.y, item.radius, 0, Math.PI * 2); context.stroke();
   }
   for (let index = particles.length - 1; index >= 0; index -= 1) {
     const item = particles[index];
     item.x += item.vx; item.y += item.vy;
-    item.vx *= .986; item.vy *= .986; item.life -= 1;
+    item.vx *= item.drag; item.vy *= item.drag; item.life -= 1;
     if (item.life <= 0) { particles.splice(index, 1); continue; }
-    context.globalAlpha = Math.min(.85, item.life / 22);
+    context.globalAlpha = Math.min(.9, item.life / 18);
     context.fillStyle = item.color;
     context.beginPath(); context.arc(item.x, item.y, item.size, 0, Math.PI * 2); context.fill();
   }
@@ -78,112 +104,73 @@ function frame() {
 }
 
 function statusCopy(next) {
-  if (next.phase === "wait") return "Codex is paused until you respond";
-  if (next.phase === "recover") return "A check failed; confidence is intentionally reduced";
-  if (next.phase === "complete" && next.completion === "verified") return "Evidence-backed completion";
-  if (next.phase === "complete" && next.completion === "unverified") return "Finished, but the latest changes remain unverified";
-  if (next.phase === "verify") return "Building evidence for the current changes";
-  if (next.phase === "act") return "Making a scoped change";
-  return "Understanding the task and its context";
-}
-
-function confidenceCopy(value) {
-  if (value >= 75) return "Strong verification evidence for this turn.";
-  if (value >= 35) return "Some evidence collected; more checks may help.";
-  return "Run checks to build verified confidence.";
-}
-
-function renderEvidence(evidence = []) {
-  elements["evidence-count"].textContent = evidence.length;
-  elements.evidence.replaceChildren();
-  if (!evidence.length) {
-    const empty = document.createElement("span");
-    empty.className = "empty";
-    empty.textContent = "No checks recorded";
-    elements.evidence.append(empty);
-    return;
-  }
-  for (const item of evidence) {
-    const chip = document.createElement("span");
-    chip.textContent = `✓ ${item}`;
-    elements.evidence.append(chip);
-  }
-}
-
-function renderRisk(next) {
-  const value = next.risk ?? 0;
-  const level = next.riskLevel ?? "low";
-  const colors = { low: "#64e9a5", medium: "#ffc76d", high: "#ff6488" };
-  const count = Math.max(1, Math.ceil(value / 20));
-  document.documentElement.style.setProperty("--risk-color", colors[level]);
-  elements["risk-level"].textContent = level.toUpperCase();
-  elements["risk-copy"].textContent = level === "high" ? "Large or unverified change surface." : level === "medium" ? "Verification would lower current risk." : "Scope is controlled.";
-  document.querySelectorAll(".risk-dots i").forEach((dot, index) => dot.classList.toggle("on", index < count));
+  if (next.phase === "wait") return "Your approval is needed";
+  if (next.phase === "recover") return "A failed check is being repaired";
+  if (next.phase === "complete" && next.completion === "verified") return "Latest changes are backed by evidence";
+  if (next.phase === "complete") return "Verification is still recommended";
+  if (next.phase === "verify") return "Building confidence in the change";
+  if (next.phase === "act") return "Applying a scoped change";
+  return "Reading and understanding context";
 }
 
 function render(next = state) {
   state = { ...state, ...next };
   const phase = state.phase ?? "observe";
   const momentum = state.momentum ?? 0;
-  const confidence = state.confidence ?? 0;
   document.body.dataset.phase = phase;
   document.body.dataset.status = state.status ?? "ready";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
   elements.phase.textContent = phase.toUpperCase();
-  elements.event.textContent = state.currentActivity ?? "Waiting for Codex activity";
+  elements.event.textContent = state.currentActivity ?? "Codex Power ready";
   elements["status-copy"].textContent = statusCopy(state);
-  elements.confidence.textContent = `${confidence}%`;
-  elements["confidence-bar"].style.width = `${confidence}%`;
-  elements["confidence-copy"].textContent = confidenceCopy(confidence);
-  elements.steps.textContent = state.steps ?? 0;
-  elements.lines.textContent = `+${state.addedLines ?? 0} / −${state.removedLines ?? 0}`;
-  elements.checks.textContent = `${state.passedVerifications ?? 0} / ${state.verifications ?? 0}`;
-  elements.best.textContent = state.bestMomentum ?? 0;
-  document.querySelectorAll("[data-step]").forEach((item) => item.classList.toggle("active", item.dataset.step === phase));
-  renderEvidence(state.evidence);
-  renderRisk(state);
+  elements.confidence.textContent = `CONF ${state.confidence ?? 0}%`;
+  elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : "NO EVIDENCE";
+  elements["risk-level"].textContent = `${String(state.riskLevel ?? "low").toUpperCase()} RISK`;
 }
 
-function describe(event) {
-  if (event.type === "activity-start") return event.phase === "verify" ? `Running ${event.category || "verification"}` : event.phase === "observe" ? "Reading context" : "Starting a tool";
-  if (event.type === "permission-request") return "Waiting for your approval";
-  if (event.type === "edit") return `Changed ${event.addedLines + event.removedLines} lines`;
-  if (event.type === "verification") return `${event.category} ${event.success ? "passed" : "failed"}`;
-  if (event.type === "turn-stop") return event.state?.completion === "verified" ? "Completed with evidence" : "Turn complete";
-  return event.state?.currentActivity || "Power Mode online";
+function flashAt(start) {
+  document.body.style.setProperty("--flash-x", `${start.x}px`);
+  document.body.style.setProperty("--flash-y", `${start.y}px`);
+  document.body.classList.remove("flash");
+  void document.body.offsetWidth;
+  document.body.classList.add("flash");
 }
 
 function react(event) {
   render(event.state);
-  elements.event.textContent = describe(event);
-  document.body.classList.remove("flash");
-  void document.body.offsetWidth;
-  document.body.classList.add("flash");
-  const phase = event.state?.phase ?? "observe";
+  const phase = event.state?.phase ?? event.phase ?? "observe";
   const color = palette[phase];
+  const start = codingOrigin();
+  const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
+  expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
+  flashAt(start);
 
-  if (event.type === "activity-start") {
-    ring(color, .55);
-    if (phase !== "observe") burst(color, 14, .55, true);
+  if (event.type === "activity-start" && phase === "observe") {
+    scan(color);
+    if (preset === "arcade") setTimeout(() => scan(color), 130);
+  } else if (event.type === "activity-start" && phase === "verify") {
+    burst(color, 34, .55, "inward", start); ring(color, .55, start);
+  } else if (event.type === "activity-start") {
+    burst(color, 16, .55, "forward", start);
   } else if (event.type === "permission-request") {
-    ring(color, .75);
-    setTimeout(() => ring(color, .75), 300);
+    ring(color, .65, start); setTimeout(() => ring(color, .65, start), 320);
   } else if (event.type === "edit") {
-    burst(color, Math.max(24, Math.min(90, (event.addedLines + event.removedLines) * 2)), .9, true);
-    ring(color, .8);
+    burst(color, 32, momentumPower, "forward", start); ring(color, momentumPower, start);
+  } else if (event.type === "verification" && event.success) {
+    burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
+    setTimeout(() => burst(color, 38, .85, "radial", start), 280);
   } else if (event.type === "verification") {
-    burst(color, event.success ? 75 : 48, event.success ? 1.1 : .75);
-    ring(color, event.success ? 1.15 : .85);
+    burst(color, 44, .85, "radial", start); ring(color, .8, start);
   } else if (event.state?.completion === "verified") {
-    ring(color, 1.35); burst("#71e6c0", 110, 1.25);
-    setTimeout(() => burst("#8d7cff", 65, .9), 180);
+    ring(color, 1.55, start); burst(color, 95, 1.2, "radial", start);
+    setTimeout(() => { ring("#a886ff", 1.2, start); burst("#a886ff", 52, .9, "radial", start); }, 180);
   }
 }
 
 const stream = new EventSource("/api/stream");
-stream.onopen = () => { elements.connection.textContent = "LIVE"; elements.connection.parentElement.classList.add("online"); };
-stream.onerror = () => { elements.connection.textContent = "RECONNECTING"; elements.connection.parentElement.classList.remove("online"); };
+stream.onopen = () => { elements.connection.textContent = preset.toUpperCase(); };
+stream.onerror = () => { elements.connection.textContent = "RECONNECT"; };
 stream.onmessage = ({ data }) => {
   const event = JSON.parse(data);
   if (event.type === "connected") render(event.state);
