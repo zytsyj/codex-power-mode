@@ -56,7 +56,10 @@ private final class PowerModeView: NSView {
     private var dangerAlpha: CGFloat = 0
     private var shake: CGFloat = 0
     private var shakePhase: CGFloat = 0
+    private var hudExpandedUntil = Date.distantPast
+    private var hudWasExpanded = false
     private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
+    private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
     private let edge = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_EDGE"] ?? "top-right"
 
     override var isOpaque: Bool { false }
@@ -77,6 +80,12 @@ private final class PowerModeView: NSView {
     func handle(_ event: PowerEvent) {
         if let nextState = event.state { state = nextState }
         eventText = describe(event)
+        if event.type == "connected" {
+            needsDisplay = true
+            return
+        }
+        let duration: TimeInterval = event.type == "permission-request" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
+        hudExpandedUntil = Date().addingTimeInterval(duration)
         flashAlpha = reducedMotion ? 0 : 0.24
 
         guard !reducedMotion else {
@@ -161,7 +170,8 @@ private final class PowerModeView: NSView {
     }
 
     private func replayTyping(characters: Int, lines: Int) {
-        let pulses = max(4, min(32, max(lines, characters / 22)))
+        let base = max(4, min(32, max(lines, characters / 22)))
+        let pulses = arcadeMode ? min(44, Int(Double(base) * 1.45)) : base
         for index in 0..<pulses {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.028) { [weak self] in
                 self?.typingPulse(index: index)
@@ -220,7 +230,8 @@ private final class PowerModeView: NSView {
         let hudSize = CGSize(width: 320, height: 170)
         let origin = hudOrigin(size: hudSize)
         let center = CGPoint(x: origin.x + hudSize.width * 0.54, y: origin.y + hudSize.height * 0.5)
-        for _ in 0..<min(count, 220) {
+        let scaledCount = arcadeMode ? Int(Double(count) * 1.55) : count
+        for _ in 0..<min(scaledCount, 280) {
             let angle = CGFloat.random(in: 0...(2 * .pi))
             let speed = CGFloat.random(in: 1.7...7.5) * power
             let life = CGFloat.random(in: 42...98)
@@ -257,7 +268,12 @@ private final class PowerModeView: NSView {
         dangerAlpha = max(0, dangerAlpha - 0.009)
         shake = max(0, shake * 0.88 - 0.04)
         shakePhase += 1
-        if !particles.isEmpty || !shockwaves.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 { needsDisplay = true }
+        let hudIsExpanded = Date() < hudExpandedUntil
+        if hudIsExpanded != hudWasExpanded {
+            hudWasExpanded = hudIsExpanded
+            needsDisplay = true
+        }
+        if !particles.isEmpty || !shockwaves.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded { needsDisplay = true }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -302,7 +318,8 @@ private final class PowerModeView: NSView {
     }
 
     private func drawHUD() {
-        let size = CGSize(width: 306, height: 112)
+        let expanded = Date() < hudExpandedUntil
+        let size = expanded ? CGSize(width: 306, height: 112) : CGSize(width: 96, height: 96)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
             x: sin(shakePhase * 2.31) * shake,
@@ -312,7 +329,7 @@ private final class PowerModeView: NSView {
         let phase = (state.phase ?? "observe").uppercased()
         let phaseColor: NSColor = phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
 
-        let coreRect = CGRect(x: origin.x + 4, y: origin.y + 8, width: 96, height: 96)
+        let coreRect = CGRect(x: origin.x, y: origin.y, width: 96, height: 96)
         let core = NSBezierPath(ovalIn: coreRect)
         NSColor.black.withAlphaComponent(0.30).setFill()
         core.fill()
@@ -320,8 +337,9 @@ private final class PowerModeView: NSView {
         core.lineWidth = 1.5
         core.stroke()
 
-        drawText("\(state.momentum ?? 0)", at: CGPoint(x: origin.x + 25, y: origin.y + 35), font: .systemFont(ofSize: 40, weight: .black), color: .white)
-        drawText("MOMENTUM", at: CGPoint(x: origin.x + 22, y: origin.y + 20), font: .monospacedSystemFont(ofSize: 7, weight: .medium), color: NSColor.white.withAlphaComponent(0.44), tracking: 1.0)
+        drawText("\(state.momentum ?? 0)", at: CGPoint(x: origin.x + 21, y: origin.y + 31), font: .systemFont(ofSize: 40, weight: .black), color: .white)
+        drawText("MOMENTUM", at: CGPoint(x: origin.x + 18, y: origin.y + 16), font: .monospacedSystemFont(ofSize: 7, weight: .medium), color: NSColor.white.withAlphaComponent(0.44), tracking: 1.0)
+        guard expanded else { return }
         drawText("CODEX  /  \(phase)", at: CGPoint(x: origin.x + 116, y: origin.y + 78), font: .monospacedSystemFont(ofSize: 9, weight: .bold), color: phaseColor, tracking: 1.3)
         drawText(String(eventText.prefix(27)), at: CGPoint(x: origin.x + 116, y: origin.y + 50), font: .systemFont(ofSize: 12, weight: .semibold), color: NSColor.white.withAlphaComponent(0.90))
         drawText("CONF \(state.confidence ?? 0)%   RISK \((state.riskLevel ?? "low").uppercased())", at: CGPoint(x: origin.x + 116, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 8, weight: .medium), color: NSColor.white.withAlphaComponent(0.5), tracking: 0.7)

@@ -6,56 +6,21 @@
     <title>Codex Power Mode</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body data-phase="observe" data-status="ready">
+  <body data-phase="observe" data-status="ready" data-preset="focus">
     <canvas id="effects" aria-hidden="true"></canvas>
     <main>
-      <section class="floating-hud" aria-live="polite">
-        <div class="identity">
-          <span class="brand-mark"><i></i></span>
-          <span>CODEX POWER</span>
-          <div class="live"><i></i><span id="connection">CONNECTING</span></div>
-        </div>
-
-        <div class="core-row">
-          <div class="orbit-shell">
-            <div class="orbit orbit-a"><i></i></div>
-            <div class="orbit orbit-b"><i></i></div>
-            <div class="meter" id="momentum-meter">
-              <div class="meter-inner">
-                <span>MOMENTUM</span>
-                <strong id="momentum">0</strong>
-              </div>
-            </div>
-          </div>
-          <div class="message">
-            <div id="phase" class="phase">OBSERVE</div>
-            <strong id="event">Waiting for Codex activity</strong>
-            <span id="status-copy">Ready for the next useful step</span>
+      <section id="hud" class="floating-hud collapsed" aria-live="polite">
+        <div class="core">
+          <div class="orbit"><i></i></div>
+          <div id="momentum-meter" class="meter">
+            <strong id="momentum">0</strong>
           </div>
         </div>
-
-        <div class="signal-strip">
-          <div class="confidence-mini">
-            <span>CONFIDENCE</span><strong id="confidence">0%</strong>
-            <div><i id="confidence-bar"></i></div>
-            <p id="confidence-copy">Run checks to build verified confidence.</p>
-          </div>
-          <div class="evidence-mini">
-            <span>EVIDENCE <b id="evidence-count">0</b></span>
-            <div id="evidence"><span class="empty">NONE</span></div>
-          </div>
-          <div class="risk-mini">
-            <span>RISK <strong id="risk-level">LOW</strong></span>
-            <div class="risk-dots"><i></i><i></i><i></i><i></i><i></i></div>
-            <p id="risk-copy">Scope is controlled.</p>
-          </div>
-        </div>
-
-        <div class="micro-stats" aria-hidden="true">
-          <span>STEPS <strong id="steps">0</strong></span>
-          <span>Δ <strong id="lines">+0 / −0</strong></span>
-          <span>CHECKS <strong id="checks">0 / 0</strong></span>
-          <span>PEAK <strong id="best">0</strong></span>
+        <div class="copy">
+          <div class="eyebrow"><span id="phase">OBSERVE</span><i></i><b id="connection">LIVE</b></div>
+          <strong id="event">Codex Power ready</strong>
+          <span id="status-copy">Waiting for the next useful step</span>
+          <div class="meta"><span id="confidence">CONF 0%</span><span id="evidence">NO EVIDENCE</span><span id="risk-level">LOW RISK</span></div>
         </div>
       </section>
     </main>
