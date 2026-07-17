@@ -44,7 +44,7 @@ function broadcast(event) {
 
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
-  if (url.pathname === "/api/health") return sendJson(response, 200, { ok: true, port, dataDir });
+  if (url.pathname === "/api/health") return sendJson(response, 200, { ok: true, port, dataDir, clients: clients.size });
   if (url.pathname === "/api/state") return sendJson(response, 200, await readState(dataDir));
   if (url.pathname === "/api/stream") {
     response.writeHead(200, {

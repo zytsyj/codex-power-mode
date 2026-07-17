@@ -9,6 +9,8 @@
   },
   "scripts": {
     "start": "node scripts/power-mode.mjs start --open",
+    "native": "node scripts/power-mode.mjs native",
+    "native:stop": "node scripts/power-mode.mjs native-stop",
     "demo": "node scripts/power-mode.mjs demo",
     "status": "node scripts/power-mode.mjs status",
     "test": "node --test",
