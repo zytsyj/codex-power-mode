@@ -9,13 +9,25 @@ Use the bundled control script through `${PLUGIN_ROOT}/scripts/power-mode.mjs`.
 
 ## Start the HUD
 
-Run:
+On macOS, prefer the native transparent overlay:
+
+```bash
+node "${PLUGIN_ROOT}/scripts/power-mode.mjs" native
+```
+
+On other platforms, or when the user explicitly requests the browser HUD, run:
 
 ```bash
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" start --open
 ```
 
 Tell the user the HUD is running at `http://127.0.0.1:4737`. The plugin hooks automatically capture supported Codex edits and verification commands after the user has reviewed and trusted them.
+
+To stop the native overlay:
+
+```bash
+node "${PLUGIN_ROOT}/scripts/power-mode.mjs" native-stop
+```
 
 ## Demo the effects
 

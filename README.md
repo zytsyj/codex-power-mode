@@ -11,6 +11,7 @@ Reactive visual effects for Codex edits and verification. Every supported code p
 - Recognizes common test, build, lint, and type-check commands.
 - Maintains combo, score, best combo, and verification state locally.
 - Streams events to a zero-dependency browser HUD with particle effects.
+- Includes a native macOS transparent, click-through, always-on-top overlay.
 - Requires a successful post-edit verification before showing Victory.
 
 ## Try it locally
@@ -23,6 +24,22 @@ npm run demo
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
+
+For the native macOS overlay:
+
+```bash
+npm run native
+npm run demo
+npm run native:stop
+```
+
+The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It does not modify or inject code into the Codex app.
+
+Optional environment variables:
+
+- `CODEX_POWER_MODE_EDGE`: `top-right` (default), `top-left`, `bottom-right`, `bottom-left`, or `center`.
+- `CODEX_POWER_MODE_DISPLAY`: zero-based display index.
+- `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles or flashes.
 
 ## Plugin layout
 
@@ -50,6 +67,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 ## Roadmap
 
 - Native transparent, click-through desktop overlay.
+- Native overlays for Windows and Linux.
 - Per-language particle palettes and richer diff classification.
 - VS Code bridge for effects positioned on exact edited lines.
 - Configurable presets, reduced-motion mode, sound, and accessibility controls.

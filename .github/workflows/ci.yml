@@ -19,3 +19,15 @@ jobs:
           cache: npm
       - run: npm install --ignore-scripts
       - run: npm run check
+
+  native-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile native overlay
+        run: |
+          xcrun swiftc -swift-version 5 -parse-as-library -O \
+            native/macos/PowerModeOverlay.swift \
+            -framework AppKit -framework Foundation \
+            -o /tmp/codex-power-mode-overlay
+          file /tmp/codex-power-mode-overlay
