@@ -71,6 +71,10 @@ private final class PowerModeView: NSView {
     private var hudWasExpanded = false
     private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
     private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
+    private let hudScale: CGFloat = {
+        guard let raw = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SCALE"], let value = Double(raw) else { return 1.3 }
+        return CGFloat(min(1.6, max(0.75, value)))
+    }()
     private let edge = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_EDGE"] ?? "top-right"
 
     override var isOpaque: Bool { false }
@@ -419,15 +423,21 @@ private final class PowerModeView: NSView {
 
     private func drawHUD() {
         let expanded = Date() < hudExpandedUntil
-        let size = expanded ? CGSize(width: 258, height: 64) : CGSize(width: 60, height: 60)
+        let baseSize = expanded ? CGSize(width: 258, height: 64) : CGSize(width: 60, height: 60)
+        let size = CGSize(width: baseSize.width * hudScale, height: baseSize.height * hudScale)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
             x: sin(shakePhase * 2.31) * shake,
             y: cos(shakePhase * 1.73) * shake * 0.55
         )
-        let origin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
+        let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
         let phase = (state.phase ?? "observe").uppercased()
         let phaseColor: NSColor = phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.translateBy(x: screenOrigin.x, y: screenOrigin.y)
+        context.scaleBy(x: hudScale, y: hudScale)
+        let origin = CGPoint.zero
 
         let coreRect = CGRect(x: origin.x, y: origin.y, width: 60, height: 60)
         let core = NSBezierPath(ovalIn: coreRect)
@@ -449,17 +459,19 @@ private final class PowerModeView: NSView {
         let value = "\(momentum)"
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 11 : 17), y: origin.y + 24), font: .systemFont(ofSize: 25, weight: .black), color: .white)
         drawText("POWER", at: CGPoint(x: origin.x + 17, y: origin.y + 11), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.58), tracking: 1.0)
-        guard expanded else { return }
-        let copyRect = CGRect(x: origin.x + 69, y: origin.y + 2, width: 189, height: 56)
-        let copy = NSBezierPath(roundedRect: copyRect, xRadius: 12, yRadius: 12)
-        NSColor(calibratedWhite: 0.025, alpha: 0.86).setFill()
-        copy.fill()
-        NSColor.white.withAlphaComponent(0.10).setStroke()
-        copy.lineWidth = 1
-        copy.stroke()
-        drawText(phase, at: CGPoint(x: origin.x + 82, y: origin.y + 40), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.2)
-        drawText(String(eventText.prefix(25)), at: CGPoint(x: origin.x + 82, y: origin.y + 22), font: .systemFont(ofSize: 11, weight: .semibold), color: .white)
-        drawText("CONF \(state.confidence ?? 0)%  ·  \((state.riskLevel ?? "low").uppercased()) RISK", at: CGPoint(x: origin.x + 82, y: origin.y + 8), font: .monospacedSystemFont(ofSize: 6.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.58), tracking: 0.55)
+        if expanded {
+            let copyRect = CGRect(x: origin.x + 69, y: origin.y + 2, width: 189, height: 56)
+            let copy = NSBezierPath(roundedRect: copyRect, xRadius: 12, yRadius: 12)
+            NSColor(calibratedWhite: 0.025, alpha: 0.86).setFill()
+            copy.fill()
+            NSColor.white.withAlphaComponent(0.10).setStroke()
+            copy.lineWidth = 1
+            copy.stroke()
+            drawText(phase, at: CGPoint(x: origin.x + 82, y: origin.y + 40), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.2)
+            drawText(String(eventText.prefix(25)), at: CGPoint(x: origin.x + 82, y: origin.y + 22), font: .systemFont(ofSize: 11, weight: .semibold), color: .white)
+            drawText("CONF \(state.confidence ?? 0)%  ·  \((state.riskLevel ?? "low").uppercased()) RISK", at: CGPoint(x: origin.x + 82, y: origin.y + 8), font: .monospacedSystemFont(ofSize: 6.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.58), tracking: 0.55)
+        }
+        context.restoreGState()
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {
