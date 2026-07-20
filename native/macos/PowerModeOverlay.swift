@@ -468,6 +468,7 @@ private final class PowerModeView: NSView {
         let value = "\(momentum)"
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 11 : 17), y: origin.y + 24), font: .systemFont(ofSize: 25, weight: .black), color: .white)
         drawText("POWER", at: CGPoint(x: origin.x + 17, y: origin.y + 11), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.58), tracking: 1.0)
+        if phase == "COMPLETE" && state.completion == "verified" { drawCompleteSignal(around: origin) }
         if expanded {
             let copyRect = CGRect(x: origin.x + 69, y: origin.y + 2, width: 189, height: 56)
             let copy = NSBezierPath(roundedRect: copyRect, xRadius: 12, yRadius: 12)
@@ -542,6 +543,31 @@ private final class PowerModeView: NSView {
         seam.lineWidth = 1.4
         seam.lineCapStyle = .square
         seam.stroke()
+    }
+
+    private func drawCompleteSignal(around origin: CGPoint) {
+        let center = CGPoint(x: origin.x + 30, y: origin.y + 30)
+        let rotation = reducedMotion ? 0 : shakePhase * 0.18
+        let colors: [NSColor] = [.systemGreen, .systemPurple, .systemCyan]
+        for (index, color) in colors.enumerated() {
+            let start = CGFloat(index) * 120 + rotation
+            let ribbon = NSBezierPath()
+            ribbon.appendArc(withCenter: center, radius: 35, startAngle: start + 4, endAngle: start + 112)
+            ribbon.lineWidth = 2
+            ribbon.lineCapStyle = .round
+            color.withAlphaComponent(0.9).setStroke()
+            ribbon.stroke()
+        }
+
+        let check = NSBezierPath()
+        check.move(to: CGPoint(x: origin.x + 46, y: origin.y + 14))
+        check.line(to: CGPoint(x: origin.x + 50, y: origin.y + 10))
+        check.line(to: CGPoint(x: origin.x + 58, y: origin.y + 20))
+        check.lineWidth = 2.4
+        check.lineCapStyle = .round
+        check.lineJoinStyle = .round
+        NSColor(calibratedRed: 0.78, green: 1, blue: 0.9, alpha: 1).setStroke()
+        check.stroke()
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

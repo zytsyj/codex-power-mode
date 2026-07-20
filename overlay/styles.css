@@ -90,6 +90,26 @@ body[data-phase="recover"] .core::after {
   opacity: .78;
   animation: recover-seam 1.35s steps(2, end) infinite alternate-reverse;
 }
+body[data-phase="complete"][data-completion="verified"] .core::before {
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(#72e9bf 0 32%, #a886ff 32% 65%, #75dfff 65% 97%, transparent 97%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  filter: drop-shadow(0 0 6px rgba(114, 233, 191, .45));
+  opacity: .95;
+  animation: complete-halo 4.8s linear infinite;
+}
+body[data-phase="complete"][data-completion="verified"] .core::after {
+  right: -5px;
+  bottom: 4px;
+  width: 18px;
+  height: 12px;
+  background: #dffff3;
+  clip-path: polygon(0 44%, 18% 22%, 43% 52%, 84% 0, 100% 18%, 43% 90%);
+  filter: drop-shadow(0 0 5px rgba(114, 233, 191, .8));
+  opacity: 1;
+}
 body[data-status="needs-attention"] .core { animation: attention 1.25s ease-in-out infinite; }
 body[data-status="failed"] .floating-hud { animation: failure .18s linear 3; }
 body[data-preset="focus"] .orbit { opacity: .78; }
@@ -102,6 +122,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes wait-markers { 50% { opacity: .35; transform: rotate(45deg) scale(.72); } }
 @keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }
 @keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
+@keyframes complete-halo { to { transform: rotate(360deg); } }
 @keyframes failure { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }

@@ -28,13 +28,16 @@ const previewMode = previewPhase in palette;
 
 if (previewMode) {
   document.body.dataset.previewState = "true";
+  const verifiedComplete = previewPhase === "complete";
   render({
     phase: previewPhase,
     status: previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
-    momentum: 72,
-    confidence: 84,
+    momentum: verifiedComplete ? 100 : 72,
+    confidence: verifiedComplete ? 100 : 84,
     riskLevel: previewPhase === "recover" ? "high" : "low",
-    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : "Codex activity preview"
+    completion: verifiedComplete ? "verified" : undefined,
+    evidence: verifiedComplete ? ["test", "build"] : [],
+    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   elements.connection.textContent = "PREVIEW";
   expand(0);
@@ -145,6 +148,7 @@ function render(next = state) {
   const momentum = state.momentum ?? 0;
   document.body.dataset.phase = phase;
   document.body.dataset.status = state.status ?? "ready";
+  document.body.dataset.completion = state.completion ?? "none";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
   elements.phase.textContent = phase.toUpperCase();

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.8 - 2026-07-20
+
+- Gave verified Complete a persistent three-color finish halo and check marker in both overlays.
+- Kept unverified completion free of celebratory markers so the visual language remains evidence-backed.
+
 ## 0.5.7 - 2026-07-20
 
 - Gave Recover a persistent fractured ring and repair seam in both native and browser overlays.
