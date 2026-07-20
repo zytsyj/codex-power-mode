@@ -7,6 +7,7 @@ const parameters = new URLSearchParams(location.search);
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
 const previewCombo = parameters.get("combo");
+const previewEvent = parameters.get("event");
 const previewOffline = parameters.get("connection") === "offline";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const effectBudget = preset === "arcade"
@@ -49,7 +50,7 @@ if (previewMode) {
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
     comboBrokenAt: comboBroken ? new Date(previewNow).toISOString() : null,
-    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
+    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   if (previewOffline) setConnection(false, false);
   else {
@@ -57,6 +58,7 @@ if (previewMode) {
     elements.connection.textContent = "PREVIEW";
   }
   expand(0);
+  if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
 }
 
 function setConnection(connected, announce = true) {
@@ -252,6 +254,9 @@ function react(event) {
     ring(color, .65, start); setTimeout(() => ring(color, .65, start), 320);
   } else if (event.type === "edit") {
     burst(color, 38, momentumPower, "outward", start); ring(color, momentumPower, start);
+  } else if (event.type === "edit-failure") {
+    burst(color, 74, 1.15, "fragments", start); ring(color, .95, start);
+    setTimeout(() => ring(color, .62, start), 180);
   } else if (event.type === "verification" && event.success) {
     burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
     setTimeout(() => burst(color, 38, .85, "radial", start), 280);

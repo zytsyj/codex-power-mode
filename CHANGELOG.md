@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.16 - 2026-07-21
+
+- Added dedicated directional fragment feedback when Codex cannot apply an edit.
+- Distinguished edit failures from verification failures with a double red impact and stronger fault shake.
+
 ## 0.6.15 - 2026-07-21
 
 - Added explicit ONLINE and RECONNECTING feedback without replacing the six semantic Codex states.

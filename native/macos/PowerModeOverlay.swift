@@ -170,6 +170,14 @@ private final class PowerModeView: NSView {
             burst(color: primary, count: max(18, min(130, added * 3 + removed * 4)), power: 1.0, directional: true)
             replayTyping(characters: addedChars, lines: added)
             if removed > 0 { deletionSparks(lines: removed) }
+        case "edit-failure":
+            shockwave(color: .systemRed, power: 1.15)
+            fragments(color: .systemRed, count: arcadeMode ? 132 : 82)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                self?.shockwave(color: .systemRed, power: 0.68)
+            }
+            dangerAlpha = 0.42
+            shake = 12
         case "verification":
             let passed = event.success == true
             let color: NSColor = passed ? .systemGreen : .systemRed
