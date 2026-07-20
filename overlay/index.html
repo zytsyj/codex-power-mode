@@ -8,19 +8,32 @@
   </head>
   <body data-phase="observe" data-status="ready" data-preset="focus">
     <canvas id="effects" aria-hidden="true"></canvas>
+    <div class="atmosphere" aria-hidden="true"></div>
     <main>
-      <section id="hud" class="floating-hud collapsed" aria-live="polite">
-        <div class="core">
-          <div class="orbit"><i></i></div>
-          <div id="momentum-meter" class="meter">
-            <strong id="momentum">0</strong>
+      <section id="hud" class="power-system collapsed" aria-live="polite">
+        <div class="reactor-wrap">
+          <div class="reactor-halo"></div>
+          <div class="reactor">
+            <div class="tick-ring"></div>
+            <div id="momentum-meter" class="momentum-ring"></div>
+            <div class="reactor-core">
+              <strong id="momentum">0</strong>
+              <span>POWER</span>
+            </div>
           </div>
         </div>
-        <div class="copy">
-          <div class="eyebrow"><span id="phase">OBSERVE</span><i></i><b id="connection">LIVE</b></div>
+        <div class="telemetry">
+          <div class="telemetry-head">
+            <span class="phase-mark"><i></i><b id="phase">OBSERVE</b></span>
+            <span id="connection" class="connection">FOCUS</span>
+          </div>
           <strong id="event">Codex Power ready</strong>
-          <span id="status-copy">Waiting for the next useful step</span>
-          <div class="meta"><span id="confidence">CONF 0%</span><span id="evidence">NO EVIDENCE</span><span id="risk-level">LOW RISK</span></div>
+          <span id="status-copy" class="status-copy">Waiting for the next useful step</span>
+          <div class="signals">
+            <span id="evidence" class="evidence">NO EVIDENCE</span>
+            <span id="confidence">CONF 0%</span>
+            <span id="risk-level" class="risk">LOW RISK</span>
+          </div>
         </div>
       </section>
     </main>

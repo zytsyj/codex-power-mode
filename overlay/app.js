@@ -47,8 +47,13 @@ function resize() {
   context.setTransform(scale, 0, 0, scale, 0, 0);
 }
 
-function codingOrigin() {
-  return { x: innerWidth * (.26 + Math.random() * .42), y: innerHeight * (.25 + Math.random() * .48) };
+function reactorOrigin() {
+  const rect = document.querySelector(".reactor").getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function workOrigin() {
+  return { x: innerWidth * (.28 + Math.random() * .30), y: innerHeight * (.28 + Math.random() * .44) };
 }
 
 function expand(duration = 2100) {
@@ -57,19 +62,22 @@ function expand(duration = 2100) {
   if (duration > 0) collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
 }
 
-function burst(color, amount, power = 1, mode = "radial", start = codingOrigin()) {
+function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin()) {
   if (reducedMotion) return;
   const count = Math.min(220, Math.round(amount * intensity));
   for (let index = 0; index < count; index += 1) {
-    const angle = mode === "forward" ? -.55 + Math.random() * 1.1 : Math.random() * Math.PI * 2;
-    const distance = mode === "inward" ? 75 + Math.random() * 150 : 0;
-    const x = start.x + Math.cos(angle) * distance;
-    const y = start.y + Math.sin(angle) * distance;
+    const angle = mode === "outward" || mode === "fragments"
+      ? Math.PI - .62 + Math.random() * 1.24
+      : Math.random() * Math.PI * 2;
+    const source = mode === "inward" ? workOrigin() : start;
+    const distance = mode === "inward" ? 18 + Math.random() * 90 : 0;
+    const x = source.x + Math.cos(angle) * distance;
+    const y = source.y + Math.sin(angle) * distance;
     const speed = (1.1 + Math.random() * 4.7) * power * intensity;
     particles.push({
       x, y,
-      vx: mode === "inward" ? (start.x - x) / (30 + Math.random() * 12) : Math.cos(angle) * speed,
-      vy: mode === "inward" ? (start.y - y) / (30 + Math.random() * 12) : Math.sin(angle) * speed,
+      vx: mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
+      vy: mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
       life: 34 + Math.random() * 44,
       maxLife: 78,
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
@@ -80,12 +88,14 @@ function burst(color, amount, power = 1, mode = "radial", start = codingOrigin()
   }
 }
 
-function ring(color, power = 1, start = codingOrigin()) {
+function ring(color, power = 1, start = reactorOrigin()) {
   if (!reducedMotion) rings.push({ ...start, radius: 8, life: 38, maxLife: 38, color, speed: 4.4 * power * intensity });
 }
 
 function scan(color) {
-  if (!reducedMotion) scans.push({ x: innerWidth * .2, y: innerHeight * (.3 + Math.random() * .4), width: innerWidth * .5, life: 48, maxLife: 48, color });
+  if (reducedMotion) return;
+  const start = reactorOrigin();
+  scans.push({ x: start.x - 18, y: start.y, width: Math.min(innerWidth * .72, start.x - 48), life: 58, maxLife: 58, color });
 }
 
 function frame() {
@@ -99,12 +109,13 @@ function frame() {
     item.life -= 1;
     if (item.life <= 0) { scans.splice(index, 1); continue; }
     const progress = 1 - item.life / item.maxLife;
-    const head = item.x + item.width * progress;
-    const gradient = context.createLinearGradient(head - 90, 0, head, 0);
-    gradient.addColorStop(0, "transparent"); gradient.addColorStop(1, item.color);
+    const head = item.x - item.width * progress;
+    const gradient = context.createLinearGradient(head, 0, head + 120, 0);
+    gradient.addColorStop(0, item.color); gradient.addColorStop(1, "transparent");
     context.globalAlpha = Math.sin(progress * Math.PI) * .36;
     context.fillStyle = gradient;
-    context.fillRect(head - 90, item.y, 90, 1.2);
+    context.fillRect(head, item.y, 120, 1.2);
+    context.fillRect(head, item.y - 10, 1, 21);
   }
   for (let index = rings.length - 1; index >= 0; index -= 1) {
     const item = rings[index];
@@ -152,7 +163,9 @@ function render(next = state) {
   elements["status-copy"].textContent = statusCopy(state);
   elements.confidence.textContent = `CONF ${state.confidence ?? 0}%`;
   elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : "NO EVIDENCE";
-  elements["risk-level"].textContent = `${String(state.riskLevel ?? "low").toUpperCase()} RISK`;
+  const riskLevel = String(state.riskLevel ?? "low");
+  elements["risk-level"].textContent = `${riskLevel.toUpperCase()} RISK`;
+  elements["risk-level"].dataset.level = riskLevel;
 }
 
 function flashAt(start) {
@@ -167,10 +180,13 @@ function react(event) {
   render(event.state);
   const phase = event.state?.phase ?? event.phase ?? "observe";
   const color = palette[phase];
-  const start = codingOrigin();
+  const start = reactorOrigin();
   const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
   expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
   flashAt(start);
+  document.body.classList.remove("event-kick");
+  void document.body.offsetWidth;
+  document.body.classList.add("event-kick");
 
   if (event.type === "activity-start" && phase === "observe") {
     scan(color);
@@ -178,19 +194,19 @@ function react(event) {
   } else if (event.type === "activity-start" && phase === "verify") {
     burst(color, 34, .55, "inward", start); ring(color, .55, start);
   } else if (event.type === "activity-start") {
-    burst(color, 16, .55, "forward", start);
+    burst(color, 18, .55, "outward", start);
   } else if (event.type === "permission-request") {
     ring(color, .65, start); setTimeout(() => ring(color, .65, start), 320);
   } else if (event.type === "edit") {
-    burst(color, 32, momentumPower, "forward", start); ring(color, momentumPower, start);
+    burst(color, 38, momentumPower, "outward", start); ring(color, momentumPower, start);
   } else if (event.type === "verification" && event.success) {
     burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
     setTimeout(() => burst(color, 38, .85, "radial", start), 280);
   } else if (event.type === "verification") {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
   } else if (event.state?.completion === "verified") {
-    ring(color, 1.55, start); burst(color, 95, 1.2, "radial", start);
-    setTimeout(() => { ring("#a886ff", 1.2, start); burst("#a886ff", 52, .9, "radial", start); }, 180);
+    ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
+    setTimeout(() => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); }, 180);
   }
 }
 

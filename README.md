@@ -4,7 +4,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-## Current v0.4
+## Current v0.5.7
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses Momentum for useful steps, Confidence for verification evidence, and Risk for change scope.
@@ -51,7 +51,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles or flashes.
 - `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
-- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.3` (about 78pt collapsed).
+- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 78pt collapsed).
 - `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
 - `CODEX_POWER_MODE_AUTO_NATIVE=0`: keep automatic session startup limited to the event service instead of launching the macOS overlay.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Rebuilt the browser and native HUD around a single high-contrast energy core.
+- Anchored observe, act, verify, wait, recover, and completion effects to the HUD instead of random workspace positions.
+- Increased telemetry readability and hid low-risk noise from the default status capsule.
+- Unified the browser and macOS overlay sizing, hierarchy, evidence, and motion language.
+
 ## 0.5.7 - 2026-07-20
 
 - Gave Recover a persistent fractured ring and repair seam in both native and browser overlays.
