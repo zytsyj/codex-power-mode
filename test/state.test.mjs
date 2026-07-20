@@ -174,6 +174,25 @@ test("stopping while permission is pending cancels and breaks the combo", () => 
   assert.equal(state.comboBreaks, 1);
 });
 
+test("work resuming after approval leaves wait without breaking the combo", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", toolGroup: "command", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, { type: "permission-request", timestamp: at(2), sessionId: "s" });
+  assert.equal(state.phase, "wait");
+  assert.equal(state.comboStatus, "waiting");
+
+  state = reduceState(state, {
+    type: "activity-start", phase: "act", toolGroup: "command", timestamp: at(3), sessionId: "s"
+  });
+  assert.equal(state.phase, "act");
+  assert.equal(state.status, "working");
+  assert.equal(state.currentActivity, "Executing a command");
+  assert.equal(state.combo, 2);
+  assert.equal(state.comboStatus, "holding");
+  assert.equal(state.comboBreaks, 0);
+});
+
 test("a new turn and a new session cannot inherit the previous combo", () => {
   let state = reduceState(initialState, {
     type: "activity-start", phase: "act", timestamp: at(1), sessionId: "s1"
