@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import path from "node:path";
 import { eventFromHook } from "../src/events.mjs";
+import { powerModeDataDir } from "../src/paths.mjs";
 import { recordEventResult } from "../src/storage.mjs";
 
 async function readStdin() {
@@ -30,7 +30,7 @@ try {
   const input = await readStdin();
   const event = eventFromHook(input);
   if (event) {
-    const dataDir = process.env.PLUGIN_DATA || path.join(process.env.PLUGIN_ROOT || process.cwd(), ".power-mode");
+    const dataDir = powerModeDataDir();
     const configuredWindow = Number.parseInt(process.env.CODEX_POWER_MODE_OBSERVE_THROTTLE_MS || "900", 10);
     const coalesceWindowMs = Number.isFinite(configuredWindow) ? Math.max(0, Math.min(5_000, configuredWindow)) : 900;
     const result = await recordEventResult(dataDir, event, { coalesceWindowMs });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.23 - 2026-07-21
+
+- Moved the default manual runtime state to `~/.codex/power-mode` so stale demo history cannot be copied into local plugin installations.
+- Preserved Codex-provided `PLUGIN_DATA` as the highest-priority storage location for installed hooks.
+
 ## 0.6.22 - 2026-07-21
 
 - Synced streamed hook state into the active service data directory so SSE reconnects cannot fall back to stale demo or pre-install state.

@@ -3,6 +3,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { powerModeDataDir } from "../src/paths.mjs";
 import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,7 +14,7 @@ const valueAfter = (flag, fallback) => {
   return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
 };
 const port = Number(valueAfter("--port", process.env.CODEX_POWER_MODE_PORT || "4737"));
-const dataDir = path.resolve(valueAfter("--data-dir", process.env.CODEX_POWER_MODE_DATA || path.join(root, ".power-mode")));
+const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
 const clients = new Set();
 
 const mime = new Map([

@@ -4,10 +4,11 @@ import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nativeConfigFromEnvironment } from "../src/config.mjs";
+import { powerModeDataDir } from "../src/paths.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const dataDir = path.resolve(process.env.CODEX_POWER_MODE_DATA || path.join(root, ".power-mode"));
+const dataDir = powerModeDataDir();
 const command = process.argv[2] || "start";
 const endpoint = "http://127.0.0.1:4737";
 const nativeDir = path.join(dataDir, "native");
