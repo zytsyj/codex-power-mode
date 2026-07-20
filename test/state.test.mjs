@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboProgress, initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -86,4 +86,61 @@ test("unverified edits cannot claim an evidence-backed completion", () => {
   state = reduceState(state, { type: "turn-stop", timestamp: at(3) });
   assert.equal(state.completion, "unverified");
   assert.equal(state.status, "unverified");
+});
+
+test("combo holds during tools and then decays after a useful result", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1), sessionId: "s"
+  });
+  assert.equal(state.combo, 1);
+  assert.equal(state.comboStatus, "holding");
+  assert.equal(comboProgress(state, at(10)), 1);
+
+  state = reduceState(state, {
+    type: "edit", timestamp: at(12), addedLines: 3, removedLines: 0, sessionId: "s"
+  });
+  assert.equal(state.combo, 2);
+  assert.equal(state.comboStatus, "decaying");
+  assert.equal(comboProgress(state, at(18)), 0.5);
+  assert.equal(comboProgress(state, at(24)), 0);
+});
+
+test("an expired combo restarts instead of increasing forever", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(20), sessionId: "s"
+  });
+  assert.equal(state.combo, 1);
+  assert.equal(state.comboBreaks, 1);
+});
+
+test("failed verification immediately breaks the combo", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "verify", category: "test", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, {
+    type: "verification", category: "test", success: false, timestamp: at(3), sessionId: "s"
+  });
+  assert.equal(state.combo, 0);
+  assert.equal(state.comboStatus, "broken");
+  assert.equal(state.comboBreaks, 1);
+});
+
+test("a new turn and a new session cannot inherit the previous combo", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", timestamp: at(1), sessionId: "s1"
+  });
+  state = reduceState(state, { type: "turn-stop", timestamp: at(2), sessionId: "s1" });
+  state = reduceState(state, {
+    type: "activity-start", phase: "observe", timestamp: at(3), sessionId: "s1"
+  });
+  assert.equal(state.combo, 1);
+
+  state = reduceState(state, {
+    type: "activity-start", phase: "observe", timestamp: at(4), sessionId: "s2"
+  });
+  assert.equal(state.combo, 1);
+  assert.equal(state.comboBreaks, 0);
 });

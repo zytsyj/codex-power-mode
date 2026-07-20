@@ -6,6 +6,11 @@ private struct PowerState: Decodable {
     let status: String?
     let momentum: Int?
     let bestMomentum: Int?
+    let combo: Int?
+    let bestCombo: Int?
+    let comboStatus: String?
+    let comboHoldUntil: String?
+    let comboExpiresAt: String?
     let confidence: Int?
     let riskLevel: String?
     let currentActivity: String?
@@ -62,7 +67,7 @@ private final class PowerModeView: NSView {
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
-    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -70,6 +75,9 @@ private final class PowerModeView: NSView {
     private var shakePhase: CGFloat = 0
     private var hudExpandedUntil = Date.distantPast
     private var hudWasExpanded = false
+    private var comboHoldUntil: Date?
+    private var comboExpiresAt: Date?
+    private let isoDateFormatter = ISO8601DateFormatter()
     private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
     private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
     private let hudScale: CGFloat = {
@@ -94,7 +102,11 @@ private final class PowerModeView: NSView {
     deinit { timer?.invalidate() }
 
     func handle(_ event: PowerEvent) {
-        if let nextState = event.state { state = nextState }
+        if let nextState = event.state {
+            state = nextState
+            comboHoldUntil = nextState.comboHoldUntil.flatMap(isoDateFormatter.date(from:))
+            comboExpiresAt = nextState.comboExpiresAt.flatMap(isoDateFormatter.date(from:))
+        }
         eventText = describe(event)
         if event.type == "connected" {
             needsDisplay = true
@@ -386,7 +398,8 @@ private final class PowerModeView: NSView {
             hudWasExpanded = hudIsExpanded
             needsDisplay = true
         }
-        if !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded { needsDisplay = true }
+        let comboIsLive = (state.combo ?? 0) > 0 && Date() < (comboExpiresAt ?? .distantPast)
+        if !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded || comboIsLive { needsDisplay = true }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -500,6 +513,8 @@ private final class PowerModeView: NSView {
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 21 : value.count > 1 ? 27 : 34), y: origin.y + 34), font: .systemFont(ofSize: 21, weight: .bold), color: .white)
         drawText("POWER", at: CGPoint(x: origin.x + 29, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
         if phase == "COMPLETE" && state.completion == "verified" { drawCompleteSignal(around: origin) }
+        let combo = comboSnapshot()
+        drawCombo(combo, at: origin, color: combo.active ? phaseColor : .systemRed)
         if expanded {
             let copyRect = CGRect(x: origin.x + 92, y: origin.y + 7, width: 230, height: 68)
             let copy = NSBezierPath(roundedRect: copyRect, xRadius: 14, yRadius: 14)
@@ -520,7 +535,8 @@ private final class PowerModeView: NSView {
 
             let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { $0.uppercased() }.joined(separator: "+")) ✓" : "NO EVIDENCE"
             let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  \((state.riskLevel ?? "low").uppercased()) RISK"
-            drawText("\(evidence)  ·  CONF \(state.confidence ?? 0)%\(risk)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: 0.45)
+            let comboCopy = combo.count > 0 ? "  ·  \(combo.count)× COMBO" : ""
+            drawText("\(evidence)  ·  CONF \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: 0.45)
         }
         context.restoreGState()
     }
@@ -609,6 +625,29 @@ private final class PowerModeView: NSView {
         check.lineJoinStyle = .round
         NSColor(calibratedRed: 0.78, green: 1, blue: 0.9, alpha: 1).setStroke()
         check.stroke()
+    }
+
+    private func comboSnapshot(now: Date = Date()) -> (count: Int, progress: CGFloat, active: Bool) {
+        let count = state.combo ?? 0
+        guard count > 0, let expires = comboExpiresAt, now < expires else { return (0, 0, false) }
+        guard let hold = comboHoldUntil, now > hold else { return (count, 1, true) }
+        let duration = expires.timeIntervalSince(hold)
+        let remaining = expires.timeIntervalSince(now)
+        return (count, CGFloat(max(0, min(1, remaining / max(0.001, duration)))), true)
+    }
+
+    private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool), at origin: CGPoint, color: NSColor) {
+        let trackRect = CGRect(x: origin.x + 13, y: origin.y + 2, width: 46, height: 3)
+        let track = NSBezierPath(roundedRect: trackRect, xRadius: 1.5, yRadius: 1.5)
+        NSColor.white.withAlphaComponent(0.12).setFill()
+        track.fill()
+        if combo.progress > 0 {
+            let fillRect = CGRect(x: trackRect.minX, y: trackRect.minY, width: trackRect.width * combo.progress, height: trackRect.height)
+            let fill = NSBezierPath(roundedRect: fillRect, xRadius: 1.5, yRadius: 1.5)
+            color.setFill()
+            fill.fill()
+        }
+        drawText("\(combo.count)×", at: CGPoint(x: origin.x + 63, y: origin.y + 1), font: .monospacedSystemFont(ofSize: 5.8, weight: .bold), color: color.withAlphaComponent(0.9))
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

@@ -4,10 +4,11 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-## Current v0.5.8
+## Current v0.6.0
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses Momentum for useful steps, Confidence for verification evidence, and Risk for change scope.
+- Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives small and large edits equal Momentum; larger changes increase Risk instead.
 - Surfaces permission requests as an explicit attention state.
 - Measures added and removed lines without storing source code in the HUD event stream.
@@ -51,7 +52,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles or flashes.
 - `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
-- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.3` (about 78pt collapsed).
+- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
 - `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
 - `CODEX_POWER_MODE_AUTO_NATIVE=0`: keep automatic session startup limited to the event service instead of launching the macOS overlay.
 
@@ -79,6 +80,14 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
 - Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
+
+## Combo semantics
+
+- A new Codex tool step starts or extends Combo; edits add one link and successful verification adds two.
+- Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 12 seconds.
+- Permission waits preserve Combo for 15 seconds before draining, so approval latency is not treated as an instant failure.
+- Failed verification and unverified completion break Combo immediately.
+- An expired link, a new turn, or a new Codex session starts again at `1×`; Combo cannot increase forever across unrelated work.
 
 ## Roadmap
 

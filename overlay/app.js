@@ -1,11 +1,12 @@
 const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
-const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level"].map((id) => [id, element(id)]));
+const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const parameters = new URLSearchParams(location.search);
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
+const previewCombo = parameters.get("combo");
 const intensity = preset === "arcade" ? 1.75 : 1;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
@@ -29,6 +30,9 @@ const previewMode = previewPhase in palette;
 if (previewMode) {
   document.body.dataset.previewState = "true";
   const verifiedComplete = previewPhase === "complete";
+  const previewNow = Date.now();
+  const comboBroken = previewCombo === "lost";
+  const comboHolding = previewCombo === "hold";
   render({
     phase: previewPhase,
     status: previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
@@ -37,6 +41,12 @@ if (previewMode) {
     riskLevel: previewPhase === "recover" ? "high" : "low",
     completion: verifiedComplete ? "verified" : undefined,
     evidence: verifiedComplete ? ["test", "build"] : [],
+    combo: comboBroken ? 0 : verifiedComplete ? 12 : 8,
+    bestCombo: verifiedComplete ? 12 : 8,
+    comboStatus: comboBroken ? "broken" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
+    comboLastAt: new Date(previewNow).toISOString(),
+    comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
+    comboExpiresAt: comboBroken ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
     currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   elements.connection.textContent = "PREVIEW";
@@ -153,6 +163,27 @@ function statusCopy(next) {
   return "Reading and understanding context";
 }
 
+function comboProgressAt(next, now = Date.now()) {
+  if (!next.combo || !next.comboExpiresAt) return 0;
+  const holdUntil = Date.parse(next.comboHoldUntil || next.comboLastAt);
+  const expiresAt = Date.parse(next.comboExpiresAt);
+  if (![now, holdUntil, expiresAt].every(Number.isFinite)) return 0;
+  if (now <= holdUntil) return 1;
+  if (now >= expiresAt) return 0;
+  return Math.max(0, Math.min(1, (expiresAt - now) / Math.max(1, expiresAt - holdUntil)));
+}
+
+function renderCombo(now = Date.now()) {
+  const progress = comboProgressAt(state, now);
+  const active = (state.combo ?? 0) > 0 && progress > 0;
+  const status = active ? (state.comboStatus ?? "decaying") : (state.combo ?? 0) > 0 ? "broken" : (state.comboStatus ?? "idle");
+  const labels = { holding: "HOLD", waiting: "WAIT", decaying: "LINK", complete: "DONE", broken: "LOST", idle: "READY" };
+  elements["combo-count"].textContent = `${active ? state.combo : 0}×`;
+  elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;
+  elements["combo-status"].textContent = labels[status] ?? "LINK";
+  document.body.dataset.comboStatus = status;
+}
+
 function render(next = state) {
   state = { ...state, ...next };
   const phase = state.phase ?? "observe";
@@ -170,6 +201,7 @@ function render(next = state) {
   const riskLevel = String(state.riskLevel ?? "low");
   elements["risk-level"].textContent = `${riskLevel.toUpperCase()} RISK`;
   elements["risk-level"].dataset.level = riskLevel;
+  renderCombo();
 }
 
 function flashAt(start) {
@@ -227,3 +259,4 @@ if (!previewMode) {
 
 addEventListener("resize", resize);
 resize(); frame();
+setInterval(() => renderCombo(), 100);

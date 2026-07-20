@@ -3,6 +3,13 @@ export const initialState = Object.freeze({
   status: "ready",
   momentum: 0,
   bestMomentum: 0,
+  combo: 0,
+  bestCombo: 0,
+  comboBreaks: 0,
+  comboStatus: "idle",
+  comboLastAt: null,
+  comboHoldUntil: null,
+  comboExpiresAt: null,
   confidence: 0,
   risk: 0,
   riskLevel: "low",
@@ -25,6 +32,46 @@ export const initialState = Object.freeze({
 });
 
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
+export const COMBO_DECAY_MS = 12_000;
+
+const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
+
+function timestampAfter(timestamp, offsetMs) {
+  const value = Date.parse(timestamp);
+  return new Date((Number.isFinite(value) ? value : 0) + offsetMs).toISOString();
+}
+
+function advanceCombo(state, event, weight = 1, holdMs = 0, forceNew = false) {
+  const eventAt = Date.parse(event.timestamp);
+  const expiresAt = Date.parse(state.comboExpiresAt);
+  const continues = !forceNew && state.combo > 0 && Number.isFinite(eventAt) &&
+    Number.isFinite(expiresAt) && eventAt <= expiresAt;
+  if (!continues && state.combo > 0) state.comboBreaks += 1;
+  state.combo = (continues ? state.combo : 0) + weight;
+  state.comboStatus = holdMs > 0 ? "holding" : "decaying";
+  state.comboLastAt = event.timestamp;
+  state.comboHoldUntil = timestampAfter(event.timestamp, holdMs);
+  state.comboExpiresAt = timestampAfter(event.timestamp, holdMs + COMBO_DECAY_MS);
+}
+
+function breakCombo(state, status = "broken") {
+  if (state.combo > 0) state.comboBreaks += 1;
+  state.combo = 0;
+  state.comboStatus = status;
+  state.comboHoldUntil = null;
+  state.comboExpiresAt = null;
+}
+
+export function comboProgress(state, now = Date.now()) {
+  if (!state.combo || !state.comboExpiresAt) return 0;
+  const current = typeof now === "number" ? now : Date.parse(now);
+  const holdUntil = Date.parse(state.comboHoldUntil || state.comboLastAt);
+  const expiresAt = Date.parse(state.comboExpiresAt);
+  if (![current, holdUntil, expiresAt].every(Number.isFinite)) return 0;
+  if (current <= holdUntil) return 1;
+  if (current >= expiresAt) return 0;
+  return clamp((expiresAt - current) / Math.max(1, expiresAt - holdUntil), 0, 1);
+}
 
 function riskLevel(value) {
   return value >= 65 ? "high" : value >= 30 ? "medium" : "low";
@@ -58,8 +105,11 @@ export function shouldCoalesceActivity(previous, event, windowMs = 900) {
 }
 
 export function reduceState(previous = initialState, event) {
-  const state = { ...initialState, ...previous, sessionId: event.sessionId ?? previous.sessionId };
-  state.evidence = Array.isArray(previous.evidence) ? [...previous.evidence] : [];
+  const sessionChanged = Boolean(previous.sessionId && event.sessionId && previous.sessionId !== event.sessionId);
+  const prior = sessionChanged ? initialState : previous;
+  const state = { ...initialState, ...prior, sessionId: event.sessionId ?? prior.sessionId };
+  state.evidence = Array.isArray(prior.evidence) ? [...prior.evidence] : [];
+  const startsNewTurn = state.phase === "complete";
 
   if (event.type === "activity-start") {
     state.phase = event.phase || "observe";
@@ -70,10 +120,16 @@ export function reduceState(previous = initialState, event) {
     state.completion = null;
     state.lastActivityAt = event.timestamp;
     state.lastActivitySignature = activitySignature(event);
+    advanceCombo(state, event, 1, COMBO_HOLD_MS[state.phase] ?? 0, startsNewTurn);
   } else if (event.type === "permission-request") {
     state.phase = "wait";
     state.status = "needs-attention";
     state.currentActivity = "Waiting for your approval";
+    if (state.combo > 0) {
+      state.comboStatus = "waiting";
+      state.comboHoldUntil = timestampAfter(event.timestamp, 15_000);
+      state.comboExpiresAt = timestampAfter(event.timestamp, 15_000 + COMBO_DECAY_MS);
+    }
   } else if (event.type === "edit") {
     state.phase = "act";
     state.status = "working";
@@ -88,6 +144,7 @@ export function reduceState(previous = initialState, event) {
     state.lastEditAt = event.timestamp;
     state.lastVerificationPassed = false;
     state.completion = null;
+    advanceCombo(state, event, 1, 0, startsNewTurn);
   } else if (event.type === "verification") {
     state.verifications += 1;
     state.lastVerificationAt = event.timestamp;
@@ -101,6 +158,7 @@ export function reduceState(previous = initialState, event) {
       state.confidence = clamp(state.confidence + verificationConfidence(event.category));
       state.risk = clamp(state.risk - 18);
       if (!state.evidence.includes(event.category)) state.evidence.push(event.category);
+      advanceCombo(state, event, 2, 0, startsNewTurn);
     } else {
       state.phase = "recover";
       state.status = "failed";
@@ -109,6 +167,7 @@ export function reduceState(previous = initialState, event) {
       state.momentum = clamp(state.momentum - 8);
       state.confidence = clamp(state.confidence - 28);
       state.risk = clamp(state.risk + 24);
+      breakCombo(state);
     }
   } else if (event.type === "turn-stop") {
     const verifiedAfterEdit = state.lastVerificationPassed && state.lastVerificationAt &&
@@ -117,9 +176,17 @@ export function reduceState(previous = initialState, event) {
     state.status = verifiedAfterEdit ? "verified" : state.edits ? "unverified" : "complete";
     state.completion = verifiedAfterEdit ? "verified" : state.edits ? "unverified" : "no-change";
     state.currentActivity = verifiedAfterEdit ? "Completed with evidence" : state.edits ? "Completed — verification recommended" : "Turn complete";
+    if (verifiedAfterEdit && state.combo > 0) {
+      state.comboStatus = "complete";
+      state.comboHoldUntil = timestampAfter(event.timestamp, 3_200);
+      state.comboExpiresAt = timestampAfter(event.timestamp, 3_200 + COMBO_DECAY_MS);
+    } else {
+      breakCombo(state, state.edits ? "broken" : "idle");
+    }
   }
 
   state.bestMomentum = Math.max(state.bestMomentum, state.momentum);
+  state.bestCombo = Math.max(state.bestCombo, state.combo);
   state.riskLevel = riskLevel(state.risk);
   return state;
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 - 2026-07-20
+
+- Integrated the redesigned reactor and telemetry frontend from `main` without losing semantic state effects.
+- Added Codex-native Combo state, best-link tracking, expiry, decay, wait grace, turn/session reset, and explicit break handling.
+- Added an always-visible Combo count and decay rail to both browser and native macOS overlays.
+- Added coverage for hold, decay, expiry, verification failure, new-turn reset, and new-session reset.
+
 ## 0.5.8 - 2026-07-20
 
 - Gave verified Complete a persistent three-color finish halo and check marker in both overlays.
