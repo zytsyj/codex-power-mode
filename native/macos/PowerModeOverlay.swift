@@ -68,6 +68,7 @@ private final class PowerModeView: NSView {
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
+    private var timerIsHighFrequency = false
     private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
@@ -95,9 +96,18 @@ private final class PowerModeView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+        scheduleTick(highFrequency: false)
+    }
+
+    private func scheduleTick(highFrequency: Bool) {
+        guard timer == nil || timerIsHighFrequency != highFrequency else { return }
+        timer?.invalidate()
+        timerIsHighFrequency = highFrequency
+        let interval = highFrequency ? 1.0 / 60.0 : 0.25
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
+        timer?.tolerance = highFrequency ? 0.001 : 0.04
     }
 
     required init?(coder: NSCoder) { nil }
@@ -116,6 +126,7 @@ private final class PowerModeView: NSView {
             needsDisplay = true
             return
         }
+        scheduleTick(highFrequency: !reducedMotion)
         let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
         flashAlpha = reducedMotion ? 0 : 0.24
@@ -374,6 +385,7 @@ private final class PowerModeView: NSView {
     }
 
     private func tick() {
+        let now = Date()
         let particleBudget = arcadeMode ? 560 : 280
         let shockwaveBudget = arcadeMode ? 18 : 10
         let scanBudget = arcadeMode ? 8 : 4
@@ -410,18 +422,22 @@ private final class PowerModeView: NSView {
         dangerAlpha = max(0, dangerAlpha - 0.009)
         shake = max(0, shake * 0.88 - 0.04)
         shakePhase += 1
-        let hudIsExpanded = Date() < hudExpandedUntil
+        let hudIsExpanded = now < hudExpandedUntil
         if hudIsExpanded != hudWasExpanded {
             hudWasExpanded = hudIsExpanded
             needsDisplay = true
         }
         let comboTimelineEnd = (comboBrokenAt ?? comboExpiresAt ?? .distantPast).addingTimeInterval(3.2)
-        let comboIsAnimating = Date() < comboTimelineEnd
+        let comboIsAnimating = now < comboTimelineEnd
         if comboIsAnimating != comboWasAnimating {
             comboWasAnimating = comboIsAnimating
             needsDisplay = true
         }
-        if !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0 || hudIsExpanded || comboIsAnimating { needsDisplay = true }
+        let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
+        let comboIsDecaying = (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
+        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying)
+        if hasEffects || hudIsExpanded || comboIsAnimating { needsDisplay = true }
+        scheduleTick(highFrequency: needsHighFrequency)
     }
 
     override func draw(_ dirtyRect: NSRect) {

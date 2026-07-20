@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.12 - 2026-07-21
+
+- Reduced the native overlay refresh loop from 60Hz to 4Hz while idle or holding a static Combo.
+- Kept particles, semantic motion, and Combo decay at 60Hz, restoring full speed immediately when an event arrives.
+
 ## 0.6.11 - 2026-07-21
 
 - Followed the foremost on-screen Codex window instead of selecting the largest window.
