@@ -345,3 +345,19 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
 }
+
+body[data-motion="reduced"] *, body[data-motion="reduced"] *::before, body[data-motion="reduced"] *::after {
+  animation: none !important;
+}
+body[data-motion="reduced"].flash::after { display: none; }
+body[data-motion="reduced"] .reactor-halo { opacity: .52; transform: none; }
+body[data-motion="reduced"] .tick-ring { transform: none; }
+body[data-motion="reduced"][data-phase="observe"] .reactor-wrap::before { transform: rotate(35deg); }
+body[data-motion="reduced"][data-phase="act"] .reactor-wrap::before { opacity: .78; transform: scale(1); }
+body[data-motion="reduced"][data-phase="verify"] .reactor-wrap::before { transform: none; }
+body[data-motion="reduced"][data-phase="verify"] .reactor-wrap::after { opacity: .5; transform: scale(.72); }
+body[data-motion="reduced"][data-phase="wait"] .reactor-wrap::before { opacity: .82; }
+body[data-motion="reduced"][data-phase="wait"] .reactor-wrap::after { opacity: .9; transform: rotate(45deg); }
+body[data-motion="reduced"][data-phase="recover"] .reactor-wrap::before { opacity: .8; transform: rotate(-7deg); }
+body[data-motion="reduced"][data-phase="recover"] .reactor-wrap::after { opacity: .68; transform: none; }
+body[data-motion="reduced"][data-phase="complete"][data-completion="verified"] .reactor-wrap::before { transform: none; }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.21 - 2026-07-21
+
+- Preserved distinct static Observe, Act, Verify, Wait, Recover, and Complete markers when reduced motion is enabled.
+- Removed the transient flash layer entirely in reduced-motion mode so it cannot linger as a persistent glow.
+
 ## 0.6.20 - 2026-07-21
 
 - Paused the browser effects canvas when no particles, rings, or scans are active, then resumed it on the next Codex event.

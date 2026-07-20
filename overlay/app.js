@@ -2,8 +2,8 @@ const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
 const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const parameters = new URLSearchParams(location.search);
+const reducedMotion = parameters.get("motion") === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches;
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
 const previewCombo = parameters.get("combo");
@@ -23,6 +23,7 @@ let collapseTimer;
 let effectsFrame = null;
 
 document.body.dataset.preset = preset;
+document.body.dataset.motion = reducedMotion ? "reduced" : "full";
 if (parameters.get("preview") === "light") document.body.dataset.preview = "light";
 
 const palette = {
