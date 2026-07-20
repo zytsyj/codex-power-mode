@@ -10,6 +10,7 @@ private struct PowerState: Decodable {
     let riskLevel: String?
     let currentActivity: String?
     let completion: String?
+    let evidence: [String]?
     let addedLines: Int?
     let removedLines: Int?
     let verifications: Int?
@@ -61,7 +62,7 @@ private final class PowerModeView: NSView {
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
-    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -72,7 +73,7 @@ private final class PowerModeView: NSView {
     private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
     private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
     private let hudScale: CGFloat = {
-        guard let raw = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SCALE"], let value = Double(raw) else { return 1.3 }
+        guard let raw = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SCALE"], let value = Double(raw) else { return 1.15 }
         return CGFloat(min(1.6, max(0.75, value)))
     }()
     private let edge = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_EDGE"] ?? "top-right"
@@ -129,7 +130,7 @@ private final class PowerModeView: NSView {
             let primary = removed > added ? NSColor.systemPink : NSColor.systemPurple
             shake = min(8, 1.5 + CGFloat(added + removed) * 0.12)
             shockwave(color: primary, power: min(1.8, 0.8 + CGFloat(added + removed) / 30))
-            burst(color: primary, count: max(18, min(130, added * 3 + removed * 4)), power: 1.0)
+            burst(color: primary, count: max(18, min(130, added * 3 + removed * 4)), power: 1.0, directional: true)
             replayTyping(characters: addedChars, lines: added)
             if removed > 0 { deletionSparks(lines: removed) }
         case "verification":
@@ -174,7 +175,7 @@ private final class PowerModeView: NSView {
     }
 
     private func hudOrigin(size: CGSize) -> CGPoint {
-        let margin: CGFloat = 42
+        let margin: CGFloat = 36
         switch edge {
         case "top-left": return CGPoint(x: margin, y: bounds.height - size.height - margin)
         case "bottom-left": return CGPoint(x: margin, y: margin)
@@ -182,6 +183,18 @@ private final class PowerModeView: NSView {
         case "center": return CGPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
         default: return CGPoint(x: bounds.width - size.width - margin, y: bounds.height - size.height - margin)
         }
+    }
+
+    private func hudBaseSize(expanded: Bool? = nil) -> CGSize {
+        let isExpanded = expanded ?? (Date() < hudExpandedUntil)
+        return isExpanded ? CGSize(width: 322, height: 82) : CGSize(width: 82, height: 82)
+    }
+
+    private func reactorCenter() -> CGPoint {
+        let baseSize = hudBaseSize()
+        let scaledSize = CGSize(width: baseSize.width * hudScale, height: baseSize.height * hudScale)
+        let origin = hudOrigin(size: scaledSize)
+        return CGPoint(x: origin.x + 41 * hudScale, y: origin.y + 41 * hudScale)
     }
 
     private func codingOrigin() -> CGPoint {
@@ -203,13 +216,13 @@ private final class PowerModeView: NSView {
 
     private func typingPulse(index: Int) {
         guard !reducedMotion else { return }
-        let origin = codingOrigin()
+        let origin = reactorCenter()
         let color: NSColor = index.isMultiple(of: 4) ? .systemPurple : .systemCyan
         for _ in 0..<Int.random(in: 4...8) {
             let life = CGFloat.random(in: 22...48)
             particles.append(Particle(
                 position: origin,
-                velocity: CGVector(dx: CGFloat.random(in: 1.4...5.8), dy: CGFloat.random(in: -2.8...3.6)),
+                velocity: CGVector(dx: CGFloat.random(in: -6.0 ... -1.8), dy: CGFloat.random(in: -2.8...3.6)),
                 life: life,
                 maxLife: life,
                 radius: CGFloat.random(in: 1.1...3.1),
@@ -221,9 +234,9 @@ private final class PowerModeView: NSView {
 
     private func scan(color: NSColor, echo: Bool = true) {
         guard !reducedMotion else { return }
-        let origin = CGPoint(x: bounds.width * 0.17, y: bounds.height * CGFloat.random(in: 0.28...0.72))
-        let life: CGFloat = 52
-        scanBeams.append(ScanBeam(origin: origin, length: bounds.width * 0.55, life: life, maxLife: life, color: color))
+        let origin = reactorCenter()
+        let life: CGFloat = 58
+        scanBeams.append(ScanBeam(origin: origin, length: -min(bounds.width * 0.72, origin.x - 48), life: life, maxLife: life, color: color))
         if arcadeMode && echo {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in self?.scan(color: color.withAlphaComponent(0.7), echo: false) }
         }
@@ -231,12 +244,12 @@ private final class PowerModeView: NSView {
 
     private func directionalSparks(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
-        let origin = codingOrigin()
+        let origin = reactorCenter()
         for _ in 0..<count {
             let life = CGFloat.random(in: 24...52)
             particles.append(Particle(
                 position: origin,
-                velocity: CGVector(dx: CGFloat.random(in: 2.2...7.4), dy: CGFloat.random(in: -3.2...3.2)),
+                velocity: CGVector(dx: CGFloat.random(in: -7.4 ... -2.2), dy: CGFloat.random(in: -3.2...3.2)),
                 life: life,
                 maxLife: life,
                 radius: CGFloat.random(in: 1.0...2.8),
@@ -247,13 +260,14 @@ private final class PowerModeView: NSView {
 
     private func charge(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
-        let target = codingOrigin()
+        let target = reactorCenter()
+        let source = codingOrigin()
         for _ in 0..<count {
             let angle = CGFloat.random(in: 0...(2 * .pi))
             let distance = CGFloat.random(in: 70...190)
             let life = CGFloat.random(in: 38...58)
             particles.append(Particle(
-                position: CGPoint(x: target.x + cos(angle) * distance, y: target.y + sin(angle) * distance),
+                position: CGPoint(x: source.x + cos(angle) * distance, y: source.y + sin(angle) * distance),
                 velocity: .zero,
                 life: life,
                 maxLife: life,
@@ -266,7 +280,7 @@ private final class PowerModeView: NSView {
 
     private func fragments(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
-        let origin = codingOrigin()
+        let origin = reactorCenter()
         for _ in 0..<count {
             let angle = CGFloat.random(in: 0...(2 * .pi))
             let speed = CGFloat.random(in: 2.5...8.5)
@@ -285,7 +299,7 @@ private final class PowerModeView: NSView {
 
     private func deletionSparks(lines: Int) {
         let count = min(90, max(12, lines * 6))
-        let origin = codingOrigin()
+        let origin = reactorCenter()
         for _ in 0..<count {
             let life = CGFloat.random(in: 28...62)
             particles.append(Particle(
@@ -303,7 +317,7 @@ private final class PowerModeView: NSView {
         guard !reducedMotion else { return }
         let life: CGFloat = 34
         shockwaves.append(Shockwave(
-            center: codingOrigin(),
+            center: reactorCenter(),
             radius: 8,
             life: life,
             maxLife: life,
@@ -312,13 +326,11 @@ private final class PowerModeView: NSView {
         ))
     }
 
-    private func burst(color: NSColor, count: Int, power: CGFloat) {
-        let hudSize = CGSize(width: 320, height: 170)
-        let origin = hudOrigin(size: hudSize)
-        let center = CGPoint(x: origin.x + hudSize.width * 0.54, y: origin.y + hudSize.height * 0.5)
+    private func burst(color: NSColor, count: Int, power: CGFloat, directional: Bool = false) {
+        let center = reactorCenter()
         let scaledCount = arcadeMode ? Int(Double(count) * 1.55) : count
         for _ in 0..<min(scaledCount, 280) {
-            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let angle = directional ? CGFloat.random(in: (.pi - 0.65)...(.pi + 0.65)) : CGFloat.random(in: 0...(2 * .pi))
             let speed = CGFloat.random(in: 1.7...7.5) * power
             let life = CGFloat.random(in: 42...98)
             particles.append(Particle(
@@ -389,7 +401,8 @@ private final class PowerModeView: NSView {
             let alpha = sin(progress * .pi) * 0.7
             context.setStrokeColor(beam.color.withAlphaComponent(alpha).cgColor)
             context.setLineWidth(1.5)
-            context.move(to: CGPoint(x: head - 120, y: beam.origin.y))
+            let trail = beam.length < 0 ? head + 120 : head - 120
+            context.move(to: CGPoint(x: trail, y: beam.origin.y))
             context.addLine(to: CGPoint(x: head, y: beam.origin.y))
             context.strokePath()
             context.move(to: CGPoint(x: head, y: beam.origin.y - 16))
@@ -429,7 +442,7 @@ private final class PowerModeView: NSView {
 
     private func drawHUD() {
         let expanded = Date() < hudExpandedUntil
-        let baseSize = expanded ? CGSize(width: 258, height: 64) : CGSize(width: 60, height: 60)
+        let baseSize = hudBaseSize(expanded: expanded)
         let size = CGSize(width: baseSize.width * hudScale, height: baseSize.height * hudScale)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
@@ -448,38 +461,66 @@ private final class PowerModeView: NSView {
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
         if phase == "RECOVER" { drawRecoverSignal(around: origin, color: phaseColor) }
 
-        let coreRect = CGRect(x: origin.x, y: origin.y, width: 60, height: 60)
+        let haloRect = CGRect(x: origin.x + 1, y: origin.y + 1, width: 80, height: 80)
+        let halo = NSBezierPath(ovalIn: haloRect)
+        phaseColor.withAlphaComponent(0.075).setFill()
+        halo.fill()
+
+        let coreRect = CGRect(x: origin.x + 7, y: origin.y + 7, width: 68, height: 68)
         let core = NSBezierPath(ovalIn: coreRect)
-        NSColor(calibratedWhite: 0.035, alpha: 0.88).setFill()
+        NSColor(calibratedWhite: 0.025, alpha: 0.91).setFill()
         core.fill()
-        NSColor.white.withAlphaComponent(0.14).setStroke()
-        core.lineWidth = 2
+        NSColor.white.withAlphaComponent(0.15).setStroke()
+        core.lineWidth = 1
         core.stroke()
+
+        let innerCore = NSBezierPath(ovalIn: CGRect(x: origin.x + 18, y: origin.y + 18, width: 46, height: 46))
+        phaseColor.withAlphaComponent(0.075).setFill()
+        innerCore.fill()
+        phaseColor.withAlphaComponent(0.24).setStroke()
+        innerCore.lineWidth = 1
+        innerCore.stroke()
+
+        let ticks = NSBezierPath(ovalIn: CGRect(x: origin.x + 3, y: origin.y + 3, width: 76, height: 76))
+        ticks.setLineDash([1, 5], count: 2, phase: 0)
+        phaseColor.withAlphaComponent(0.32).setStroke()
+        ticks.lineWidth = 1
+        ticks.stroke()
 
         let momentum = min(100, max(0, state.momentum ?? 0))
         let progress = CGFloat(momentum) / 100
         let arc = NSBezierPath()
-        arc.appendArc(withCenter: CGPoint(x: origin.x + 30, y: origin.y + 30), radius: 29, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
-        arc.lineWidth = 2.5
+        arc.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 31, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
+        arc.lineWidth = 2.4
         arc.lineCapStyle = .round
         phaseColor.setStroke()
         arc.stroke()
 
         let value = "\(momentum)"
-        drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 11 : 17), y: origin.y + 24), font: .systemFont(ofSize: 25, weight: .black), color: .white)
-        drawText("POWER", at: CGPoint(x: origin.x + 17, y: origin.y + 11), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.58), tracking: 1.0)
+        drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 21 : value.count > 1 ? 27 : 34), y: origin.y + 34), font: .systemFont(ofSize: 21, weight: .bold), color: .white)
+        drawText("POWER", at: CGPoint(x: origin.x + 29, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
         if phase == "COMPLETE" && state.completion == "verified" { drawCompleteSignal(around: origin) }
         if expanded {
-            let copyRect = CGRect(x: origin.x + 69, y: origin.y + 2, width: 189, height: 56)
-            let copy = NSBezierPath(roundedRect: copyRect, xRadius: 12, yRadius: 12)
-            NSColor(calibratedWhite: 0.025, alpha: 0.86).setFill()
+            let copyRect = CGRect(x: origin.x + 92, y: origin.y + 7, width: 230, height: 68)
+            let copy = NSBezierPath(roundedRect: copyRect, xRadius: 14, yRadius: 14)
+            NSColor(calibratedWhite: 0.022, alpha: 0.90).setFill()
             copy.fill()
             NSColor.white.withAlphaComponent(0.10).setStroke()
             copy.lineWidth = 1
             copy.stroke()
-            drawText(phase, at: CGPoint(x: origin.x + 82, y: origin.y + 40), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.2)
-            drawText(String(eventText.prefix(25)), at: CGPoint(x: origin.x + 82, y: origin.y + 22), font: .systemFont(ofSize: 11, weight: .semibold), color: .white)
-            drawText("CONF \(state.confidence ?? 0)%  ·  \((state.riskLevel ?? "low").uppercased()) RISK", at: CGPoint(x: origin.x + 82, y: origin.y + 8), font: .monospacedSystemFont(ofSize: 6.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.58), tracking: 0.55)
+
+            let accentLine = NSBezierPath(roundedRect: CGRect(x: origin.x + 92, y: origin.y + 20, width: 2, height: 42), xRadius: 1, yRadius: 1)
+            phaseColor.setFill()
+            accentLine.fill()
+
+            drawText("●  \(phase)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
+            drawText(arcadeMode ? "ARCADE" : "FOCUS", at: CGPoint(x: origin.x + 273, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.34), tracking: 1.0)
+            drawText(String(eventText.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
+            drawText(String((state.currentActivity ?? "Codex is working").prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
+
+            let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { $0.uppercased() }.joined(separator: "+")) ✓" : "NO EVIDENCE"
+            let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  \((state.riskLevel ?? "low").uppercased()) RISK"
+            drawText("\(evidence)  ·  CONF \(state.confidence ?? 0)%\(risk)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: 0.45)
         }
         context.restoreGState()
     }
@@ -490,26 +531,26 @@ private final class PowerModeView: NSView {
         let reach = 4 + (oscillation + 1) * 2
         color.withAlphaComponent(pulse).setStroke()
         let gates = NSBezierPath()
-        gates.move(to: CGPoint(x: origin.x - reach + 4, y: origin.y + 11))
-        gates.line(to: CGPoint(x: origin.x - reach, y: origin.y + 11))
-        gates.line(to: CGPoint(x: origin.x - reach, y: origin.y + 49))
-        gates.line(to: CGPoint(x: origin.x - reach + 4, y: origin.y + 49))
-        gates.move(to: CGPoint(x: origin.x + 56 + reach, y: origin.y + 11))
-        gates.line(to: CGPoint(x: origin.x + 60 + reach, y: origin.y + 11))
-        gates.line(to: CGPoint(x: origin.x + 60 + reach, y: origin.y + 49))
-        gates.line(to: CGPoint(x: origin.x + 56 + reach, y: origin.y + 49))
+        gates.move(to: CGPoint(x: origin.x - reach + 11, y: origin.y + 16))
+        gates.line(to: CGPoint(x: origin.x + 7 - reach, y: origin.y + 16))
+        gates.line(to: CGPoint(x: origin.x + 7 - reach, y: origin.y + 66))
+        gates.line(to: CGPoint(x: origin.x - reach + 11, y: origin.y + 66))
+        gates.move(to: CGPoint(x: origin.x + 71 + reach, y: origin.y + 16))
+        gates.line(to: CGPoint(x: origin.x + 75 + reach, y: origin.y + 16))
+        gates.line(to: CGPoint(x: origin.x + 75 + reach, y: origin.y + 66))
+        gates.line(to: CGPoint(x: origin.x + 71 + reach, y: origin.y + 66))
         gates.lineWidth = 2
         gates.lineCapStyle = .round
         gates.lineJoinStyle = .round
         gates.stroke()
 
         color.withAlphaComponent(1 - pulse * 0.45).setFill()
-        for y in [CGFloat(4), CGFloat(56)] {
+        for y in [CGFloat(5), CGFloat(71)] {
             let marker = NSBezierPath()
-            marker.move(to: CGPoint(x: origin.x + 30, y: origin.y + y))
-            marker.line(to: CGPoint(x: origin.x + 33, y: origin.y + y + 3))
-            marker.line(to: CGPoint(x: origin.x + 30, y: origin.y + y + 6))
-            marker.line(to: CGPoint(x: origin.x + 27, y: origin.y + y + 3))
+            marker.move(to: CGPoint(x: origin.x + 41, y: origin.y + y))
+            marker.line(to: CGPoint(x: origin.x + 44, y: origin.y + y + 3))
+            marker.line(to: CGPoint(x: origin.x + 41, y: origin.y + y + 6))
+            marker.line(to: CGPoint(x: origin.x + 38, y: origin.y + y + 3))
             marker.close()
             marker.fill()
         }
@@ -518,14 +559,14 @@ private final class PowerModeView: NSView {
     private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {
         let oscillation = reducedMotion ? 0 : sin(shakePhase * 0.075)
         let rotation = oscillation * 7
-        let center = CGPoint(x: origin.x + 30, y: origin.y + 30)
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         color.withAlphaComponent(0.72 + oscillation * 0.16).setStroke()
         for (index, angles) in [(14.0, 62.0), (88.0, 139.0), (166.0, 224.0), (252.0, 333.0)].enumerated() {
             let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
             let segment = NSBezierPath()
             segment.appendArc(
                 withCenter: center,
-                radius: 35 + direction * oscillation * 1.5,
+                radius: 41 + direction * oscillation * 1.5,
                 startAngle: CGFloat(angles.0) + rotation * direction,
                 endAngle: CGFloat(angles.1) + rotation * direction
             )
@@ -546,13 +587,13 @@ private final class PowerModeView: NSView {
     }
 
     private func drawCompleteSignal(around origin: CGPoint) {
-        let center = CGPoint(x: origin.x + 30, y: origin.y + 30)
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         let rotation = reducedMotion ? 0 : shakePhase * 0.18
         let colors: [NSColor] = [.systemGreen, .systemPurple, .systemCyan]
         for (index, color) in colors.enumerated() {
             let start = CGFloat(index) * 120 + rotation
             let ribbon = NSBezierPath()
-            ribbon.appendArc(withCenter: center, radius: 35, startAngle: start + 4, endAngle: start + 112)
+            ribbon.appendArc(withCenter: center, radius: 41, startAngle: start + 4, endAngle: start + 112)
             ribbon.lineWidth = 2
             ribbon.lineCapStyle = .round
             color.withAlphaComponent(0.9).setStroke()
@@ -560,10 +601,10 @@ private final class PowerModeView: NSView {
         }
 
         let check = NSBezierPath()
-        check.move(to: CGPoint(x: origin.x + 46, y: origin.y + 14))
-        check.line(to: CGPoint(x: origin.x + 50, y: origin.y + 10))
-        check.line(to: CGPoint(x: origin.x + 58, y: origin.y + 20))
-        check.lineWidth = 2.4
+        check.move(to: CGPoint(x: origin.x + 64, y: origin.y + 18))
+        check.line(to: CGPoint(x: origin.x + 69, y: origin.y + 13))
+        check.line(to: CGPoint(x: origin.x + 78, y: origin.y + 24))
+        check.lineWidth = 2.6
         check.lineCapStyle = .round
         check.lineJoinStyle = .round
         NSColor(calibratedRed: 0.78, green: 1, blue: 0.9, alpha: 1).setStroke()
