@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { nativeConfigFromEnvironment } from "../src/config.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -12,13 +13,19 @@ const endpoint = "http://127.0.0.1:4737";
 const nativeDir = path.join(dataDir, "native");
 const nativeBinary = path.join(nativeDir, "codex-power-mode-overlay");
 const nativePidFile = path.join(nativeDir, "overlay.pid");
+const nativeConfigFile = path.join(nativeDir, "overlay-config.json");
+
+async function serviceHealth() {
+  try {
+    const response = await fetch(`${endpoint}/api/health`, { signal: AbortSignal.timeout(250) });
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
+}
 
 async function isRunning() {
-  try {
-    return (await fetch(`${endpoint}/api/health`, { signal: AbortSignal.timeout(250) })).ok;
-  } catch {
-    return false;
-  }
+  return Boolean(await serviceHealth());
 }
 
 async function start() {
@@ -137,6 +144,7 @@ async function startNative() {
   });
   child.unref();
   await writeFile(nativePidFile, `${child.pid}\n`);
+  await writeFile(nativeConfigFile, `${JSON.stringify(nativeConfigFromEnvironment(process.env), null, 2)}\n`);
   process.stdout.write(`Native overlay started (PID ${child.pid})\n`);
 }
 
@@ -144,18 +152,34 @@ async function stopNative() {
   const pid = await currentNativePid();
   if (!pid) {
     await unlink(nativePidFile).catch(() => {});
+    await unlink(nativeConfigFile).catch(() => {});
     process.stdout.write("Native overlay is not running\n");
     return;
   }
   process.kill(pid, "SIGTERM");
   await unlink(nativePidFile).catch(() => {});
+  await unlink(nativeConfigFile).catch(() => {});
   process.stdout.write(`Native overlay stopped (PID ${pid})\n`);
+}
+
+async function status() {
+  const [health, nativePid, state, nativeConfiguration] = await Promise.all([
+    serviceHealth(),
+    currentNativePid(),
+    readState(dataDir),
+    readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => null)
+  ]);
+  return {
+    service: { running: Boolean(health), url: endpoint, ...(health ?? {}) },
+    nativeOverlay: { running: Boolean(nativePid), pid: nativePid, configuration: nativeConfiguration },
+    state
+  };
 }
 
 if (command === "start") {
   await start();
 } else if (command === "status") {
-  process.stdout.write(`${JSON.stringify(await readState(dataDir), null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(await status(), null, 2)}\n`);
 } else if (command === "demo") {
   await start();
   const events = [

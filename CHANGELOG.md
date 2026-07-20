@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.13 - 2026-07-21
+
+- Expanded `npm run status` with service health, native PID, launch configuration, and semantic state.
+- Persisted normalized native edge, scale, preset, and accessibility settings for reliable diagnostics.
+
 ## 0.6.12 - 2026-07-21
 
 - Reduced the native overlay refresh loop from 60Hz to 4Hz while idle or holding a static Combo.
