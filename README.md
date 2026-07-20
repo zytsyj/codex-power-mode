@@ -43,6 +43,8 @@ npm run native:stop
 
 The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the active Codex window, hides when Codex is not in front, and does not modify or inject code into the Codex app.
 
+On macOS, the Codex `SessionStart` hook automatically ensures both the event service and native overlay are running. Existing processes are reused, so opening another session does not create duplicate overlays.
+
 Optional environment variables:
 
 - `CODEX_POWER_MODE_EDGE`: `top-right` (default), `top-left`, `bottom-right`, `bottom-left`, or `center`.
@@ -51,6 +53,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.3` (about 78pt collapsed).
 - `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
+- `CODEX_POWER_MODE_AUTO_NATIVE=0`: keep automatic session startup limited to the event service instead of launching the macOS overlay.
 
 ## Plugin layout
 
