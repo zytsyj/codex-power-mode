@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 - 2026-07-20
+
+- Added hard effect budgets for particles, shockwaves, and scan beams in both native and browser overlays.
+- Tuned separate Focus and Arcade limits to prevent high-frequency Codex tool activity from causing unbounded animation buildup.
+
 ## 0.5.2 - 2026-07-17
 
 - Increased the default HUD to a balanced 78pt and added configurable `0.75×–1.6×` scaling.

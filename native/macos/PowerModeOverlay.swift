@@ -333,6 +333,12 @@ private final class PowerModeView: NSView {
     }
 
     private func tick() {
+        let particleBudget = arcadeMode ? 560 : 280
+        let shockwaveBudget = arcadeMode ? 18 : 10
+        let scanBudget = arcadeMode ? 8 : 4
+        if particles.count > particleBudget { particles.removeFirst(particles.count - particleBudget) }
+        if shockwaves.count > shockwaveBudget { shockwaves.removeFirst(shockwaves.count - shockwaveBudget) }
+        if scanBeams.count > scanBudget { scanBeams.removeFirst(scanBeams.count - scanBudget) }
         if !particles.isEmpty {
             for index in particles.indices {
                 if let target = particles[index].target {
