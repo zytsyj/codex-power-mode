@@ -7,6 +7,7 @@ const parameters = new URLSearchParams(location.search);
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
 const previewCombo = parameters.get("combo");
+const previewOffline = parameters.get("connection") === "offline";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
@@ -50,8 +51,18 @@ if (previewMode) {
     comboBrokenAt: comboBroken ? new Date(previewNow).toISOString() : null,
     currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
-  elements.connection.textContent = "PREVIEW";
+  if (previewOffline) setConnection(false, false);
+  else {
+    document.body.dataset.connection = "preview";
+    elements.connection.textContent = "PREVIEW";
+  }
   expand(0);
+}
+
+function setConnection(connected, announce = true) {
+  document.body.dataset.connection = connected ? "online" : "offline";
+  elements.connection.textContent = connected ? "ONLINE" : "RECONNECTING";
+  if (announce) expand(connected ? 1800 : 3200);
 }
 
 function resize() {
@@ -254,8 +265,9 @@ function react(event) {
 
 if (!previewMode) {
   const stream = new EventSource("/api/stream");
-  stream.onopen = () => { elements.connection.textContent = preset.toUpperCase(); };
-  stream.onerror = () => { elements.connection.textContent = "RECONNECT"; };
+  setConnection(false, false);
+  stream.onopen = () => setConnection(true);
+  stream.onerror = () => setConnection(false);
   stream.onmessage = ({ data }) => {
     const event = JSON.parse(data);
     if (event.type === "connected") render(event.state);

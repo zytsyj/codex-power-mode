@@ -186,7 +186,11 @@ body[data-preview-state="true"] .telemetry { visibility: visible; opacity: 1; tr
 .phase-mark { display: flex; align-items: center; gap: 7px; color: var(--accent); }
 .phase-mark i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .phase-mark b, .connection { font: 750 8px/1 ui-monospace, SFMono-Regular, monospace; letter-spacing: .16em; }
-.connection { color: rgba(255,255,255,.34); }
+.connection { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,.42); }
+.connection::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+body[data-connection="online"] .connection { color: rgba(104,233,187,.72); }
+body[data-connection="offline"] .connection { color: #ffc568; }
+body[data-connection="offline"] .connection::before { animation: connection-retry 1s ease-in-out infinite; }
 .telemetry > strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; line-height: 1.25; font-weight: 680; letter-spacing: -.01em; color: #fff; }
 .status-copy { display: block; margin-top: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: rgba(235,240,255,.57); font-size: 10px; line-height: 1.35; }
 .signals { display: flex; align-items: center; gap: 8px; margin-top: 9px; color: rgba(225,232,250,.48); font: 680 8px/1 ui-monospace, SFMono-Regular, monospace; letter-spacing: .07em; }
@@ -315,6 +319,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }
 @keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
 @keyframes complete-halo { to { transform: rotate(360deg); } }
+@keyframes connection-retry { 50% { opacity: .28; transform: scale(.7); } }
 @keyframes combo-hold { 50% { opacity: .48; } }
 @keyframes reactor-fault { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 @keyframes fault-spin { 50% { transform: rotate(-13deg); opacity: .25; } }

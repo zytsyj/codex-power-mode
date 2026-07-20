@@ -81,6 +81,7 @@ private final class PowerModeView: NSView {
     private var comboExpiresAt: Date?
     private var comboBrokenAt: Date?
     private var comboWasAnimating = false
+    private var streamConnected: Bool?
     private let isoDateFormatter = ISO8601DateFormatter()
     private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
     private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
@@ -113,6 +114,15 @@ private final class PowerModeView: NSView {
     required init?(coder: NSCoder) { nil }
 
     deinit { timer?.invalidate() }
+
+    func setStreamConnected(_ connected: Bool) {
+        guard streamConnected != connected else { return }
+        streamConnected = connected
+        eventText = connected ? "EVENT STREAM ONLINE" : "RECONNECTING TO POWER SERVICE"
+        hudExpandedUntil = Date().addingTimeInterval(connected ? 1.8 : 3.2)
+        scheduleTick(highFrequency: !reducedMotion)
+        needsDisplay = true
+    }
 
     func handle(_ event: PowerEvent) {
         if let nextState = event.state {
@@ -554,6 +564,11 @@ private final class PowerModeView: NSView {
         let value = "\(momentum)"
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 21 : value.count > 1 ? 27 : 34), y: origin.y + 34), font: .systemFont(ofSize: 21, weight: .bold), color: .white)
         drawText("POWER", at: CGPoint(x: origin.x + 29, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
+        if streamConnected != true {
+            let connectionDot = NSBezierPath(ovalIn: CGRect(x: origin.x + 72, y: origin.y + 64, width: 6, height: 6))
+            NSColor.systemOrange.setFill()
+            connectionDot.fill()
+        }
         if phase == "COMPLETE" && state.completion == "verified" { drawCompleteSignal(around: origin) }
         let combo = comboSnapshot()
         drawCombo(combo, at: origin, color: combo.active ? phaseColor : combo.lost ? .systemRed : NSColor.white.withAlphaComponent(0.34))
@@ -571,7 +586,9 @@ private final class PowerModeView: NSView {
             accentLine.fill()
 
             drawText("●  \(phase)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
-            drawText(arcadeMode ? "ARCADE" : "FOCUS", at: CGPoint(x: origin.x + 273, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.34), tracking: 1.0)
+            let isConnected = streamConnected == true
+            let connectionLabel = isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : "RECONNECTING"
+            drawText(connectionLabel, at: CGPoint(x: origin.x + (isConnected ? 273 : 238), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: 1.0)
             drawText(String(eventText.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
             drawText(String((state.currentActivity ?? "Codex is working").prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
 
@@ -766,7 +783,9 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
     private var stopped = false
     private var reconnectAttempt = 0
     private var reconnectWorkItem: DispatchWorkItem?
+    private var connected: Bool?
     var onEvent: (@MainActor (PowerEvent) -> Void)?
+    var onConnectionChange: (@MainActor (Bool) -> Void)?
 
     init(url: URL) { self.url = url }
 
@@ -802,6 +821,7 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         reconnectAttempt = 0
+        updateConnection(true)
         guard let chunk = String(data: data, encoding: .utf8) else { return }
         buffer += chunk.replacingOccurrences(of: "\r\n", with: "\n")
         while let boundary = buffer.range(of: "\n\n") {
@@ -818,6 +838,7 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard !stopped, session === self.session else { return }
+        updateConnection(false)
         self.task = nil
         self.session = nil
         session.finishTasksAndInvalidate()
@@ -826,6 +847,12 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
         let workItem = DispatchWorkItem { [weak self] in self?.start() }
         reconnectWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func updateConnection(_ next: Bool) {
+        guard connected != next else { return }
+        connected = next
+        Task { @MainActor [weak self] in self?.onConnectionChange?(next) }
     }
 }
 
@@ -922,6 +949,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let url = URL(string: endpoint), let view = panel.contentView as? PowerModeView else { return }
         let client = EventStream(url: url)
         client.onEvent = { [weak view] event in view?.handle(event) }
+        client.onConnectionChange = { [weak view] connected in view?.setStreamConnected(connected) }
         client.start()
         stream = client
     }

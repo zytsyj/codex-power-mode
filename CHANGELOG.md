@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.15 - 2026-07-21
+
+- Added explicit ONLINE and RECONNECTING feedback without replacing the six semantic Codex states.
+- Kept a compact amber connection marker visible after the native HUD collapses during an outage.
+
 ## 0.6.14 - 2026-07-21
 
 - Added capped exponential backoff when the native event stream cannot reach the service.
