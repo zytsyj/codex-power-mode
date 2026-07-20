@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.8 - 2026-07-21
+
+- Treated a turn stopping while permission is still pending as an explicit cancelled completion.
+- Broke Combo immediately and surfaced approval cancellation instead of returning to READY.
+
 ## 0.6.7 - 2026-07-21
 
 - Added an explicit failed-edit lifecycle event that enters Recover without incrementing edit counts.

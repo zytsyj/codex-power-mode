@@ -181,7 +181,7 @@ private final class PowerModeView: NSView {
         case "edit": return "CHANGE APPLIED  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
         case "edit-failure": return "CHANGE COULD NOT BE APPLIED"
         case "verification": return "\((event.category ?? "CHECK").uppercased()) \(event.success == true ? "PASSED" : "FAILED")"
-        case "turn-stop": return event.state?.completion == "verified" ? "COMPLETED WITH EVIDENCE" : "VERIFICATION RECOMMENDED"
+        case "turn-stop": return event.state?.completion == "verified" ? "COMPLETED WITH EVIDENCE" : event.state?.completion == "cancelled" ? "APPROVAL WAS NOT GRANTED" : "VERIFICATION RECOMMENDED"
         case "connected": return "POWER MODE ONLINE"
         default: return event.type.uppercased()
         }

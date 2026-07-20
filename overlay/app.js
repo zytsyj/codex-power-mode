@@ -155,6 +155,7 @@ function frame() {
 
 function statusCopy(next) {
   if (next.phase === "wait") return "Your approval is needed";
+  if (next.completion === "cancelled") return "Approval was not granted";
   if (next.phase === "recover") return "Confidence dropped; repairing the latest change";
   if (next.phase === "complete" && next.completion === "verified") return "Latest changes are backed by evidence";
   if (next.phase === "complete") return "Verification is still recommended";

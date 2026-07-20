@@ -176,18 +176,19 @@ export function reduceState(previous = initialState, event) {
       breakCombo(state);
     }
   } else if (event.type === "turn-stop") {
+    const stoppedWhileWaiting = state.phase === "wait";
     const verifiedAfterEdit = state.lastVerificationPassed && state.lastVerificationAt &&
       (!state.lastEditAt || state.lastVerificationAt >= state.lastEditAt);
     state.phase = "complete";
-    state.status = verifiedAfterEdit ? "verified" : state.edits ? "unverified" : "complete";
-    state.completion = verifiedAfterEdit ? "verified" : state.edits ? "unverified" : "no-change";
-    state.currentActivity = verifiedAfterEdit ? "Completed with evidence" : state.edits ? "Completed — verification recommended" : "Turn complete";
+    state.status = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "complete";
+    state.completion = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "no-change";
+    state.currentActivity = verifiedAfterEdit ? "Completed with evidence" : stoppedWhileWaiting ? "Approval was not granted" : state.edits ? "Completed — verification recommended" : "Turn complete";
     if (verifiedAfterEdit && state.combo > 0) {
       state.comboStatus = "complete";
       state.comboHoldUntil = timestampAfter(event.timestamp, 3_200);
       state.comboExpiresAt = timestampAfter(event.timestamp, 3_200 + COMBO_DECAY_MS);
     } else {
-      breakCombo(state, state.edits ? "broken" : "idle");
+      breakCombo(state, stoppedWhileWaiting || state.edits ? "broken" : "idle");
     }
   }
 

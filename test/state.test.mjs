@@ -141,6 +141,21 @@ test("failed edits enter recovery and immediately break the combo", () => {
   assert.equal(state.comboBreaks, 1);
 });
 
+test("stopping while permission is pending cancels and breaks the combo", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", toolGroup: "command", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, { type: "permission-request", timestamp: at(2), sessionId: "s" });
+  state = reduceState(state, { type: "turn-stop", timestamp: at(3), sessionId: "s" });
+  assert.equal(state.phase, "complete");
+  assert.equal(state.status, "cancelled");
+  assert.equal(state.completion, "cancelled");
+  assert.equal(state.currentActivity, "Approval was not granted");
+  assert.equal(state.combo, 0);
+  assert.equal(state.comboStatus, "broken");
+  assert.equal(state.comboBreaks, 1);
+});
+
 test("a new turn and a new session cannot inherit the previous combo", () => {
   let state = reduceState(initialState, {
     type: "activity-start", phase: "act", timestamp: at(1), sessionId: "s1"
