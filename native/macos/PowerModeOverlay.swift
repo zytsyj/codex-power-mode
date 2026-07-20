@@ -192,14 +192,25 @@ private final class PowerModeView: NSView {
     }
 
     private func hudOrigin(size: CGSize) -> CGPoint {
-        let margin: CGFloat = 36
+        let preferredMargin: CGFloat = 36
+        let safeMargin: CGFloat = 12
+        let left = min(preferredMargin, max(safeMargin, bounds.width - size.width - safeMargin))
+        let right = max(safeMargin, bounds.width - size.width - preferredMargin)
+        let bottom = min(preferredMargin, max(safeMargin, bounds.height - size.height - safeMargin))
+        let top = max(safeMargin, bounds.height - size.height - preferredMargin)
         switch edge {
-        case "top-left": return CGPoint(x: margin, y: bounds.height - size.height - margin)
-        case "bottom-left": return CGPoint(x: margin, y: margin)
-        case "bottom-right": return CGPoint(x: bounds.width - size.width - margin, y: margin)
+        case "top-left": return CGPoint(x: left, y: top)
+        case "bottom-left": return CGPoint(x: left, y: bottom)
+        case "bottom-right": return CGPoint(x: right, y: bottom)
         case "center": return CGPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
-        default: return CGPoint(x: bounds.width - size.width - margin, y: bounds.height - size.height - margin)
+        default: return CGPoint(x: right, y: top)
         }
+    }
+
+    private func effectiveHudScale(for baseSize: CGSize) -> CGFloat {
+        let safeWidth = max(1, bounds.width - 24)
+        let safeHeight = max(1, bounds.height - 24)
+        return min(hudScale, safeWidth / baseSize.width, safeHeight / baseSize.height)
     }
 
     private func hudBaseSize(expanded: Bool? = nil) -> CGSize {
@@ -209,9 +220,10 @@ private final class PowerModeView: NSView {
 
     private func reactorCenter() -> CGPoint {
         let baseSize = hudBaseSize()
-        let scaledSize = CGSize(width: baseSize.width * hudScale, height: baseSize.height * hudScale)
+        let scale = effectiveHudScale(for: baseSize)
+        let scaledSize = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
         let origin = hudOrigin(size: scaledSize)
-        return CGPoint(x: origin.x + 41 * hudScale, y: origin.y + 41 * hudScale)
+        return CGPoint(x: origin.x + 41 * scale, y: origin.y + 41 * scale)
     }
 
     private func codingOrigin() -> CGPoint {
@@ -466,7 +478,8 @@ private final class PowerModeView: NSView {
     private func drawHUD() {
         let expanded = Date() < hudExpandedUntil
         let baseSize = hudBaseSize(expanded: expanded)
-        let size = CGSize(width: baseSize.width * hudScale, height: baseSize.height * hudScale)
+        let scale = effectiveHudScale(for: baseSize)
+        let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
         let baseOrigin = hudOrigin(size: size)
         let offset = reducedMotion ? CGPoint.zero : CGPoint(
             x: sin(shakePhase * 2.31) * shake,
@@ -478,7 +491,7 @@ private final class PowerModeView: NSView {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         context.translateBy(x: screenOrigin.x, y: screenOrigin.y)
-        context.scaleBy(x: hudScale, y: hudScale)
+        context.scaleBy(x: scale, y: scale)
         let origin = CGPoint.zero
 
         if phase == "OBSERVE" { drawObserveSignal(around: origin, color: phaseColor) }

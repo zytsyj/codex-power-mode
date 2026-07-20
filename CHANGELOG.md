@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.10 - 2026-07-21
+
+- Kept the expanded HUD inside narrow Codex windows with a 12px safe edge.
+- Added matching responsive behavior to the browser preview without shrinking the normal desktop layout.
+
 ## 0.6.9 - 2026-07-21
 
 - Limited LOST feedback to a 3.2-second disconnect window before returning the Combo rail to READY.
