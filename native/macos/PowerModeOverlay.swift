@@ -201,6 +201,11 @@ private final class PowerModeView: NSView {
                 self?.shockwave(color: .systemCyan, power: 1.8)
                 self?.burst(color: .systemCyan, count: 180, power: 1.45)
             }
+        case "turn-stop" where event.state?.completion == "cancelled":
+            shockwave(color: .systemOrange, power: 0.78)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.19) { [weak self] in
+                self?.shockwave(color: .systemOrange, power: 0.52)
+            }
         default:
             break
         }
@@ -521,7 +526,8 @@ private final class PowerModeView: NSView {
         )
         let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
         let phase = (state.phase ?? "observe").uppercased()
-        let phaseColor: NSColor = phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
+        let phaseColor: NSColor = state.completion == "cancelled" ? .systemOrange : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
+        let phaseLabel = state.completion == "cancelled" ? "CANCELLED" : phase
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         context.translateBy(x: screenOrigin.x, y: screenOrigin.y)
@@ -593,7 +599,7 @@ private final class PowerModeView: NSView {
             phaseColor.setFill()
             accentLine.fill()
 
-            drawText("●  \(phase)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
+            drawText("●  \(phaseLabel)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
             let isConnected = streamConnected == true
             let connectionLabel = isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : "RECONNECTING"
             drawText(connectionLabel, at: CGPoint(x: origin.x + (isConnected ? 273 : 238), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: 1.0)

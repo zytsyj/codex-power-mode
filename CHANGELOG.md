@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.17 - 2026-07-21
+
+- Rendered cancelled approvals as an amber CANCELLED outcome instead of a green success-like completion.
+- Added a restrained double-ring cancellation signal while reserving the green finisher for verified completion.
+
 ## 0.6.16 - 2026-07-21
 
 - Added dedicated directional fragment feedback when Codex cannot apply an edit.

@@ -8,6 +8,7 @@ const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
 const previewCombo = parameters.get("combo");
 const previewEvent = parameters.get("event");
+const previewCompletion = parameters.get("completion");
 const previewOffline = parameters.get("connection") === "offline";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const effectBudget = preset === "arcade"
@@ -31,26 +32,27 @@ const previewMode = previewPhase in palette;
 
 if (previewMode) {
   document.body.dataset.previewState = "true";
-  const verifiedComplete = previewPhase === "complete";
+  const cancelledComplete = previewPhase === "complete" && previewCompletion === "cancelled";
+  const verifiedComplete = previewPhase === "complete" && !cancelledComplete;
   const previewNow = Date.now();
   const comboBroken = previewCombo === "lost";
   const comboHolding = previewCombo === "hold";
   render({
     phase: previewPhase,
-    status: previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
+    status: cancelledComplete ? "cancelled" : previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
     momentum: verifiedComplete ? 100 : 72,
     confidence: verifiedComplete ? 100 : 84,
     riskLevel: previewPhase === "recover" ? "high" : "low",
-    completion: verifiedComplete ? "verified" : undefined,
+    completion: cancelledComplete ? "cancelled" : verifiedComplete ? "verified" : undefined,
     evidence: verifiedComplete ? ["test", "build"] : [],
-    combo: comboBroken ? 0 : verifiedComplete ? 12 : 8,
+    combo: comboBroken || cancelledComplete ? 0 : verifiedComplete ? 12 : 8,
     bestCombo: verifiedComplete ? 12 : 8,
-    comboStatus: comboBroken ? "broken" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
+    comboStatus: comboBroken || cancelledComplete ? "broken" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
-    comboExpiresAt: comboBroken ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
-    comboBrokenAt: comboBroken ? new Date(previewNow).toISOString() : null,
-    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
+    comboExpiresAt: comboBroken || cancelledComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
+    comboBrokenAt: comboBroken || cancelledComplete ? new Date(previewNow).toISOString() : null,
+    currentActivity: cancelledComplete ? "Approval was not granted" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   if (previewOffline) setConnection(false, false);
   else {
@@ -59,6 +61,7 @@ if (previewMode) {
   }
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
+  if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
 
 function setConnection(connected, announce = true) {
@@ -212,7 +215,7 @@ function render(next = state) {
   document.body.dataset.completion = state.completion ?? "none";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
-  elements.phase.textContent = phase.toUpperCase();
+  elements.phase.textContent = state.completion === "cancelled" ? "CANCELLED" : phase.toUpperCase();
   elements.event.textContent = state.currentActivity ?? "Codex Power ready";
   elements["status-copy"].textContent = statusCopy(state);
   elements.confidence.textContent = `CONF ${state.confidence ?? 0}%`;
@@ -234,7 +237,7 @@ function flashAt(start) {
 function react(event) {
   render(event.state);
   const phase = event.state?.phase ?? event.phase ?? "observe";
-  const color = palette[phase];
+  const color = event.state?.completion === "cancelled" ? "#ffc568" : palette[phase];
   const start = reactorOrigin();
   const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
   expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
@@ -262,6 +265,8 @@ function react(event) {
     setTimeout(() => burst(color, 38, .85, "radial", start), 280);
   } else if (event.type === "verification") {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
+  } else if (event.type === "turn-stop" && event.state?.completion === "cancelled") {
+    ring(color, .78, start); setTimeout(() => ring(color, .52, start), 190);
   } else if (event.state?.completion === "verified") {
     ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
     setTimeout(() => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); }, 180);
