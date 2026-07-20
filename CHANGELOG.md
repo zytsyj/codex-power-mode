@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5 - 2026-07-20
+
+- Made the Codex `SessionStart` hook automatically ensure the native macOS overlay is running.
+- Reused the existing server and native-process guards to avoid duplicate overlays across sessions.
+- Added `CODEX_POWER_MODE_AUTO_NATIVE=0` for users who only want the background event service.
+- Added startup-policy tests and included the session hook in syntax validation.
+
 ## 0.5.4 - 2026-07-20
 
 - Coalesced identical rapid Observe events so consecutive reads and searches do not repeatedly restart the scan animation.
