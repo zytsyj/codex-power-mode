@@ -73,6 +73,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Patch source text is reduced to line and character counts before persistence; command contents are not stored.
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
+- Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
 
 ## Roadmap
 

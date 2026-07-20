@@ -6,6 +6,9 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const parameters = new URLSearchParams(location.search);
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const intensity = preset === "arcade" ? 1.75 : 1;
+const effectBudget = preset === "arcade"
+  ? { particles: 560, rings: 18, scans: 8 }
+  : { particles: 280, rings: 10, scans: 4 };
 const particles = [];
 const rings = [];
 const scans = [];
@@ -70,6 +73,9 @@ function scan(color) {
 }
 
 function frame() {
+  if (particles.length > effectBudget.particles) particles.splice(0, particles.length - effectBudget.particles);
+  if (rings.length > effectBudget.rings) rings.splice(0, rings.length - effectBudget.rings);
+  if (scans.length > effectBudget.scans) scans.splice(0, scans.length - effectBudget.scans);
   context.clearRect(0, 0, innerWidth, innerHeight);
   context.globalCompositeOperation = "lighter";
   for (let index = scans.length - 1; index >= 0; index -= 1) {
