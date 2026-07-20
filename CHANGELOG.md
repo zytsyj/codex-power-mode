@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.7 - 2026-07-20
+
+- Gave Recover a persistent fractured ring and repair seam in both native and browser overlays.
+- Kept the recovery marker static when reduced motion is enabled.
+
 ## 0.5.6 - 2026-07-20
 
 - Gave Wait a persistent amber breathing-gate signal around the HUD core in both native and browser overlays.

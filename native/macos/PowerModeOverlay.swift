@@ -446,6 +446,7 @@ private final class PowerModeView: NSView {
         let origin = CGPoint.zero
 
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
+        if phase == "RECOVER" { drawRecoverSignal(around: origin, color: phaseColor) }
 
         let coreRect = CGRect(x: origin.x, y: origin.y, width: 60, height: 60)
         let core = NSBezierPath(ovalIn: coreRect)
@@ -511,6 +512,36 @@ private final class PowerModeView: NSView {
             marker.close()
             marker.fill()
         }
+    }
+
+    private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {
+        let oscillation = reducedMotion ? 0 : sin(shakePhase * 0.075)
+        let rotation = oscillation * 7
+        let center = CGPoint(x: origin.x + 30, y: origin.y + 30)
+        color.withAlphaComponent(0.72 + oscillation * 0.16).setStroke()
+        for (index, angles) in [(14.0, 62.0), (88.0, 139.0), (166.0, 224.0), (252.0, 333.0)].enumerated() {
+            let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
+            let segment = NSBezierPath()
+            segment.appendArc(
+                withCenter: center,
+                radius: 35 + direction * oscillation * 1.5,
+                startAngle: CGFloat(angles.0) + rotation * direction,
+                endAngle: CGFloat(angles.1) + rotation * direction
+            )
+            segment.lineWidth = 2
+            segment.lineCapStyle = .square
+            segment.stroke()
+        }
+
+        color.withAlphaComponent(0.48).setStroke()
+        let seam = NSBezierPath()
+        seam.move(to: CGPoint(x: origin.x + 19 + oscillation, y: origin.y + 11))
+        seam.line(to: CGPoint(x: origin.x + 28, y: origin.y + 25))
+        seam.line(to: CGPoint(x: origin.x + 25, y: origin.y + 31))
+        seam.line(to: CGPoint(x: origin.x + 40 - oscillation, y: origin.y + 50))
+        seam.lineWidth = 1.4
+        seam.lineCapStyle = .square
+        seam.stroke()
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

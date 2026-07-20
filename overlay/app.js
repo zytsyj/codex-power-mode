@@ -30,11 +30,11 @@ if (previewMode) {
   document.body.dataset.previewState = "true";
   render({
     phase: previewPhase,
-    status: previewPhase === "wait" ? "needs-attention" : "ready",
+    status: previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
     momentum: 72,
     confidence: 84,
     riskLevel: previewPhase === "recover" ? "high" : "low",
-    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : "Codex activity preview"
+    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : "Codex activity preview"
   });
   elements.connection.textContent = "PREVIEW";
   expand(0);
