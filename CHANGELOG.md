@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3 - 2026-07-20
+
+- Gave Observe a persistent single-direction radar sweep in both browser and native macOS overlays.
+- Kept the scan quieter than Act and Verify while preserving a distinct ongoing reading state.
+
 ## 0.6.2 - 2026-07-20
 
 - Gave Act a persistent outward-propagating shard signal in both browser and native macOS overlays.

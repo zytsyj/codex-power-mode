@@ -471,6 +471,7 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: hudScale, y: hudScale)
         let origin = CGPoint.zero
 
+        if phase == "OBSERVE" { drawObserveSignal(around: origin, color: phaseColor) }
         if phase == "ACT" { drawActSignal(around: origin, color: phaseColor) }
         if phase == "VERIFY" { drawVerifySignal(around: origin, color: phaseColor) }
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
@@ -571,6 +572,20 @@ private final class PowerModeView: NSView {
             marker.line(to: CGPoint(x: origin.x + 38, y: origin.y + y + 3))
             marker.close()
             marker.fill()
+        }
+    }
+
+    private func drawObserveSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let heading = reducedMotion ? CGFloat(35) : shakePhase * 0.19
+        for index in 0..<3 {
+            let trail = CGFloat(index) * 14
+            let sweep = NSBezierPath()
+            sweep.appendArc(withCenter: center, radius: 38.5, startAngle: heading - trail - 13, endAngle: heading - trail)
+            sweep.lineWidth = 2.2
+            sweep.lineCapStyle = .round
+            color.withAlphaComponent(0.78 - CGFloat(index) * 0.23).setStroke()
+            sweep.stroke()
         }
     }
 
