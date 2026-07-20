@@ -1,8 +1,41 @@
-import { appendFile, mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, open, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const staleLockAgeMs = 10_000;
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code !== "ESRCH";
+  }
+}
+
+async function reclaimAbandonedLock(lockPath) {
+  try {
+    const [contents, info] = await Promise.all([readFile(lockPath, "utf8"), stat(lockPath)]);
+    if (Date.now() - info.mtimeMs < staleLockAgeMs) return false;
+
+    let ownerPid = null;
+    try {
+      ownerPid = Number.parseInt(JSON.parse(contents).pid, 10);
+    } catch {
+      // Older versions created an empty lock, so age is the only usable signal.
+    }
+    if (Number.isInteger(ownerPid) && ownerPid > 0 && processIsAlive(ownerPid)) return false;
+
+    const current = await stat(lockPath);
+    if (current.ino !== info.ino || current.mtimeMs !== info.mtimeMs || current.size !== info.size) return false;
+    await unlink(lockPath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return true;
+    return false;
+  }
+}
 
 async function withLock(dataDir, operation) {
   const lockPath = path.join(dataDir, "state.lock");
@@ -13,11 +46,13 @@ async function withLock(dataDir, operation) {
       break;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
+      if (await reclaimAbandonedLock(lockPath)) continue;
       await sleep(10 + attempt * 2);
     }
   }
   if (!handle) throw new Error("Could not acquire Power Mode state lock");
   try {
+    await handle.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }));
     return await operation();
   } finally {
     await handle.close();

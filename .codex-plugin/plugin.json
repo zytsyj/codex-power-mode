@@ -1,6 +1,6 @@
 {
   "name": "codex-power-mode",
-  "version": "0.6.23",
+  "version": "0.6.23+codex.20260720235809",
   "description": "A semantic activity and verification feedback layer for Codex.",
   "author": {
     "name": "zytsyj",
@@ -9,7 +9,13 @@
   "homepage": "https://github.com/zytsyj/codex-power-mode",
   "repository": "https://github.com/zytsyj/codex-power-mode",
   "license": "UNLICENSED",
-  "keywords": ["codex", "power-mode", "productivity", "visual-effects", "hooks"],
+  "keywords": [
+    "codex",
+    "power-mode",
+    "productivity",
+    "visual-effects",
+    "hooks"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex Power Mode",
@@ -17,7 +23,10 @@
     "longDescription": "Adds a semantic agent-state HUD, useful-step momentum, verification confidence, risk feedback, and evidence-backed completion effects.",
     "developerName": "zytsyj",
     "category": "Productivity",
-    "capabilities": ["Interactive", "Read"],
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
     "defaultPrompt": [
       "Start Codex Power Mode for this workspace.",
       "Show my current Power Mode momentum and confidence.",
