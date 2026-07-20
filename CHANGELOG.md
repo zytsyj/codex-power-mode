@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6 - 2026-07-20
+
+- Gave Wait a persistent amber breathing-gate signal around the HUD core in both native and browser overlays.
+- Added an explicit preview phase query for repeatable light and dark visual acceptance checks.
+
 ## 0.5.5 - 2026-07-20
 
 - Made the Codex `SessionStart` hook automatically ensure the native macOS overlay is running.

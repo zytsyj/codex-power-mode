@@ -5,6 +5,7 @@ const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const parameters = new URLSearchParams(location.search);
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
+const previewPhase = parameters.get("phase");
 const intensity = preset === "arcade" ? 1.75 : 1;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
@@ -23,6 +24,21 @@ const palette = {
   observe: "#75dfff", act: "#a886ff", verify: "#62e3ad",
   wait: "#ffc568", recover: "#ff6486", complete: "#72e9bf"
 };
+const previewMode = previewPhase in palette;
+
+if (previewMode) {
+  document.body.dataset.previewState = "true";
+  render({
+    phase: previewPhase,
+    status: previewPhase === "wait" ? "needs-attention" : "ready",
+    momentum: 72,
+    confidence: 84,
+    riskLevel: previewPhase === "recover" ? "high" : "low",
+    currentActivity: previewPhase === "wait" ? "Waiting for your approval" : "Codex activity preview"
+  });
+  elements.connection.textContent = "PREVIEW";
+  expand(0);
+}
 
 function resize() {
   scale = devicePixelRatio || 1;
@@ -178,14 +194,16 @@ function react(event) {
   }
 }
 
-const stream = new EventSource("/api/stream");
-stream.onopen = () => { elements.connection.textContent = preset.toUpperCase(); };
-stream.onerror = () => { elements.connection.textContent = "RECONNECT"; };
-stream.onmessage = ({ data }) => {
-  const event = JSON.parse(data);
-  if (event.type === "connected") render(event.state);
-  else react(event);
-};
+if (!previewMode) {
+  const stream = new EventSource("/api/stream");
+  stream.onopen = () => { elements.connection.textContent = preset.toUpperCase(); };
+  stream.onerror = () => { elements.connection.textContent = "RECONNECT"; };
+  stream.onmessage = ({ data }) => {
+    const event = JSON.parse(data);
+    if (event.type === "connected") render(event.state);
+    else react(event);
+  };
+}
 
 addEventListener("resize", resize);
 resize(); frame();
