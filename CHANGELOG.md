@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.19 - 2026-07-21
+
+- Corrected the native no-change completion copy so a turn without code edits no longer recommends unnecessary verification.
+
 ## 0.6.18 - 2026-07-21
 
 - Distinguished unverified completion with a yellow UNVERIFIED label and single verification reminder ring.

@@ -88,6 +88,14 @@ test("unverified edits cannot claim an evidence-backed completion", () => {
   assert.equal(state.status, "unverified");
 });
 
+test("a turn without edits completes without asking for verification", () => {
+  const state = reduceState(initialState, { type: "turn-stop", timestamp: at(2) });
+  assert.equal(state.phase, "complete");
+  assert.equal(state.completion, "no-change");
+  assert.equal(state.currentActivity, "Turn complete");
+  assert.equal(state.comboStatus, "idle");
+});
+
 test("combo holds during tools and then decays after a useful result", () => {
   let state = reduceState(initialState, {
     type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1), sessionId: "s"
