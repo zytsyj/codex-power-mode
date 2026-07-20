@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.20 - 2026-07-21
+
+- Paused the browser effects canvas when no particles, rings, or scans are active, then resumed it on the next Codex event.
+
 ## 0.6.19 - 2026-07-21
 
 - Corrected the native no-change completion copy so a turn without code edits no longer recommends unnecessary verification.

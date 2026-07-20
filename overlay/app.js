@@ -20,6 +20,7 @@ const scans = [];
 let state = {};
 let scale = devicePixelRatio || 1;
 let collapseTimer;
+let effectsFrame = null;
 
 document.body.dataset.preset = preset;
 if (parameters.get("preview") === "light") document.body.dataset.preview = "light";
@@ -120,19 +121,29 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
       square: mode === "fragments"
     });
   }
+  scheduleEffectsFrame();
 }
 
 function ring(color, power = 1, start = reactorOrigin()) {
-  if (!reducedMotion) rings.push({ ...start, radius: 8, life: 38, maxLife: 38, color, speed: 4.4 * power * intensity });
+  if (!reducedMotion) {
+    rings.push({ ...start, radius: 8, life: 38, maxLife: 38, color, speed: 4.4 * power * intensity });
+    scheduleEffectsFrame();
+  }
 }
 
 function scan(color) {
   if (reducedMotion) return;
   const start = reactorOrigin();
   scans.push({ x: start.x - 18, y: start.y, width: Math.min(innerWidth * .72, start.x - 48), life: 58, maxLife: 58, color });
+  scheduleEffectsFrame();
+}
+
+function scheduleEffectsFrame() {
+  if (effectsFrame === null) effectsFrame = requestAnimationFrame(frame);
 }
 
 function frame() {
+  effectsFrame = null;
   if (particles.length > effectBudget.particles) particles.splice(0, particles.length - effectBudget.particles);
   if (rings.length > effectBudget.rings) rings.splice(0, rings.length - effectBudget.rings);
   if (scans.length > effectBudget.scans) scans.splice(0, scans.length - effectBudget.scans);
@@ -171,7 +182,7 @@ function frame() {
     else { context.beginPath(); context.arc(item.x, item.y, item.size, 0, Math.PI * 2); context.fill(); }
   }
   context.globalAlpha = 1;
-  requestAnimationFrame(frame);
+  if (particles.length || rings.length || scans.length) scheduleEffectsFrame();
 }
 
 function statusCopy(next) {
@@ -294,5 +305,5 @@ if (!previewMode) {
 }
 
 addEventListener("resize", resize);
-resize(); frame();
+resize();
 setInterval(() => renderCombo(), 100);
