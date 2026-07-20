@@ -764,12 +764,21 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
     private var task: URLSessionDataTask?
     private var buffer = ""
     private var stopped = false
+    private var reconnectAttempt = 0
+    private var reconnectWorkItem: DispatchWorkItem?
     var onEvent: (@MainActor (PowerEvent) -> Void)?
 
     init(url: URL) { self.url = url }
 
     func start() {
         stopped = false
+        reconnectWorkItem?.cancel()
+        reconnectWorkItem = nil
+        task?.cancel()
+        session?.invalidateAndCancel()
+        task = nil
+        session = nil
+        buffer = ""
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
         let configuration = URLSessionConfiguration.ephemeral
@@ -783,11 +792,16 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
 
     func stop() {
         stopped = true
+        reconnectWorkItem?.cancel()
+        reconnectWorkItem = nil
         task?.cancel()
         session?.invalidateAndCancel()
+        task = nil
+        session = nil
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        reconnectAttempt = 0
         guard let chunk = String(data: data, encoding: .utf8) else { return }
         buffer += chunk.replacingOccurrences(of: "\r\n", with: "\n")
         while let boundary = buffer.range(of: "\n\n") {
@@ -803,8 +817,15 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard !stopped else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.start() }
+        guard !stopped, session === self.session else { return }
+        self.task = nil
+        self.session = nil
+        session.finishTasksAndInvalidate()
+        let delay = min(30.0, pow(2.0, Double(reconnectAttempt)))
+        reconnectAttempt = min(5, reconnectAttempt + 1)
+        let workItem = DispatchWorkItem { [weak self] in self?.start() }
+        reconnectWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 }
 

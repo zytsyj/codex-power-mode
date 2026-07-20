@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.14 - 2026-07-21
+
+- Added capped exponential backoff when the native event stream cannot reach the service.
+- Cleaned up completed sessions before reconnecting and reset the retry delay as soon as service data returns.
+
 ## 0.6.13 - 2026-07-21
 
 - Expanded `npm run status` with service health, native PID, launch configuration, and semantic state.
