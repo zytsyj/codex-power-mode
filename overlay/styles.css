@@ -72,6 +72,24 @@ body[data-phase="wait"] .core::after {
   transform: rotate(45deg);
   animation: wait-markers 1.15s ease-in-out infinite reverse;
 }
+body[data-phase="recover"] .core::before {
+  inset: -6px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -18deg, var(--accent) 0 12deg, transparent 12deg 27deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  filter: drop-shadow(0 0 5px rgba(var(--accent-rgb), .55));
+  opacity: .9;
+  animation: recover-fracture 1.35s steps(3, end) infinite alternate;
+}
+body[data-phase="recover"] .core::after {
+  inset: 8px 3px;
+  background:
+    linear-gradient(132deg, transparent 44%, rgba(var(--accent-rgb), .82) 45% 48%, transparent 49%),
+    linear-gradient(132deg, transparent 57%, rgba(var(--accent-rgb), .45) 58% 60%, transparent 61%);
+  opacity: .78;
+  animation: recover-seam 1.35s steps(2, end) infinite alternate-reverse;
+}
 body[data-status="needs-attention"] .core { animation: attention 1.25s ease-in-out infinite; }
 body[data-status="failed"] .floating-hud { animation: failure .18s linear 3; }
 body[data-preset="focus"] .orbit { opacity: .78; }
@@ -82,6 +100,8 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes attention { 50% { transform: scale(1.07); filter: drop-shadow(0 0 14px rgba(var(--accent-rgb), .55)); } }
 @keyframes wait-gates { 50% { inset: 1px -9px; opacity: 1; } }
 @keyframes wait-markers { 50% { opacity: .35; transform: rotate(45deg) scale(.72); } }
+@keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }
+@keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
 @keyframes failure { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
