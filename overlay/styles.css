@@ -204,7 +204,8 @@ body[data-phase="wait"] { --accent: #ffc567; --accent-rgb: 255, 197, 103; }
 body[data-phase="recover"] { --accent: #ff5f7f; --accent-rgb: 255, 95, 127; }
 body[data-phase="complete"] { --accent: #75dfff; --accent-rgb: 117, 223, 255; }
 body[data-phase="complete"][data-completion="verified"] { --accent: #68e9bb; --accent-rgb: 104, 233, 187; }
-body[data-completion="cancelled"] { --accent: #ffc568; --accent-rgb: 255, 197, 104; }
+body[data-completion="unverified"] { --accent: #ffe07a; --accent-rgb: 255, 224, 122; }
+body[data-completion="cancelled"] { --accent: #ffad66; --accent-rgb: 255, 173, 102; }
 
 .reactor-wrap::before, .reactor-wrap::after { content: ""; position: absolute; pointer-events: none; opacity: 0; }
 body[data-phase="observe"] .reactor-wrap::before {

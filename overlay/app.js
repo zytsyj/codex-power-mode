@@ -33,26 +33,29 @@ const previewMode = previewPhase in palette;
 if (previewMode) {
   document.body.dataset.previewState = "true";
   const cancelledComplete = previewPhase === "complete" && previewCompletion === "cancelled";
-  const verifiedComplete = previewPhase === "complete" && !cancelledComplete;
+  const unverifiedComplete = previewPhase === "complete" && previewCompletion === "unverified";
+  const noChangeComplete = previewPhase === "complete" && previewCompletion === "no-change";
+  const verifiedComplete = previewPhase === "complete" && !cancelledComplete && !unverifiedComplete && !noChangeComplete;
+  const incompleteOutcome = cancelledComplete || unverifiedComplete;
   const previewNow = Date.now();
   const comboBroken = previewCombo === "lost";
   const comboHolding = previewCombo === "hold";
   render({
     phase: previewPhase,
-    status: cancelledComplete ? "cancelled" : previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
+    status: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
     momentum: verifiedComplete ? 100 : 72,
     confidence: verifiedComplete ? 100 : 84,
     riskLevel: previewPhase === "recover" ? "high" : "low",
-    completion: cancelledComplete ? "cancelled" : verifiedComplete ? "verified" : undefined,
+    completion: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : noChangeComplete ? "no-change" : verifiedComplete ? "verified" : undefined,
     evidence: verifiedComplete ? ["test", "build"] : [],
-    combo: comboBroken || cancelledComplete ? 0 : verifiedComplete ? 12 : 8,
+    combo: comboBroken || previewPhase === "complete" && !verifiedComplete ? 0 : verifiedComplete ? 12 : 8,
     bestCombo: verifiedComplete ? 12 : 8,
-    comboStatus: comboBroken || cancelledComplete ? "broken" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
+    comboStatus: comboBroken || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
-    comboExpiresAt: comboBroken || cancelledComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
-    comboBrokenAt: comboBroken || cancelledComplete ? new Date(previewNow).toISOString() : null,
-    currentActivity: cancelledComplete ? "Approval was not granted" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
+    comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
+    comboBrokenAt: comboBroken || incompleteOutcome ? new Date(previewNow).toISOString() : null,
+    currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   if (previewOffline) setConnection(false, false);
   else {
@@ -62,6 +65,7 @@ if (previewMode) {
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
+  if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
 
 function setConnection(connected, announce = true) {
@@ -173,6 +177,8 @@ function frame() {
 function statusCopy(next) {
   if (next.phase === "wait") return "Your approval is needed";
   if (next.completion === "cancelled") return "Approval was not granted";
+  if (next.completion === "unverified") return "Run verification before relying on these changes";
+  if (next.completion === "no-change") return "No code changes were made";
   if (next.phase === "recover") return "Confidence dropped; repairing the latest change";
   if (next.phase === "complete" && next.completion === "verified") return "Latest changes are backed by evidence";
   if (next.phase === "complete") return "Verification is still recommended";
@@ -215,7 +221,7 @@ function render(next = state) {
   document.body.dataset.completion = state.completion ?? "none";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
-  elements.phase.textContent = state.completion === "cancelled" ? "CANCELLED" : phase.toUpperCase();
+  elements.phase.textContent = state.completion === "cancelled" ? "CANCELLED" : state.completion === "unverified" ? "UNVERIFIED" : phase.toUpperCase();
   elements.event.textContent = state.currentActivity ?? "Codex Power ready";
   elements["status-copy"].textContent = statusCopy(state);
   elements.confidence.textContent = `CONF ${state.confidence ?? 0}%`;
@@ -237,7 +243,7 @@ function flashAt(start) {
 function react(event) {
   render(event.state);
   const phase = event.state?.phase ?? event.phase ?? "observe";
-  const color = event.state?.completion === "cancelled" ? "#ffc568" : palette[phase];
+  const color = event.state?.completion === "cancelled" ? "#ffad66" : event.state?.completion === "unverified" ? "#ffe07a" : palette[phase];
   const start = reactorOrigin();
   const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
   expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
@@ -267,6 +273,8 @@ function react(event) {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
   } else if (event.type === "turn-stop" && event.state?.completion === "cancelled") {
     ring(color, .78, start); setTimeout(() => ring(color, .52, start), 190);
+  } else if (event.type === "turn-stop" && event.state?.completion === "unverified") {
+    ring(color, .68, start);
   } else if (event.state?.completion === "verified") {
     ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
     setTimeout(() => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); }, 180);

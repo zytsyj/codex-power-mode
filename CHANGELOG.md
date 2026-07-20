@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.18 - 2026-07-21
+
+- Distinguished unverified completion with a yellow UNVERIFIED label and single verification reminder ring.
+- Kept no-change completion neutral cyan while preserving green exclusively for evidence-backed completion.
+
 ## 0.6.17 - 2026-07-21
 
 - Rendered cancelled approvals as an amber CANCELLED outcome instead of a green success-like completion.

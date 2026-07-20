@@ -206,6 +206,8 @@ private final class PowerModeView: NSView {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.19) { [weak self] in
                 self?.shockwave(color: .systemOrange, power: 0.52)
             }
+        case "turn-stop" where event.state?.completion == "unverified":
+            shockwave(color: .systemYellow, power: 0.68)
         default:
             break
         }
@@ -526,8 +528,8 @@ private final class PowerModeView: NSView {
         )
         let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
         let phase = (state.phase ?? "observe").uppercased()
-        let phaseColor: NSColor = state.completion == "cancelled" ? .systemOrange : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
-        let phaseLabel = state.completion == "cancelled" ? "CANCELLED" : phase
+        let phaseColor: NSColor = state.completion == "cancelled" ? .systemOrange : state.completion == "unverified" ? .systemYellow : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
+        let phaseLabel = state.completion == "cancelled" ? "CANCELLED" : state.completion == "unverified" ? "UNVERIFIED" : phase
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         context.translateBy(x: screenOrigin.x, y: screenOrigin.y)
