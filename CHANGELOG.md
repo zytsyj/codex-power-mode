@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 - 2026-07-20
+
+- Gave Verify a persistent three-segment orbit and inward focus pulse in both browser and native macOS overlays.
+- Preserved reduced-motion behavior while keeping Verify geometrically distinct from Observe and Act.
+
 ## 0.6.0 - 2026-07-20
 
 - Integrated the redesigned reactor and telemetry frontend from `main` without losing semantic state effects.

@@ -471,6 +471,7 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: hudScale, y: hudScale)
         let origin = CGPoint.zero
 
+        if phase == "VERIFY" { drawVerifySignal(around: origin, color: phaseColor) }
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
         if phase == "RECOVER" { drawRecoverSignal(around: origin, color: phaseColor) }
 
@@ -570,6 +571,27 @@ private final class PowerModeView: NSView {
             marker.close()
             marker.fill()
         }
+    }
+
+    private func drawVerifySignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let rotation = reducedMotion ? 0 : shakePhase * 0.34
+        color.withAlphaComponent(0.82).setStroke()
+        for index in 0..<3 {
+            let start = CGFloat(index) * 120 + rotation
+            let segment = NSBezierPath()
+            segment.appendArc(withCenter: center, radius: 38, startAngle: start, endAngle: start + 18)
+            segment.lineWidth = 2
+            segment.lineCapStyle = .round
+            segment.stroke()
+        }
+
+        let progress = reducedMotion ? CGFloat(0.35) : shakePhase.truncatingRemainder(dividingBy: 75) / 75
+        let radius = 34 - progress * 12
+        let focus = NSBezierPath(ovalIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+        color.withAlphaComponent((1 - progress) * 0.52).setStroke()
+        focus.lineWidth = 1
+        focus.stroke()
     }
 
     private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {
