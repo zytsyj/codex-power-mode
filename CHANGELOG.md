@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.9 - 2026-07-21
+
+- Limited LOST feedback to a 3.2-second disconnect window before returning the Combo rail to READY.
+- Applied the same timing to explicit failures and natural Combo expiry in browser and native overlays.
+
 ## 0.6.8 - 2026-07-21
 
 - Treated a turn stopping while permission is still pending as an explicit cancelled completion.

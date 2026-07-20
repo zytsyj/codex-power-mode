@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboProgress, initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboDisplayStatus, comboProgress, initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -126,6 +126,16 @@ test("failed verification immediately breaks the combo", () => {
   assert.equal(state.combo, 0);
   assert.equal(state.comboStatus, "broken");
   assert.equal(state.comboBreaks, 1);
+  assert.equal(comboDisplayStatus(state, at(5)), "broken");
+  assert.equal(comboDisplayStatus(state, at(7)), "idle");
+});
+
+test("an expired combo shows LOST briefly and then returns to READY", () => {
+  const state = reduceState(initialState, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
+  });
+  assert.equal(comboDisplayStatus(state, at(13.5)), "broken");
+  assert.equal(comboDisplayStatus(state, at(16.3)), "idle");
 });
 
 test("failed edits enter recovery and immediately break the combo", () => {

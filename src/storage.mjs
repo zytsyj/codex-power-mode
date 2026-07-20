@@ -38,6 +38,7 @@ export async function readState(dataDir) {
       state.comboLastAt = null;
       state.comboHoldUntil = null;
       state.comboExpiresAt = null;
+      state.comboBrokenAt = null;
     }
     return state;
   } catch (error) {

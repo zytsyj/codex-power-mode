@@ -47,6 +47,7 @@ if (previewMode) {
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
+    comboBrokenAt: comboBroken ? new Date(previewNow).toISOString() : null,
     currentActivity: previewPhase === "wait" ? "Waiting for your approval" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   elements.connection.textContent = "PREVIEW";
@@ -177,7 +178,11 @@ function comboProgressAt(next, now = Date.now()) {
 function renderCombo(now = Date.now()) {
   const progress = comboProgressAt(state, now);
   const active = (state.combo ?? 0) > 0 && progress > 0;
-  const status = active ? (state.comboStatus ?? "decaying") : (state.combo ?? 0) > 0 ? "broken" : (state.comboStatus ?? "idle");
+  const explicitBreak = Date.parse(state.comboBrokenAt);
+  const naturalBreak = Date.parse(state.comboExpiresAt);
+  const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
+  const recentlyLost = Number.isFinite(disconnectedAt) && now < disconnectedAt + 3_200;
+  const status = active ? (state.comboStatus ?? "decaying") : recentlyLost ? "broken" : "idle";
   const labels = { holding: "HOLD", waiting: "WAIT", decaying: "LINK", complete: "DONE", broken: "LOST", idle: "READY" };
   elements["combo-count"].textContent = `${active ? state.combo : 0}×`;
   elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;

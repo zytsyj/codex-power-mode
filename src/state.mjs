@@ -10,6 +10,7 @@ export const initialState = Object.freeze({
   comboLastAt: null,
   comboHoldUntil: null,
   comboExpiresAt: null,
+  comboBrokenAt: null,
   confidence: 0,
   risk: 0,
   riskLevel: "low",
@@ -33,6 +34,7 @@ export const initialState = Object.freeze({
 
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 export const COMBO_DECAY_MS = 12_000;
+export const COMBO_LOST_MS = 3_200;
 
 const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
 
@@ -52,14 +54,16 @@ function advanceCombo(state, event, weight = 1, holdMs = 0, forceNew = false) {
   state.comboLastAt = event.timestamp;
   state.comboHoldUntil = timestampAfter(event.timestamp, holdMs);
   state.comboExpiresAt = timestampAfter(event.timestamp, holdMs + COMBO_DECAY_MS);
+  state.comboBrokenAt = null;
 }
 
-function breakCombo(state, status = "broken") {
+function breakCombo(state, status = "broken", timestamp = null) {
   if (state.combo > 0) state.comboBreaks += 1;
   state.combo = 0;
   state.comboStatus = status;
   state.comboHoldUntil = null;
   state.comboExpiresAt = null;
+  state.comboBrokenAt = status === "broken" ? timestamp : null;
 }
 
 export function comboProgress(state, now = Date.now()) {
@@ -71,6 +75,15 @@ export function comboProgress(state, now = Date.now()) {
   if (current <= holdUntil) return 1;
   if (current >= expiresAt) return 0;
   return clamp((expiresAt - current) / Math.max(1, expiresAt - holdUntil), 0, 1);
+}
+
+export function comboDisplayStatus(state, now = Date.now()) {
+  const current = typeof now === "number" ? now : Date.parse(now);
+  if (comboProgress(state, current) > 0) return state.comboStatus ?? "decaying";
+  const explicitBreak = Date.parse(state.comboBrokenAt);
+  const naturalBreak = Date.parse(state.comboExpiresAt);
+  const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
+  return Number.isFinite(current) && Number.isFinite(disconnectedAt) && current < disconnectedAt + COMBO_LOST_MS ? "broken" : "idle";
 }
 
 function riskLevel(value) {
@@ -150,7 +163,7 @@ export function reduceState(previous = initialState, event) {
     state.status = "failed";
     state.currentActivity = "Repairing a failed edit";
     state.completion = null;
-    breakCombo(state);
+    breakCombo(state, "broken", event.timestamp);
   } else if (event.type === "verification") {
     state.verifications += 1;
     state.lastVerificationAt = event.timestamp;
@@ -173,7 +186,7 @@ export function reduceState(previous = initialState, event) {
       state.momentum = clamp(state.momentum - 8);
       state.confidence = clamp(state.confidence - 28);
       state.risk = clamp(state.risk + 24);
-      breakCombo(state);
+      breakCombo(state, "broken", event.timestamp);
     }
   } else if (event.type === "turn-stop") {
     const stoppedWhileWaiting = state.phase === "wait";
@@ -188,7 +201,8 @@ export function reduceState(previous = initialState, event) {
       state.comboHoldUntil = timestampAfter(event.timestamp, 3_200);
       state.comboExpiresAt = timestampAfter(event.timestamp, 3_200 + COMBO_DECAY_MS);
     } else {
-      breakCombo(state, stoppedWhileWaiting || state.edits ? "broken" : "idle");
+      const comboStatus = stoppedWhileWaiting || state.edits ? "broken" : "idle";
+      breakCombo(state, comboStatus, event.timestamp);
     }
   }
 
