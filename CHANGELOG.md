@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.4 - 2026-07-20
+
+- Coalesced identical rapid Observe events so consecutive reads and searches do not repeatedly restart the scan animation.
+- Added a configurable Observe throttle without suppressing phase changes, edits, verification, permission, recovery, or completion events.
+- Added storage-level coalescing tests to cover persistence and state accounting.
+
 ## 0.5.3 - 2026-07-20
 
 - Added hard effect budgets for particles, shockwaves, and scan beams in both native and browser overlays.

@@ -1,6 +1,6 @@
 import { appendFile, mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { initialState, reduceState } from "./state.mjs";
+import { initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -34,14 +34,22 @@ export async function readState(dataDir) {
   }
 }
 
-export async function recordEvent(dataDir, event) {
+export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 } = {}) {
   await mkdir(dataDir, { recursive: true });
   return withLock(dataDir, async () => {
-    const next = reduceState(await readState(dataDir), event);
+    const previous = await readState(dataDir);
+    if (shouldCoalesceActivity(previous, event, coalesceWindowMs)) {
+      return { state: previous, recorded: false };
+    }
+    const next = reduceState(previous, event);
     await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
     const temp = path.join(dataDir, `state-${process.pid}.tmp`);
     await writeFile(temp, JSON.stringify(next, null, 2));
     await rename(temp, path.join(dataDir, "state.json"));
-    return next;
+    return { state: next, recorded: true };
   });
+}
+
+export async function recordEvent(dataDir, event) {
+  return (await recordEventResult(dataDir, event)).state;
 }

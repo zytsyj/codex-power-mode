@@ -15,6 +15,8 @@ export const initialState = Object.freeze({
   passedVerifications: 0,
   failedVerifications: 0,
   evidence: [],
+  lastActivityAt: null,
+  lastActivitySignature: null,
   lastEditAt: null,
   lastVerificationAt: null,
   lastVerificationPassed: false,
@@ -44,6 +46,17 @@ function scopeRisk(event) {
   return changed >= 150 ? 20 : changed >= 50 ? 12 : changed >= 15 ? 7 : 3;
 }
 
+function activitySignature(event) {
+  return `${event.phase || "observe"}:${event.toolGroup || "tool"}:${event.category || ""}`;
+}
+
+export function shouldCoalesceActivity(previous, event, windowMs = 900) {
+  if (event.type !== "activity-start" || event.phase !== "observe" || windowMs <= 0) return false;
+  if (!previous.lastActivityAt || previous.lastActivitySignature !== activitySignature(event)) return false;
+  const elapsed = Date.parse(event.timestamp) - Date.parse(previous.lastActivityAt);
+  return Number.isFinite(elapsed) && elapsed >= 0 && elapsed < windowMs;
+}
+
 export function reduceState(previous = initialState, event) {
   const state = { ...initialState, ...previous, sessionId: event.sessionId ?? previous.sessionId };
   state.evidence = Array.isArray(previous.evidence) ? [...previous.evidence] : [];
@@ -55,6 +68,8 @@ export function reduceState(previous = initialState, event) {
     state.steps += 1;
     state.momentum = clamp(state.momentum + (state.phase === "observe" ? 1 : 2));
     state.completion = null;
+    state.lastActivityAt = event.timestamp;
+    state.lastActivitySignature = activitySignature(event);
   } else if (event.type === "permission-request") {
     state.phase = "wait";
     state.status = "needs-attention";

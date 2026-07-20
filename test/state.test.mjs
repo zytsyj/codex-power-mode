@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState, reduceState } from "../src/state.mjs";
+import { initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -11,6 +11,23 @@ test("activity events represent Codex states without rewarding code volume", () 
   assert.equal(state.phase, "observe");
   assert.equal(state.momentum, 1);
   assert.equal(state.currentActivity, "Searching the workspace");
+});
+
+test("rapid identical observe activity is coalesced without hiding phase changes", () => {
+  const previous = {
+    ...initialState,
+    lastActivityAt: at(1),
+    lastActivitySignature: "observe:search:"
+  };
+  assert.equal(shouldCoalesceActivity(previous, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1.5)
+  }, 900), true);
+  assert.equal(shouldCoalesceActivity(previous, {
+    type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1.5)
+  }, 900), false);
+  assert.equal(shouldCoalesceActivity(previous, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(2)
+  }, 900), false);
 });
 
 test("small and large edits earn equal momentum while scope changes risk", () => {
