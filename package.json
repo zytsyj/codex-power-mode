@@ -1,6 +1,6 @@
 {
   "name": "codex-power-mode",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "private": true,
   "description": "Reactive Power Mode effects for Codex",
   "type": "module",

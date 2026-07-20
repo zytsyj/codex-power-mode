@@ -1,11 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.5.8 - 2026-07-20
 
-- Rebuilt the browser and native HUD around a single high-contrast energy core.
-- Anchored observe, act, verify, wait, recover, and completion effects to the HUD instead of random workspace positions.
-- Increased telemetry readability and hid low-risk noise from the default status capsule.
-- Unified the browser and macOS overlay sizing, hierarchy, evidence, and motion language.
+- Gave verified Complete a persistent three-color finish halo and check marker in both overlays.
+- Kept unverified completion free of celebratory markers so the visual language remains evidence-backed.
 
 ## 0.5.7 - 2026-07-20
 
