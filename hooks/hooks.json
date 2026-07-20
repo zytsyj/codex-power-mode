@@ -15,7 +15,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "apply_patch|Edit|Write|Bash|Read|Glob|Grep|WebSearch|WebFetch",
+        "matcher": "apply_patch|Edit|Write|Bash|exec_command|Read|Glob|Grep|WebSearch|WebFetch",
         "hooks": [
           {
             "type": "command",
@@ -27,7 +27,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "apply_patch|Edit|Write|Bash",
+        "matcher": "apply_patch|Edit|Write|Bash|exec_command",
         "hooks": [
           {
             "type": "command",
@@ -39,7 +39,7 @@
     ],
     "PermissionRequest": [
       {
-        "matcher": "apply_patch|Edit|Write|Bash",
+        "matcher": "apply_patch|Edit|Write|Bash|exec_command",
         "hooks": [
           {
             "type": "command",

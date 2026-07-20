@@ -60,6 +60,28 @@ test("eventFromHook recognizes verification before execution", () => {
   assert.equal(event.category, "test");
 });
 
+test("eventFromHook maps Codex exec_command cmd input through verification lifecycle", () => {
+  const before = eventFromHook({
+    hook_event_name: "PreToolUse",
+    tool_name: "exec_command",
+    tool_input: { cmd: "npm run check" }
+  }, 1_000);
+  assert.equal(before.type, "activity-start");
+  assert.equal(before.phase, "verify");
+  assert.equal(before.category, "lint");
+  assert.equal(before.toolGroup, "command");
+
+  const after = eventFromHook({
+    hook_event_name: "PostToolUse",
+    tool_name: "exec_command",
+    tool_input: { cmd: "npm run check" },
+    tool_response: { exit_code: 0 }
+  }, 2_000);
+  assert.deepEqual({ type: after.type, category: after.category, success: after.success }, {
+    type: "verification", category: "lint", success: true
+  });
+});
+
 test("eventFromHook exposes permission waits without command content", () => {
   const event = eventFromHook({ hook_event_name: "PermissionRequest", tool_name: "Bash" }, 1_000);
   assert.equal(event.type, "permission-request");

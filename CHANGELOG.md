@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4 - 2026-07-21
+
+- Added lifecycle hook compatibility for Codex `exec_command` tools and their `cmd` input field.
+- Routed command start, verification result, and permission events through the same semantics as the legacy `Bash` alias.
+
 ## 0.6.3 - 2026-07-20
 
 - Gave Observe a persistent single-direction radar sweep in both browser and native macOS overlays.

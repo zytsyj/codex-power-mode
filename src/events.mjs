@@ -3,6 +3,7 @@ const BUILD_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?build\b|\b(?:c
 const LINT_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:lint|typecheck|check)\b|\b(?:eslint|ruff|mypy|tsc|biome check)\b/i;
 const OBSERVE_TOOLS = /^(?:Read|Glob|Grep|WebSearch|WebFetch|ListMcpResources|ReadMcpResource)$/i;
 const EDIT_TOOLS = /^(?:apply_patch|Edit|Write)$/i;
+const COMMAND_TOOLS = /^(?:Bash|exec_command)$/i;
 
 export function parsePatch(command = "") {
   const lines = String(command).split(/\r?\n/);
@@ -67,16 +68,16 @@ export function eventFromHook(input, now = Date.now()) {
     cwd: input.cwd ?? process.cwd()
   };
   const toolName = input.tool_name ?? "";
-  const command = input.tool_input?.command ?? "";
+  const command = input.tool_input?.command ?? input.tool_input?.cmd ?? "";
 
   if (input.hook_event_name === "Stop") return { ...base, type: "turn-stop" };
   if (input.hook_event_name === "PermissionRequest") {
     return { ...base, type: "permission-request", toolGroup: EDIT_TOOLS.test(toolName) ? "change" : "command" };
   }
   if (input.hook_event_name === "PreToolUse") {
-    const category = toolName === "Bash" ? commandCategory(command) : null;
+    const category = COMMAND_TOOLS.test(toolName) ? commandCategory(command) : null;
     const phase = category ? "verify" : OBSERVE_TOOLS.test(toolName) ? "observe" : "act";
-    const toolGroup = OBSERVE_TOOLS.test(toolName) ? "search" : toolName === "Bash" ? "command" : EDIT_TOOLS.test(toolName) ? "change" : "tool";
+    const toolGroup = OBSERVE_TOOLS.test(toolName) ? "search" : COMMAND_TOOLS.test(toolName) ? "command" : EDIT_TOOLS.test(toolName) ? "change" : "tool";
     return { ...base, type: "activity-start", phase, category, toolGroup };
   }
   if (input.hook_event_name !== "PostToolUse") return null;
@@ -86,7 +87,7 @@ export function eventFromHook(input, now = Date.now()) {
     if (!delta.addedLines && !delta.removedLines) return null;
     return { ...base, type: "edit", ...delta };
   }
-  if (toolName === "Bash") {
+  if (COMMAND_TOOLS.test(toolName)) {
     const classified = classifyCommand(command, input.tool_response);
     return classified ? { ...base, ...classified } : null;
   }
