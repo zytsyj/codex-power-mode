@@ -445,6 +445,8 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: hudScale, y: hudScale)
         let origin = CGPoint.zero
 
+        if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
+
         let coreRect = CGRect(x: origin.x, y: origin.y, width: 60, height: 60)
         let core = NSBezierPath(ovalIn: coreRect)
         NSColor(calibratedWhite: 0.035, alpha: 0.88).setFill()
@@ -478,6 +480,37 @@ private final class PowerModeView: NSView {
             drawText("CONF \(state.confidence ?? 0)%  ·  \((state.riskLevel ?? "low").uppercased()) RISK", at: CGPoint(x: origin.x + 82, y: origin.y + 8), font: .monospacedSystemFont(ofSize: 6.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.58), tracking: 0.55)
         }
         context.restoreGState()
+    }
+
+    private func drawWaitSignal(around origin: CGPoint, color: NSColor) {
+        let oscillation = reducedMotion ? 0 : sin(shakePhase * 0.095)
+        let pulse = 0.62 + (oscillation + 1) * 0.19
+        let reach = 4 + (oscillation + 1) * 2
+        color.withAlphaComponent(pulse).setStroke()
+        let gates = NSBezierPath()
+        gates.move(to: CGPoint(x: origin.x - reach + 4, y: origin.y + 11))
+        gates.line(to: CGPoint(x: origin.x - reach, y: origin.y + 11))
+        gates.line(to: CGPoint(x: origin.x - reach, y: origin.y + 49))
+        gates.line(to: CGPoint(x: origin.x - reach + 4, y: origin.y + 49))
+        gates.move(to: CGPoint(x: origin.x + 56 + reach, y: origin.y + 11))
+        gates.line(to: CGPoint(x: origin.x + 60 + reach, y: origin.y + 11))
+        gates.line(to: CGPoint(x: origin.x + 60 + reach, y: origin.y + 49))
+        gates.line(to: CGPoint(x: origin.x + 56 + reach, y: origin.y + 49))
+        gates.lineWidth = 2
+        gates.lineCapStyle = .round
+        gates.lineJoinStyle = .round
+        gates.stroke()
+
+        color.withAlphaComponent(1 - pulse * 0.45).setFill()
+        for y in [CGFloat(4), CGFloat(56)] {
+            let marker = NSBezierPath()
+            marker.move(to: CGPoint(x: origin.x + 30, y: origin.y + y))
+            marker.line(to: CGPoint(x: origin.x + 33, y: origin.y + y + 3))
+            marker.line(to: CGPoint(x: origin.x + 30, y: origin.y + y + 6))
+            marker.line(to: CGPoint(x: origin.x + 27, y: origin.y + y + 3))
+            marker.close()
+            marker.fill()
+        }
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {
