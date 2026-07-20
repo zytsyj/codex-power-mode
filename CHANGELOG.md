@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.11 - 2026-07-21
+
+- Followed the foremost on-screen Codex window instead of selecting the largest window.
+- Prevented the overlay from jumping to a larger background Codex window in multi-window workflows.
+
 ## 0.6.10 - 2026-07-21
 
 - Kept the expanded HUD inside narrow Codex windows with a 12px safe edge.

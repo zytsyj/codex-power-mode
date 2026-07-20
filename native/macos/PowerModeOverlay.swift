@@ -839,9 +839,10 @@ private final class CodexWindowTracker {
                   let quartzFrame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return nil }
             return cocoaFrame(fromQuartz: quartzFrame)
         }
-        return candidates
-            .filter { $0.width > 400 && $0.height > 300 }
-            .max { ($0.width * $0.height) < ($1.width * $1.height) }
+        // CGWindowListCopyWindowInfo preserves front-to-back window order.
+        // Keep that order so multiple Codex windows follow the foremost one,
+        // instead of jumping to whichever background window is largest.
+        return candidates.first { $0.width > 400 && $0.height > 300 }
     }
 
     private func cocoaFrame(fromQuartz frame: CGRect) -> CGRect {
