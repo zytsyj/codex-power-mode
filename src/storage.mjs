@@ -47,6 +47,21 @@ export async function readState(dataDir) {
   }
 }
 
+async function writeStateFile(dataDir, state) {
+  const temp = path.join(dataDir, `state-${process.pid}.tmp`);
+  await writeFile(temp, JSON.stringify(state, null, 2));
+  await rename(temp, path.join(dataDir, "state.json"));
+}
+
+export async function writeStateSnapshot(dataDir, state) {
+  if (!state || typeof state !== "object" || Array.isArray(state)) throw new TypeError("Power Mode state must be an object");
+  await mkdir(dataDir, { recursive: true });
+  return withLock(dataDir, async () => {
+    await writeStateFile(dataDir, state);
+    return state;
+  });
+}
+
 export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 } = {}) {
   await mkdir(dataDir, { recursive: true });
   return withLock(dataDir, async () => {
@@ -56,9 +71,7 @@ export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 }
     }
     const next = reduceState(previous, event);
     await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
-    const temp = path.join(dataDir, `state-${process.pid}.tmp`);
-    await writeFile(temp, JSON.stringify(next, null, 2));
-    await rename(temp, path.join(dataDir, "state.json"));
+    await writeStateFile(dataDir, next);
     return { state: next, recorded: true };
   });
 }

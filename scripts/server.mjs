@@ -3,7 +3,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readState } from "../src/storage.mjs";
+import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const overlayDir = path.join(root, "overlay");
@@ -60,6 +60,7 @@ const server = http.createServer(async (request, response) => {
   }
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
+    if (event.state) await writeStateSnapshot(dataDir, event.state);
     broadcast(event);
     return sendJson(response, 202, { accepted: true });
   }

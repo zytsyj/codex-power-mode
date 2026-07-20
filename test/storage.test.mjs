@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readState, recordEventResult } from "../src/storage.mjs";
+import { readState, recordEventResult, writeStateSnapshot } from "../src/storage.mjs";
 
 const eventAt = (milliseconds) => ({
   type: "activity-start",
@@ -40,6 +40,27 @@ test("storage does not inherit the legacy ever-increasing combo score", async ()
     assert.equal(state.comboStatus, "idle");
     assert.equal("score" in state, false);
     assert.equal("mode" in state, false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a streamed state snapshot survives reconnect without duplicating event history", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-"));
+  try {
+    await writeStateSnapshot(directory, {
+      phase: "wait",
+      status: "needs-attention",
+      currentActivity: "Waiting for your approval",
+      combo: 3,
+      comboStatus: "waiting"
+    });
+    const state = await readState(directory);
+    assert.equal(state.phase, "wait");
+    assert.equal(state.status, "needs-attention");
+    assert.equal(state.combo, 3);
+    assert.equal(state.comboStatus, "waiting");
+    await assert.rejects(access(path.join(directory, "events.ndjson")), { code: "ENOENT" });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

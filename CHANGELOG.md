@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.22 - 2026-07-21
+
+- Synced streamed hook state into the active service data directory so SSE reconnects cannot fall back to stale demo or pre-install state.
+- Kept event history single-sourced in the hook data directory while persisting only the already-reduced state snapshot in the service.
+
 ## 0.6.21 - 2026-07-21
 
 - Preserved distinct static Observe, Act, Verify, Wait, Recover, and Complete markers when reduced motion is enabled.
