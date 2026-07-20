@@ -27,7 +27,19 @@ async function withLock(dataDir, operation) {
 
 export async function readState(dataDir) {
   try {
-    return { ...initialState, ...JSON.parse(await readFile(path.join(dataDir, "state.json"), "utf8")) };
+    const stored = JSON.parse(await readFile(path.join(dataDir, "state.json"), "utf8"));
+    const { score: _legacyScore, mode: _legacyMode, ...current } = stored;
+    const state = { ...initialState, ...current };
+    if (!Object.hasOwn(stored, "comboStatus")) {
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.comboBreaks = 0;
+      state.comboStatus = "idle";
+      state.comboLastAt = null;
+      state.comboHoldUntil = null;
+      state.comboExpiresAt = null;
+    }
+    return state;
   } catch (error) {
     if (error.code === "ENOENT") return { ...initialState };
     throw error;
