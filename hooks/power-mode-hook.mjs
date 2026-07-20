@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { eventFromHook } from "../src/events.mjs";
-import { recordEvent } from "../src/storage.mjs";
+import { recordEventResult } from "../src/storage.mjs";
 
 async function readStdin() {
   const chunks = [];
@@ -31,8 +31,10 @@ try {
   const event = eventFromHook(input);
   if (event) {
     const dataDir = process.env.PLUGIN_DATA || path.join(process.env.PLUGIN_ROOT || process.cwd(), ".power-mode");
-    const state = await recordEvent(dataDir, event);
-    await notifyServer(event, state);
+    const configuredWindow = Number.parseInt(process.env.CODEX_POWER_MODE_OBSERVE_THROTTLE_MS || "900", 10);
+    const coalesceWindowMs = Number.isFinite(configuredWindow) ? Math.max(0, Math.min(5_000, configuredWindow)) : 900;
+    const result = await recordEventResult(dataDir, event, { coalesceWindowMs });
+    if (result.recorded) await notifyServer(event, result.state);
   }
 } catch (error) {
   process.stderr.write(`Codex Power Mode hook skipped: ${error.message}\n`);
