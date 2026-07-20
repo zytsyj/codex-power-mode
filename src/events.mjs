@@ -88,7 +88,7 @@ export function eventFromHook(input, now = Date.now()) {
   if (input.hook_event_name !== "PostToolUse") return null;
 
   if (EDIT_TOOLS.test(toolName)) {
-    if (!didCommandSucceed(input.tool_response)) return null;
+    if (!didCommandSucceed(input.tool_response)) return { ...base, type: "edit-failure" };
     const delta = parsePatch(command);
     if (!delta.addedLines && !delta.removedLines) return null;
     return { ...base, type: "edit", ...delta };

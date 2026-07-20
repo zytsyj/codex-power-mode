@@ -66,14 +66,16 @@ test("eventFromHook accepts object patch input aliases", () => {
   assert.equal(event.removedLines, 1);
 });
 
-test("eventFromHook does not count a failed patch as an edit", () => {
+test("eventFromHook reports a failed patch without counting an edit", () => {
   const event = eventFromHook({
     hook_event_name: "PostToolUse",
     tool_name: "apply_patch",
     tool_input: "+new value\n-old value",
     tool_response: { success: false }
   }, 1_000);
-  assert.equal(event, null);
+  assert.equal(event.type, "edit-failure");
+  assert.equal("addedLines" in event, false);
+  assert.equal("removedLines" in event, false);
 });
 
 test("eventFromHook maps read tools to observe activity", () => {

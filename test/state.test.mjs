@@ -128,6 +128,19 @@ test("failed verification immediately breaks the combo", () => {
   assert.equal(state.comboBreaks, 1);
 });
 
+test("failed edits enter recovery and immediately break the combo", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, { type: "edit-failure", timestamp: at(2), sessionId: "s" });
+  assert.equal(state.phase, "recover");
+  assert.equal(state.status, "failed");
+  assert.equal(state.edits, 0);
+  assert.equal(state.combo, 0);
+  assert.equal(state.comboStatus, "broken");
+  assert.equal(state.comboBreaks, 1);
+});
+
 test("a new turn and a new session cannot inherit the previous combo", () => {
   let state = reduceState(initialState, {
     type: "activity-start", phase: "act", timestamp: at(1), sessionId: "s1"

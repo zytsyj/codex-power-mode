@@ -112,7 +112,7 @@ private final class PowerModeView: NSView {
             needsDisplay = true
             return
         }
-        let duration: TimeInterval = event.type == "permission-request" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
+        let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
         flashAlpha = reducedMotion ? 0 : 0.24
 
@@ -179,6 +179,7 @@ private final class PowerModeView: NSView {
         case "activity-start": return event.phase == "observe" ? "READING CONTEXT" : event.phase == "verify" ? "BUILDING EVIDENCE" : "STARTING TOOL"
         case "permission-request": return "WAITING FOR YOUR APPROVAL"
         case "edit": return "CHANGE APPLIED  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
+        case "edit-failure": return "CHANGE COULD NOT BE APPLIED"
         case "verification": return "\((event.category ?? "CHECK").uppercased()) \(event.success == true ? "PASSED" : "FAILED")"
         case "turn-stop": return event.state?.completion == "verified" ? "COMPLETED WITH EVIDENCE" : "VERIFICATION RECOMMENDED"
         case "connected": return "POWER MODE ONLINE"

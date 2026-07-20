@@ -145,6 +145,12 @@ export function reduceState(previous = initialState, event) {
     state.lastVerificationPassed = false;
     state.completion = null;
     advanceCombo(state, event, 1, 0, startsNewTurn);
+  } else if (event.type === "edit-failure") {
+    state.phase = "recover";
+    state.status = "failed";
+    state.currentActivity = "Repairing a failed edit";
+    state.completion = null;
+    breakCombo(state);
   } else if (event.type === "verification") {
     state.verifications += 1;
     state.lastVerificationAt = event.timestamp;

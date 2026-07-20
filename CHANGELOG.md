@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.7 - 2026-07-21
+
+- Added an explicit failed-edit lifecycle event that enters Recover without incrementing edit counts.
+- Broke Combo immediately when Codex cannot apply a change instead of waiting for natural decay.
+
 ## 0.6.6 - 2026-07-21
 
 - Prevented failed patch responses from being recorded as successful edit events.
