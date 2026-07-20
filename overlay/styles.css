@@ -201,6 +201,15 @@ body[data-phase="recover"] { --accent: #ff5f7f; --accent-rgb: 255, 95, 127; }
 body[data-phase="complete"] { --accent: #68e9bb; --accent-rgb: 104, 233, 187; }
 
 .reactor-wrap::before, .reactor-wrap::after { content: ""; position: absolute; pointer-events: none; opacity: 0; }
+body[data-phase="act"] .reactor-wrap::before {
+  inset: 4px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 22.5deg, var(--accent) 0 4deg, transparent 4deg 45deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0 calc(100% - 1px), transparent 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0 calc(100% - 1px), transparent 0);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .58));
+  animation: act-propagate 1.1s ease-out infinite;
+}
 body[data-phase="verify"] .reactor-wrap::before {
   inset: 3px;
   border-radius: 50%;
@@ -289,6 +298,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes attention { 50% { transform: scale(1.06); filter: drop-shadow(0 0 18px rgba(var(--accent-rgb), .45)); } }
 @keyframes wait-gates { 50% { inset: 5px -3px; opacity: 1; } }
 @keyframes wait-markers { 50% { opacity: .35; transform: rotate(45deg) scale(.72); } }
+@keyframes act-propagate { from { opacity: .78; transform: scale(.88); } to { opacity: 0; transform: scale(1.12); } }
 @keyframes verify-orbit { to { transform: rotate(360deg); } }
 @keyframes verify-focus { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(.62); } }
 @keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }

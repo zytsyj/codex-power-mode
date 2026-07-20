@@ -471,6 +471,7 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: hudScale, y: hudScale)
         let origin = CGPoint.zero
 
+        if phase == "ACT" { drawActSignal(around: origin, color: phaseColor) }
         if phase == "VERIFY" { drawVerifySignal(around: origin, color: phaseColor) }
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
         if phase == "RECOVER" { drawRecoverSignal(around: origin, color: phaseColor) }
@@ -571,6 +572,23 @@ private final class PowerModeView: NSView {
             marker.close()
             marker.fill()
         }
+    }
+
+    private func drawActSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let progress = reducedMotion ? CGFloat(0.45) : shakePhase.truncatingRemainder(dividingBy: 66) / 66
+        let innerRadius = 31 + progress * 9
+        let outerRadius = innerRadius + 5
+        color.withAlphaComponent((1 - progress) * 0.78).setStroke()
+        let shards = NSBezierPath()
+        for index in 0..<8 {
+            let angle = (CGFloat(index) * 45 + 22.5) * .pi / 180
+            shards.move(to: CGPoint(x: center.x + cos(angle) * innerRadius, y: center.y + sin(angle) * innerRadius))
+            shards.line(to: CGPoint(x: center.x + cos(angle) * outerRadius, y: center.y + sin(angle) * outerRadius))
+        }
+        shards.lineWidth = 1.8
+        shards.lineCapStyle = .round
+        shards.stroke()
     }
 
     private func drawVerifySignal(around origin: CGPoint, color: NSColor) {

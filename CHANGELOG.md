@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2 - 2026-07-20
+
+- Gave Act a persistent outward-propagating shard signal in both browser and native macOS overlays.
+- Made ongoing action directionally opposite to Verify's inward focus instead of relying on color alone.
+
 ## 0.6.1 - 2026-07-20
 
 - Gave Verify a persistent three-segment orbit and inward focus pulse in both browser and native macOS overlays.
