@@ -66,6 +66,16 @@ test("eventFromHook accepts object patch input aliases", () => {
   assert.equal(event.removedLines, 1);
 });
 
+test("eventFromHook does not count a failed patch as an edit", () => {
+  const event = eventFromHook({
+    hook_event_name: "PostToolUse",
+    tool_name: "apply_patch",
+    tool_input: "+new value\n-old value",
+    tool_response: { success: false }
+  }, 1_000);
+  assert.equal(event, null);
+});
+
 test("eventFromHook maps read tools to observe activity", () => {
   const event = eventFromHook({ hook_event_name: "PreToolUse", tool_name: "Grep" }, 1_000);
   assert.equal(event.type, "activity-start");

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.6 - 2026-07-21
+
+- Prevented failed patch responses from being recorded as successful edit events.
+- Kept edit counts, Momentum, and Combo free of work that Codex did not actually apply.
+
 ## 0.6.5 - 2026-07-21
 
 - Added support for Codex freeform `apply_patch` hook input and common object aliases.
