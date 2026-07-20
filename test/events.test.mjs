@@ -42,6 +42,30 @@ test("eventFromHook converts apply_patch input into an edit event", () => {
   assert.equal(event.sessionId, "session-1");
 });
 
+test("eventFromHook accepts Codex freeform apply_patch input", () => {
+  const event = eventFromHook({
+    hook_event_name: "PostToolUse",
+    tool_name: "apply_patch",
+    tool_input: "*** Begin Patch\n*** Update File: demo.js\n-old\n+new value\n+next\n*** End Patch"
+  }, 1_000);
+  assert.equal(event.type, "edit");
+  assert.equal(event.addedLines, 2);
+  assert.equal(event.removedLines, 1);
+  assert.equal(event.addedChars, 13);
+  assert.equal(event.removedChars, 3);
+});
+
+test("eventFromHook accepts object patch input aliases", () => {
+  const event = eventFromHook({
+    hook_event_name: "PostToolUse",
+    tool_name: "apply_patch",
+    tool_input: { patch: "+hello\n-world" }
+  }, 1_000);
+  assert.equal(event.type, "edit");
+  assert.equal(event.addedLines, 1);
+  assert.equal(event.removedLines, 1);
+});
+
 test("eventFromHook maps read tools to observe activity", () => {
   const event = eventFromHook({ hook_event_name: "PreToolUse", tool_name: "Grep" }, 1_000);
   assert.equal(event.type, "activity-start");

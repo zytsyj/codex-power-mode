@@ -4,7 +4,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-## Current v0.6.4
+## Current v0.6.5
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses Momentum for useful steps, Confidence for verification evidence, and Risk for change scope.

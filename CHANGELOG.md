@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.5 - 2026-07-21
+
+- Added support for Codex freeform `apply_patch` hook input and common object aliases.
+- Restored accurate edit counts and Combo continuation when patches are delivered as raw text.
+
 ## 0.6.4 - 2026-07-21
 
 - Added lifecycle hook compatibility for Codex `exec_command` tools and their `cmd` input field.

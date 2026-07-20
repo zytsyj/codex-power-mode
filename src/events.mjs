@@ -59,6 +59,11 @@ function commandCategory(command = "") {
   return classified?.category ?? null;
 }
 
+function toolText(toolInput) {
+  if (typeof toolInput === "string") return toolInput;
+  return toolInput?.command ?? toolInput?.cmd ?? toolInput?.patch ?? "";
+}
+
 export function eventFromHook(input, now = Date.now()) {
   const base = {
     id: `${now}-${Math.random().toString(36).slice(2, 9)}`,
@@ -68,7 +73,7 @@ export function eventFromHook(input, now = Date.now()) {
     cwd: input.cwd ?? process.cwd()
   };
   const toolName = input.tool_name ?? "";
-  const command = input.tool_input?.command ?? input.tool_input?.cmd ?? "";
+  const command = toolText(input.tool_input);
 
   if (input.hook_event_name === "Stop") return { ...base, type: "turn-stop" };
   if (input.hook_event_name === "PermissionRequest") {
