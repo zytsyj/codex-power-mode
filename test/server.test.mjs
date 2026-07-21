@@ -167,3 +167,49 @@ test("event service records concurrent activity without replacing the active HUD
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test("transient previews do not alter real state, ownership, or activity diagnostics", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-preview-"));
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  const post = (body) => fetch(`http://127.0.0.1:${port}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    await post({
+      type: "activity-start",
+      sessionId: "real-task",
+      sessionSource: "desktop",
+      timestamp: new Date(1_000).toISOString(),
+      state: { sessionId: "real-task", sessionSource: "desktop", phase: "act", status: "working", momentum: 7 }
+    });
+    const previewResponse = await post({
+      type: "edit",
+      sessionId: "demo",
+      preview: true,
+      timestamp: new Date(2_000).toISOString(),
+      state: { sessionId: "demo", phase: "act", status: "working", momentum: 99 }
+    });
+
+    assert.deepEqual(await previewResponse.json(), { accepted: true, displayed: true, preview: true });
+    const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    assert.equal(state.sessionId, "real-task");
+    assert.equal(state.momentum, 7);
+    assert.equal(health.activity.eventsReceived, 1);
+    assert.equal(health.activity.realEventsReceived, 1);
+    assert.equal(health.session.activeSessionId, "real-task");
+    assert.equal(health.session.suppressedEvents, 0);
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});

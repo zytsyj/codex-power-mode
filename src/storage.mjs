@@ -1,4 +1,4 @@
-import { appendFile, mkdir, open, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
 
@@ -63,6 +63,7 @@ async function withLock(dataDir, operation) {
 export async function readState(dataDir) {
   try {
     const stored = JSON.parse(await readFile(path.join(dataDir, "state.json"), "utf8"));
+    if (stored.sessionId === "demo") return readLatestRealSessionState(dataDir);
     const { score: _legacyScore, mode: _legacyMode, ...current } = stored;
     const state = { ...initialState, ...current };
     if (!Object.hasOwn(stored, "comboStatus")) {
@@ -80,6 +81,32 @@ export async function readState(dataDir) {
     if (error.code === "ENOENT") return { ...initialState };
     throw error;
   }
+}
+
+function stateActivityTime(state) {
+  return Math.max(0, ...[
+    Date.parse(state.turnStoppedAt),
+    Date.parse(state.lastVerificationAt),
+    Date.parse(state.lastEditAt),
+    Date.parse(state.lastActivityAt)
+  ].filter(Number.isFinite));
+}
+
+async function readLatestRealSessionState(dataDir) {
+  const sessionsDir = path.join(dataDir, "sessions");
+  let entries;
+  try {
+    entries = await readdir(sessionsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return { ...initialState };
+    throw error;
+  }
+  const states = await Promise.all(entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => readStateFile(path.join(sessionsDir, entry.name)).catch(() => null)));
+  return states
+    .filter((state) => state?.sessionId && state.sessionId !== "demo")
+    .sort((left, right) => stateActivityTime(right) - stateActivityTime(left))[0] ?? { ...initialState };
 }
 
 async function writeStateFile(dataDir, state) {

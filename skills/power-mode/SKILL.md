@@ -47,6 +47,8 @@ To show every semantic state with enough delay for visual comparison, run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" showcase
 ```
 
+Demo, showcase, and replay are transient previews. They do not change the connected task, energy, Combo, history, or personal best, and restore the real HUD state after playback.
+
 To replay up to 40 recent locally stored events without changing state:
 
 ```bash

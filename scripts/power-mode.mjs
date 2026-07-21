@@ -12,8 +12,8 @@ import {
 import { powerModeDataDir } from "../src/paths.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
 import { connectionDiagnostics } from "../src/diagnostics.mjs";
-import { comboStage, energyLevel, presentationSnapshot } from "../src/state.mjs";
-import { recordEvent, readState } from "../src/storage.mjs";
+import { comboStage, energyLevel, initialState, presentationSnapshot, reduceState } from "../src/state.mjs";
+import { readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const identity = await pluginIdentity(root);
@@ -92,22 +92,19 @@ async function start() {
   process.stdout.write(`${endpoint}\n`);
 }
 
-async function emit(event) {
+let previewState = { ...initialState };
+
+async function emitPreview(event) {
   const complete = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     timestamp: new Date().toISOString(),
     sessionId: "demo",
+    preview: true,
     cwd: process.cwd(),
     ...event
   };
-  const state = await recordEvent(dataDir, complete);
-  if (await isRunning()) {
-    await fetch(`${endpoint}/api/events`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...complete, state })
-    });
-  }
+  previewState = reduceState(previewState, complete);
+  await broadcast({ ...complete, state: previewState });
 }
 
 async function broadcast(event) {
@@ -119,19 +116,49 @@ async function broadcast(event) {
   });
 }
 
+async function restorePreview(realState) {
+  await broadcast({
+    type: "connected",
+    id: `${Date.now()}-preview-restore`,
+    timestamp: new Date().toISOString(),
+    sessionId: "demo",
+    preview: true,
+    state: realState
+  });
+}
+
+async function playPreview(events, delayMs) {
+  await start();
+  const realState = await readState(dataDir);
+  previewState = { ...initialState };
+  try {
+    for (const event of events) {
+      await emitPreview(event);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  } finally {
+    await restorePreview(realState);
+  }
+}
+
 async function replay() {
   await start();
+  const realState = await readState(dataDir);
   let records;
   try {
     records = (await readFile(path.join(dataDir, "events.ndjson"), "utf8"))
       .split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
   } catch (error) {
-    if (error.code === "ENOENT") throw new Error("No recorded events yet. Run Codex or `npm run demo` first.");
+    if (error.code === "ENOENT") throw new Error("No recorded events yet. Run a Codex task first.");
     throw error;
   }
-  for (const event of records.slice(-40)) {
-    await broadcast(event);
-    await new Promise((resolve) => setTimeout(resolve, 420));
+  try {
+    for (const event of records.slice(-40)) {
+      await broadcast({ ...event, sessionId: "demo", preview: true });
+      await new Promise((resolve) => setTimeout(resolve, 420));
+    }
+  } finally {
+    await restorePreview(realState);
   }
 }
 
@@ -283,7 +310,6 @@ if (command === "start") {
 } else if (command === "status") {
   process.stdout.write(`${JSON.stringify(await status(), null, 2)}\n`);
 } else if (command === "demo") {
-  await start();
   const events = [
     { type: "activity-start", phase: "observe", toolGroup: "search" },
     { type: "activity-start", phase: "act", toolGroup: "change" },
@@ -292,12 +318,8 @@ if (command === "start") {
     { type: "verification", category: "test", success: true },
     { type: "turn-stop" }
   ];
-  for (const event of events) {
-    await emit(event);
-    await new Promise((resolve) => setTimeout(resolve, 850));
-  }
+  await playPreview(events, 850);
 } else if (command === "showcase") {
-  await start();
   const events = [
     { type: "activity-start", phase: "observe", toolGroup: "search" },
     { type: "activity-start", phase: "act", toolGroup: "change" },
@@ -312,10 +334,7 @@ if (command === "start") {
     { type: "verification", category: "build", success: true },
     { type: "turn-stop" }
   ];
-  for (const event of events) {
-    await emit(event);
-    await new Promise((resolve) => setTimeout(resolve, 1_900));
-  }
+  await playPreview(events, 1_900);
 } else if (command === "replay") {
   await replay();
 } else if (command === "native") {

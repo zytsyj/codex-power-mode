@@ -92,6 +92,10 @@ const server = http.createServer(async (request, response) => {
   }
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
+    if (event.preview === true && event.sessionId === "demo") {
+      broadcast(event);
+      return sendJson(response, 202, { accepted: true, displayed: true, preview: true });
+    }
     activity.record(event);
     const previousSession = sessionArbiter.snapshot().activeSessionId;
     const decision = sessionArbiter.consider(event, { mode: await activitySource() });

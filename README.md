@@ -36,7 +36,7 @@ npm run replay
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
-Use `npm run showcase` to play every semantic state with enough delay to compare their motion language.
+Use `npm run showcase` to play every semantic state with enough delay to compare their motion language. Demo, showcase, and replay are transient previews: they never change the connected task, energy, Combo, event history, or personal best, and the real HUD state is restored when playback ends.
 
 For the native macOS overlay:
 

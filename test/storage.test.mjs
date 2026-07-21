@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { access, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -46,6 +46,31 @@ test("storage does not inherit the legacy ever-increasing combo score", async ()
     assert.equal(state.comboStatus, "idle");
     assert.equal("score" in state, false);
     assert.equal("mode" in state, false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("storage recovers the latest real session from a legacy persisted demo", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-demo-recovery-"));
+  try {
+    await mkdir(path.join(directory, "sessions"));
+    await writeFile(path.join(directory, "state.json"), JSON.stringify({
+      sessionId: "demo", momentum: 88, bestMomentum: 99, lastActivityAt: new Date(3_000).toISOString()
+    }));
+    await writeFile(path.join(directory, "sessions", "older.json"), JSON.stringify({
+      sessionId: "older", sessionSource: "desktop", momentum: 5, bestMomentum: 12,
+      lastActivityAt: new Date(1_000).toISOString()
+    }));
+    await writeFile(path.join(directory, "sessions", "latest.json"), JSON.stringify({
+      sessionId: "latest", sessionSource: "desktop", momentum: 7, bestMomentum: 22,
+      lastActivityAt: new Date(2_000).toISOString()
+    }));
+
+    const state = await readState(directory);
+    assert.equal(state.sessionId, "latest");
+    assert.equal(state.momentum, 7);
+    assert.equal(state.bestMomentum, 22);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
