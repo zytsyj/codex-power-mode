@@ -41,6 +41,7 @@ test("eventFromHook converts apply_patch input into an edit event", () => {
     tool_name: "apply_patch",
     tool_input: { command: "+hello\n-world" },
     session_id: "session-1",
+    session_source: "desktop",
     turn_id: "turn-1",
     cwd: "/tmp/project"
   }, 1_000);
@@ -48,6 +49,7 @@ test("eventFromHook converts apply_patch input into an edit event", () => {
   assert.equal(event.addedLines, 1);
   assert.equal(event.removedLines, 1);
   assert.equal(event.sessionId, "session-1");
+  assert.equal(event.sessionSource, "desktop");
 });
 
 test("eventFromHook accepts Codex freeform apply_patch input", () => {

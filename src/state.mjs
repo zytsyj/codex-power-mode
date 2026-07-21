@@ -30,7 +30,8 @@ export const initialState = Object.freeze({
   lastVerificationPassed: false,
   turnStoppedAt: null,
   completion: null,
-  sessionId: null
+  sessionId: null,
+  sessionSource: "unknown"
 });
 
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
@@ -150,7 +151,12 @@ export function shouldCoalesceActivity(previous, event, windowMs = 900) {
 export function reduceState(previous = initialState, event) {
   const sessionChanged = Boolean(previous.sessionId && event.sessionId && previous.sessionId !== event.sessionId);
   const prior = sessionChanged ? initialState : previous;
-  const state = { ...initialState, ...prior, sessionId: event.sessionId ?? prior.sessionId };
+  const state = {
+    ...initialState,
+    ...prior,
+    sessionId: event.sessionId ?? prior.sessionId,
+    sessionSource: event.sessionSource && event.sessionSource !== "unknown" ? event.sessionSource : prior.sessionSource
+  };
   state.evidence = Array.isArray(prior.evidence) ? [...prior.evidence] : [];
   const startsNewTurn = state.phase === "complete";
   if (event.type !== "turn-stop") state.turnStoppedAt = null;

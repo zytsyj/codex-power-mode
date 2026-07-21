@@ -2,6 +2,7 @@
 import { eventFromHook } from "../src/events.mjs";
 import { serviceEndpointFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
+import { sessionSourceFromTranscript, shouldTrackSessionSource } from "../src/session-source.mjs";
 import { recordSessionEventResult } from "../src/storage.mjs";
 
 async function readStdin() {
@@ -27,9 +28,11 @@ async function notifyServer(event, state) {
   }
 }
 
-try {
+async function main() {
   const input = await readStdin();
-  const event = eventFromHook(input);
+  const sessionSource = await sessionSourceFromTranscript(input.transcript_path);
+  if (!shouldTrackSessionSource(sessionSource)) return;
+  const event = eventFromHook({ ...input, session_source: sessionSource });
   if (event) {
     const dataDir = powerModeDataDir();
     const configuredWindow = Number.parseInt(process.env.CODEX_POWER_MODE_OBSERVE_THROTTLE_MS || "900", 10);
@@ -37,6 +40,10 @@ try {
     const result = await recordSessionEventResult(dataDir, event, { coalesceWindowMs });
     if (result.recorded) await notifyServer(event, result.state);
   }
+}
+
+try {
+  await main();
 } catch (error) {
   process.stderr.write(`Codex Power Mode hook skipped: ${error.message}\n`);
 }

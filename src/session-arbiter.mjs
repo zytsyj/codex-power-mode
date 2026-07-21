@@ -11,6 +11,7 @@ function isTerminalState(state) {
 
 export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEASE_MS, now = Date.now } = {}) {
   let activeSessionId = initialState?.sessionId ?? null;
+  let activeSessionSource = initialState?.sessionSource ?? "unknown";
   let activeAt = Math.max(
     Date.parse(initialState?.lastActivityAt ?? "") || 0,
     Date.parse(initialState?.turnStoppedAt ?? "") || 0
@@ -22,6 +23,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
   return {
     consider(event, { mode = "focused" } = {}) {
       const sessionId = event?.sessionId ?? null;
+      const sessionSource = event?.sessionSource ?? "unknown";
       const at = eventTime(event, now());
 
       if (!sessionId || sessionId === "demo") return { displayed: true, switched: false };
@@ -32,6 +34,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
           return { displayed: false, switched: false };
         }
         activeAt = at;
+        if (sessionSource !== "unknown") activeSessionSource = sessionSource;
         activeStopped = event.type === "turn-stop";
         return { displayed: true, switched: false };
       }
@@ -42,6 +45,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
           return { displayed: false, switched: false };
         }
         activeSessionId = sessionId;
+        activeSessionSource = sessionSource;
         activeAt = at;
         activeStopped = event.type === "turn-stop";
         lastSwitchAt = at;
@@ -52,6 +56,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
       if (!activeSessionId || activeStopped || leaseExpired) {
         const switched = activeSessionId !== sessionId;
         activeSessionId = sessionId;
+        activeSessionSource = sessionSource;
         activeAt = at;
         activeStopped = event.type === "turn-stop";
         if (switched) lastSwitchAt = at;
@@ -63,7 +68,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
     },
 
     snapshot() {
-      return { activeSessionId, lastSwitchAt, suppressedEvents, leaseMs };
+      return { activeSessionId, activeSessionSource, lastSwitchAt, suppressedEvents, leaseMs };
     }
   };
 }

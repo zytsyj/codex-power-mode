@@ -113,15 +113,17 @@ test("event service records concurrent activity without replacing the active HUD
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
     const first = await post({
       type: "activity-start",
-      sessionId: "desktop",
+      sessionId: "conversation-a",
+      sessionSource: "desktop",
       timestamp: new Date(1_000).toISOString(),
-      state: { sessionId: "desktop", phase: "act", status: "working", momentum: 2 }
+      state: { sessionId: "conversation-a", sessionSource: "desktop", phase: "act", status: "working", momentum: 2 }
     });
     const second = await post({
       type: "activity-start",
-      sessionId: "cli",
+      sessionId: "conversation-b",
+      sessionSource: "desktop",
       timestamp: new Date(2_000).toISOString(),
-      state: { sessionId: "cli", phase: "act", status: "working", momentum: 99 }
+      state: { sessionId: "conversation-b", sessionSource: "desktop", phase: "act", status: "working", momentum: 99 }
     });
 
     assert.equal((await first.json()).displayed, true);
@@ -129,28 +131,31 @@ test("event service records concurrent activity without replacing the active HUD
 
     const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
     const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-    assert.equal(state.sessionId, "desktop");
+    assert.equal(state.sessionId, "conversation-a");
     assert.equal(state.momentum, 2);
     assert.equal(health.activity.realEventsReceived, 2);
-    assert.equal(health.session.activeSessionId, "desktop");
+    assert.equal(health.session.activeSessionId, "conversation-a");
+    assert.equal(health.session.activeSessionSource, "desktop");
     assert.equal(health.session.suppressedEvents, 1);
 
     await mkdir(path.join(dataDir, "native"), { recursive: true });
     await writeFile(path.join(dataDir, "native", "overlay-config.json"), JSON.stringify({ activitySource: "global" }));
     const global = await post({
       type: "activity-start",
-      sessionId: "cli",
+      sessionId: "conversation-b",
+      sessionSource: "desktop",
       timestamp: new Date(3_000).toISOString(),
-      state: { sessionId: "cli", phase: "act", status: "working", momentum: 4 }
+      state: { sessionId: "conversation-b", sessionSource: "desktop", phase: "act", status: "working", momentum: 4 }
     });
     assert.equal((await global.json()).displayed, true);
 
     const globalState = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
     const globalHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-    assert.equal(globalState.sessionId, "cli");
+    assert.equal(globalState.sessionId, "conversation-b");
     assert.equal(globalState.momentum, 4);
     assert.equal(globalHealth.activity.realEventsReceived, 3);
     assert.equal(globalHealth.session.activitySource, "global");
+    assert.equal(globalHealth.session.activeSessionSource, "desktop");
   } finally {
     child.kill("SIGTERM");
     await waitForExit(child).catch(() => child.kill("SIGKILL"));

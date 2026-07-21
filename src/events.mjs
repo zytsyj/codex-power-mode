@@ -69,6 +69,7 @@ export function eventFromHook(input, now = Date.now()) {
     id: `${now}-${Math.random().toString(36).slice(2, 9)}`,
     timestamp: new Date(now).toISOString(),
     sessionId: input.session_id ?? "unknown",
+    sessionSource: input.session_source ?? "unknown",
     turnId: input.turn_id ?? null,
     cwd: input.cwd ?? process.cwd()
   };
