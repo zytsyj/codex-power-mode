@@ -7,6 +7,7 @@ import { servicePortFromEnvironment } from "../src/config.mjs";
 import { createActivityTracker } from "../src/activity.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { pluginIdentity } from "../src/service-identity.mjs";
+import { createSessionArbiter } from "../src/session-arbiter.mjs";
 import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,6 +24,7 @@ const port = servicePortFromEnvironment({
 const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
 const clients = new Set();
 const activity = createActivityTracker();
+const sessionArbiter = createSessionArbiter(await readState(dataDir));
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -59,6 +61,7 @@ const server = http.createServer(async (request, response) => {
       dataDir,
       clients: clients.size,
       activity: activity.snapshot(),
+      session: sessionArbiter.snapshot(),
       serviceVersion: identity.version,
       serviceRoot: identity.root,
       servicePid: process.pid
@@ -79,10 +82,13 @@ const server = http.createServer(async (request, response) => {
   }
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
-    if (event.state) await writeStateSnapshot(dataDir, event.state);
     activity.record(event);
-    broadcast(event);
-    return sendJson(response, 202, { accepted: true });
+    const decision = sessionArbiter.consider(event);
+    if (decision.displayed) {
+      if (event.state) await writeStateSnapshot(dataDir, event.state);
+      broadcast(event);
+    }
+    return sendJson(response, 202, { accepted: true, ...decision });
   }
 
   const requested = url.pathname === "/" ? "index.html" : url.pathname.slice(1);

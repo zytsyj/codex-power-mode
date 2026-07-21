@@ -95,3 +95,48 @@ test("event service health identifies the running plugin build", async () => {
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test("event service records concurrent activity without replacing the active HUD session", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-arbitration-"));
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  const post = (body) => fetch(`http://127.0.0.1:${port}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const first = await post({
+      type: "activity-start",
+      sessionId: "desktop",
+      timestamp: new Date(1_000).toISOString(),
+      state: { sessionId: "desktop", phase: "act", status: "working", momentum: 2 }
+    });
+    const second = await post({
+      type: "activity-start",
+      sessionId: "cli",
+      timestamp: new Date(2_000).toISOString(),
+      state: { sessionId: "cli", phase: "act", status: "working", momentum: 99 }
+    });
+
+    assert.equal((await first.json()).displayed, true);
+    assert.equal((await second.json()).displayed, false);
+
+    const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    assert.equal(state.sessionId, "desktop");
+    assert.equal(state.momentum, 2);
+    assert.equal(health.activity.realEventsReceived, 2);
+    assert.equal(health.session.activeSessionId, "desktop");
+    assert.equal(health.session.suppressedEvents, 1);
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
