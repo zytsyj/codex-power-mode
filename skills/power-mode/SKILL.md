@@ -73,5 +73,6 @@ Summarize phase, energy level, Combo stage, momentum, confidence, risk, edited l
 - Failed verification enters recovery and lowers confidence.
 - A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.
 - Complete outcomes stay semantically distinct: verified celebrates, unverified cautions, cancelled interrupts, and no-change settles quietly.
+- Focus uses restrained single-beat state motion; Arcade uses faster multi-stage capture, drive, and verification rhythms rather than only adding particles.
 - A terminal result holds briefly, Combo drains and disconnects, then the HUD enters Idle while visible energy returns to zero. Historical best values remain available in the menu.
 - Do not run extra commands solely to increase momentum or confidence.

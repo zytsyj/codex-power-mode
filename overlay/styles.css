@@ -284,6 +284,24 @@ body[data-phase="verify"] .reactor-wrap::after {
   box-shadow: 0 0 9px rgba(var(--accent-rgb), .24);
   animation: verify-focus 1.25s ease-out infinite;
 }
+body[data-preset="arcade"][data-phase="observe"] .reactor-wrap::before {
+  background: repeating-conic-gradient(from 0deg, transparent 0 34deg, rgba(var(--accent-rgb), .18) 42deg, var(--accent) 52deg, transparent 58deg 90deg);
+  opacity: .94;
+  animation-duration: 1.55s;
+}
+body[data-preset="arcade"][data-phase="act"] .reactor-wrap::before { animation-duration: .62s; filter: drop-shadow(0 0 9px rgba(var(--accent-rgb), .78)); }
+body[data-preset="arcade"][data-phase="act"] .reactor-wrap::after {
+  left: -18px;
+  top: 38px;
+  width: 42px;
+  height: 6px;
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), .22), var(--accent));
+  clip-path: polygon(0 42%, 100% 0, 100% 100%, 0 58%);
+  opacity: .76;
+  animation: arcade-drive .62s ease-out infinite;
+}
+body[data-preset="arcade"][data-phase="verify"] .reactor-wrap::before { animation-duration: .92s; filter: drop-shadow(0 0 9px rgba(var(--accent-rgb), .82)); }
+body[data-preset="arcade"][data-phase="verify"] .reactor-wrap::after { animation-duration: .68s; box-shadow: 0 0 14px rgba(var(--accent-rgb), .46), inset 0 0 8px rgba(var(--accent-rgb), .2); }
 body[data-phase="wait"] .reactor-wrap::before {
   inset: 9px 1px;
   border-left: 2px solid var(--accent);
@@ -441,6 +459,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes act-propagate { from { opacity: .78; transform: scale(.88); } to { opacity: 0; transform: scale(1.12); } }
 @keyframes verify-orbit { to { transform: rotate(360deg); } }
 @keyframes verify-focus { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(.62); } }
+@keyframes arcade-drive { from { opacity: .82; transform: translateX(-8px) scaleX(.7); } to { opacity: 0; transform: translateX(12px) scaleX(1.15); } }
 @keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }
 @keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
 @keyframes complete-halo { to { transform: rotate(360deg); } }

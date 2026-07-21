@@ -382,16 +382,39 @@ private final class PowerModeView: NSView {
                 if event.toolGroup == "prompt" {
                     focusPulse(color: .systemCyan, count: arcadeMode ? 92 : 54)
                     shockwave(color: .systemCyan, power: 0.38)
+                    if arcadeMode {
+                        scheduleEffect(after: 0.14, generation: generation) { view in
+                            view.focusPulse(color: .systemPurple, count: 54)
+                            view.shockwave(color: .systemCyan, power: 0.52)
+                        }
+                    }
                 } else {
                     scan(color: .systemCyan, generation: generation)
+                    if arcadeMode {
+                        scheduleEffect(after: 0.16, generation: generation) { view in
+                            view.focusPulse(color: .systemCyan, count: 42)
+                        }
+                    }
                 }
             } else if event.phase == "verify" {
                 charge(color: .systemGreen, count: arcadeMode ? 100 : 58)
                 scheduleEffect(after: 0.18, generation: generation) { view in
                     view.shockwave(color: .systemGreen, power: 0.42)
                 }
+                if arcadeMode {
+                    scheduleEffect(after: 0.34, generation: generation) { view in
+                        view.charge(color: .systemGreen, count: 54)
+                        view.shockwave(color: .systemGreen, power: 0.68)
+                    }
+                }
             } else {
                 directionalSparks(color: .systemPurple, count: arcadeMode ? 48 : 26)
+                if arcadeMode {
+                    shockwave(color: .systemPurple, power: 0.38)
+                    scheduleEffect(after: 0.12, generation: generation) { view in
+                        view.directionalSparks(color: .systemPink, count: 34)
+                    }
+                }
             }
         case "permission-request":
             attentionGates(color: .systemYellow, count: arcadeMode ? 72 : 42)
@@ -1122,14 +1145,16 @@ private final class PowerModeView: NSView {
 
     private func drawObserveSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let heading = reducedMotion ? CGFloat(35) : shakePhase * 0.19
-        for index in 0..<3 {
-            let trail = CGFloat(index) * 14
+        let heading = reducedMotion ? CGFloat(35) : shakePhase * (arcadeMode ? 0.34 : 0.19)
+        let trailCount = arcadeMode ? 5 : 3
+        for index in 0..<trailCount {
+            let trail = CGFloat(index) * (arcadeMode ? 10 : 14)
             let sweep = NSBezierPath()
-            sweep.appendArc(withCenter: center, radius: 38.5, startAngle: heading - trail - 13, endAngle: heading - trail)
-            sweep.lineWidth = 2.2
+            let radius = 38.5 - (arcadeMode ? CGFloat(index % 2) * 3 : 0)
+            sweep.appendArc(withCenter: center, radius: radius, startAngle: heading - trail - (arcadeMode ? 18 : 13), endAngle: heading - trail)
+            sweep.lineWidth = arcadeMode ? 2.5 : 2.2
             sweep.lineCapStyle = .round
-            color.withAlphaComponent(0.78 - CGFloat(index) * 0.23).setStroke()
+            color.withAlphaComponent(max(0.16, 0.82 - CGFloat(index) * (arcadeMode ? 0.14 : 0.23))).setStroke()
             sweep.stroke()
         }
     }
@@ -1160,11 +1185,13 @@ private final class PowerModeView: NSView {
 
     private func drawActSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let progress = reducedMotion ? CGFloat(0.38) : shakePhase.truncatingRemainder(dividingBy: 54) / 54
-        for index in 0..<3 {
-            let trail = CGFloat(index) * 8
+        let cycle: CGFloat = arcadeMode ? 34 : 54
+        let progress = reducedMotion ? CGFloat(0.38) : shakePhase.truncatingRemainder(dividingBy: cycle) / cycle
+        let chevronCount = arcadeMode ? 5 : 3
+        for index in 0..<chevronCount {
+            let trail = CGFloat(index) * (arcadeMode ? 6 : 8)
             let x = center.x - 27 - progress * 10 - trail
-            let alpha = max(0.18, (1 - progress) * (0.92 - CGFloat(index) * 0.2))
+            let alpha = max(0.14, (1 - progress) * (0.94 - CGFloat(index) * (arcadeMode ? 0.14 : 0.2)))
             color.withAlphaComponent(alpha).setStroke()
             let chevron = NSBezierPath()
             chevron.move(to: CGPoint(x: x + 7, y: center.y - 7))
@@ -1178,7 +1205,7 @@ private final class PowerModeView: NSView {
 
         color.withAlphaComponent(0.42).setStroke()
         let driveLine = NSBezierPath()
-        driveLine.move(to: CGPoint(x: center.x + 29, y: center.y))
+        driveLine.move(to: CGPoint(x: center.x + (arcadeMode ? 38 : 29), y: center.y))
         driveLine.line(to: CGPoint(x: center.x + 12, y: center.y))
         driveLine.lineWidth = 1.4
         driveLine.lineCapStyle = .square
@@ -1187,7 +1214,8 @@ private final class PowerModeView: NSView {
 
     private func drawVerifySignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let progress = reducedMotion ? CGFloat(0.32) : shakePhase.truncatingRemainder(dividingBy: 64) / 64
+        let cycle: CGFloat = arcadeMode ? 44 : 64
+        let progress = reducedMotion ? CGFloat(0.32) : shakePhase.truncatingRemainder(dividingBy: cycle) / cycle
         let half = 38 - progress * 8
         let arm: CGFloat = 10
         color.withAlphaComponent(0.82 - progress * 0.28).setStroke()
@@ -1207,6 +1235,17 @@ private final class PowerModeView: NSView {
         let coreSize = 4 + (1 - progress) * 4
         color.withAlphaComponent(0.56).setFill()
         NSBezierPath(rect: CGRect(x: center.x - coreSize / 2, y: center.y - coreSize / 2, width: coreSize, height: coreSize)).fill()
+
+        if arcadeMode {
+            color.withAlphaComponent(0.38 + (1 - progress) * 0.28).setStroke()
+            let confirmation = NSBezierPath()
+            confirmation.appendArc(withCenter: center, radius: 40, startAngle: shakePhase * 0.22, endAngle: shakePhase * 0.22 + 72)
+            confirmation.appendArc(withCenter: center, radius: 40, startAngle: shakePhase * 0.22 + 120, endAngle: shakePhase * 0.22 + 192)
+            confirmation.appendArc(withCenter: center, radius: 40, startAngle: shakePhase * 0.22 + 240, endAngle: shakePhase * 0.22 + 312)
+            confirmation.lineWidth = 1.5
+            confirmation.lineCapStyle = .round
+            confirmation.stroke()
+        }
     }
 
     private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {
