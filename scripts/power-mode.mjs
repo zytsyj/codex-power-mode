@@ -3,7 +3,12 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { nativeConfigFromEnvironment, serviceEndpointFromEnvironment } from "../src/config.mjs";
+import {
+  nativeConfigFromEnvironment,
+  nativeStreamEndpointFromConfiguration,
+  nativeStreamEndpointFromEnvironment,
+  serviceEndpointFromEnvironment
+} from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
@@ -130,9 +135,17 @@ async function buildNativeOverlay() {
 async function startNative() {
   await start();
   const existing = await currentNativePid();
-  if (existing) {
+  const streamEndpoint = nativeStreamEndpointFromEnvironment(process.env);
+  const currentConfiguration = await readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => ({}));
+  if (existing && nativeStreamEndpointFromConfiguration(currentConfiguration) === streamEndpoint) {
     process.stdout.write(`Native overlay already running (PID ${existing})\n`);
     return;
+  }
+  if (existing) {
+    process.kill(existing, "SIGTERM");
+    for (let attempt = 0; attempt < 20 && await processIsAlive(existing); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
   }
   await buildNativeOverlay();
   const child = spawn(nativeBinary, [], {
@@ -140,12 +153,15 @@ async function startNative() {
     stdio: "ignore",
     env: {
       ...process.env,
-      CODEX_POWER_MODE_URL: `${endpoint}/api/stream`
+      CODEX_POWER_MODE_URL: streamEndpoint
     }
   });
   child.unref();
   await writeFile(nativePidFile, `${child.pid}\n`);
-  await writeFile(nativeConfigFile, `${JSON.stringify(nativeConfigFromEnvironment(process.env), null, 2)}\n`);
+  await writeFile(nativeConfigFile, `${JSON.stringify({
+    ...nativeConfigFromEnvironment(process.env),
+    endpoint: streamEndpoint
+  }, null, 2)}\n`);
   process.stdout.write(`Native overlay started (PID ${child.pid})\n`);
 }
 

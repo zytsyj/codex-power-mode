@@ -9,6 +9,14 @@ export function serviceEndpointFromEnvironment(environment = {}) {
   return `http://127.0.0.1:${servicePortFromEnvironment(environment)}`;
 }
 
+export function nativeStreamEndpointFromEnvironment(environment = {}) {
+  return `${serviceEndpointFromEnvironment(environment)}/api/stream`;
+}
+
+export function nativeStreamEndpointFromConfiguration(configuration = {}) {
+  return configuration.endpoint || "http://127.0.0.1:4737/api/stream";
+}
+
 export function nativeConfigFromEnvironment(environment = {}) {
   const parsedScale = Number.parseFloat(environment.CODEX_POWER_MODE_SCALE);
   return {
