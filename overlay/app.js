@@ -33,6 +33,8 @@ let hudVisibleUntil = Date.now() + 1800;
 let connectionOnline = false;
 let effectGeneration = 0;
 let sessionTransitionUntil = 0;
+let visualPhase = null;
+let visualPhaseEnteredAt = parameters.get("tempo") === "settled" ? Date.now() - 20_000 : Date.now();
 
 const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
@@ -339,11 +341,18 @@ function renderPresentation(now = Date.now()) {
   const phase = presented.phase ?? "observe";
   const momentum = presented.momentum ?? 0;
   const energyLevel = energyLevelAt(momentum);
+  if (phase !== visualPhase) {
+    visualPhase = phase;
+    visualPhaseEnteredAt = parameters.get("tempo") === "settled" ? now - 20_000 : now;
+  }
+  const phaseAge = now - visualPhaseEnteredAt;
+  const settledTempo = phase === "wait" ? phaseAge >= 12_000 : phase === "recover" ? phaseAge >= 10_000 : false;
   document.body.dataset.phase = phase;
   document.body.dataset.status = presented.status ?? "ready";
   document.body.dataset.completion = presented.completion ?? "none";
   document.body.dataset.activity = presented.currentActivity === "Understanding request" ? "understanding" : "context";
   document.body.dataset.energyLevel = energyLevel;
+  document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
   elements["power-label"].textContent = energyLevel === "idle" ? t("power") : t(energyLevel);

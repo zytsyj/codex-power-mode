@@ -344,6 +344,23 @@ body[data-phase="recover"] .reactor-wrap::after {
   opacity: .78;
   animation: recover-seam 1.35s steps(2, end) infinite alternate-reverse;
 }
+body[data-phase-tempo="settled"][data-phase="wait"] .reactor-wrap::before {
+  opacity: .48;
+  animation-duration: 3.8s;
+}
+body[data-phase-tempo="settled"][data-phase="wait"] .reactor-wrap::after {
+  opacity: .58;
+  animation-duration: 3.8s;
+}
+body[data-phase-tempo="settled"][data-phase="recover"] .reactor-wrap::before {
+  opacity: .56;
+  animation-duration: 4.2s;
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), .34));
+}
+body[data-phase-tempo="settled"][data-phase="recover"] .reactor-wrap::after {
+  opacity: .52;
+  animation-duration: 4.2s;
+}
 body[data-phase="complete"][data-completion="verified"] .reactor-wrap::before {
   inset: 0;
   border-radius: 50%;

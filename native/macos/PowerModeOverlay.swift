@@ -172,6 +172,8 @@ private final class PowerModeView: NSView {
     private var comboBrokenAt: Date?
     private var turnStoppedAt: Date?
     private var lastActivityAt: Date?
+    private var semanticPhase = "observe"
+    private var semanticPhaseEnteredAt = Date()
     private var comboWasAnimating = false
     private var streamConnected: Bool?
     private var lastLiveEventAt: Date?
@@ -335,6 +337,11 @@ private final class PowerModeView: NSView {
 
     func handle(_ event: PowerEvent) {
         if let nextState = event.state {
+            let nextPhase = nextState.phase ?? "observe"
+            if nextPhase != semanticPhase {
+                semanticPhase = nextPhase
+                semanticPhaseEnteredAt = event.timestamp.flatMap(isoDateFormatter.date(from:)) ?? Date()
+            }
             state = nextState
             comboHoldUntil = nextState.comboHoldUntil.flatMap(isoDateFormatter.date(from:))
             comboExpiresAt = nextState.comboExpiresAt.flatMap(isoDateFormatter.date(from:))
@@ -1110,12 +1117,14 @@ private final class PowerModeView: NSView {
     }
 
     private func drawWaitSignal(around origin: CGPoint, color: NSColor) {
-        let cycle = reducedMotion ? CGFloat(0) : shakePhase.truncatingRemainder(dividingBy: 72)
-        let firstBeat = max(0, 1 - abs(cycle - 8) / 6)
-        let secondBeat = max(0, 1 - abs(cycle - 22) / 5) * 0.72
+        let settled = Date().timeIntervalSince(semanticPhaseEnteredAt) >= 12
+        let cycleLength: CGFloat = settled ? 138 : 72
+        let cycle = reducedMotion ? CGFloat(0) : shakePhase.truncatingRemainder(dividingBy: cycleLength)
+        let firstBeat = max(0, 1 - abs(cycle - 8) / (settled ? 9 : 6))
+        let secondBeat = max(0, 1 - abs(cycle - (settled ? 34 : 22)) / (settled ? 8 : 5)) * (settled ? 0.42 : 0.72)
         let beat = min(1, firstBeat + secondBeat)
-        let pulse = reducedMotion ? CGFloat(0.82) : 0.48 + beat * 0.52
-        let reach = reducedMotion ? CGFloat(5) : 3 + beat * 7
+        let pulse = reducedMotion ? CGFloat(0.82) : (settled ? 0.42 + beat * 0.34 : 0.48 + beat * 0.52)
+        let reach = reducedMotion ? CGFloat(5) : (settled ? 2 + beat * 3.5 : 3 + beat * 7)
         color.withAlphaComponent(pulse).setStroke()
         let gates = NSBezierPath()
         gates.move(to: CGPoint(x: origin.x - reach + 11, y: origin.y + 16))
@@ -1249,16 +1258,17 @@ private final class PowerModeView: NSView {
     }
 
     private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {
-        let oscillation = reducedMotion ? 0 : sin(shakePhase * 0.075)
-        let rotation = oscillation * 7
+        let settled = Date().timeIntervalSince(semanticPhaseEnteredAt) >= 10
+        let oscillation = reducedMotion ? 0 : sin(shakePhase * (settled ? 0.025 : 0.075))
+        let rotation = oscillation * (settled ? 2.5 : 7)
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        color.withAlphaComponent(0.72 + oscillation * 0.16).setStroke()
+        color.withAlphaComponent((settled ? 0.48 : 0.72) + oscillation * (settled ? 0.08 : 0.16)).setStroke()
         for (index, angles) in [(14.0, 62.0), (88.0, 139.0), (166.0, 224.0), (252.0, 333.0)].enumerated() {
             let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
             let segment = NSBezierPath()
             segment.appendArc(
                 withCenter: center,
-                radius: 41 + direction * oscillation * 1.5,
+                radius: 41 + direction * oscillation * (settled ? 0.6 : 1.5),
                 startAngle: CGFloat(angles.0) + rotation * direction,
                 endAngle: CGFloat(angles.1) + rotation * direction
             )
