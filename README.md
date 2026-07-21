@@ -101,6 +101,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
+- Energy tiers add fixed outer geometry as they rise—four Flow nodes, eight Surge nodes, then twelve Overdrive nodes plus an outer ring—while upgrade effects fire only when crossing a threshold.
 - Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
 
 ## Combo semantics

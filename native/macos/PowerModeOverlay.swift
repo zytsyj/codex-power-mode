@@ -422,6 +422,7 @@ private final class PowerModeView: NSView {
 
     func handle(_ event: PowerEvent) {
         let eventAt = event.timestamp.flatMap(isoDateFormatter.date(from:))
+        let previousEnergyLevel = energyLevel(state.momentum ?? 0).name
         if let nextState = event.state {
             let nextPhase = nextState.phase ?? "observe"
             if nextPhase != semanticPhase {
@@ -437,6 +438,8 @@ private final class PowerModeView: NSView {
             lastActivityAt = nextState.lastActivityAt.flatMap(isoDateFormatter.date(from:))
             lastFailureAt = nextState.lastFailureAt.flatMap(isoDateFormatter.date(from:))
         }
+        let currentEnergyLevel = energyLevel(state.momentum ?? 0).name
+        let energyUpgrade = energyRank(currentEnergyLevel) > energyRank(previousEnergyLevel) ? currentEnergyLevel : nil
         let triggeredRelink = eventAt.map { eventDate in
             comboRelinkedAt.map { abs(eventDate.timeIntervalSince($0)) < 0.05 } ?? false
         } ?? false
@@ -631,7 +634,35 @@ private final class PowerModeView: NSView {
             charge(color: .systemCyan, count: arcadeMode ? 72 : 34)
             shockwave(color: .systemCyan, power: arcadeMode ? 0.72 : 0.38)
         }
+        if let energyUpgrade { playEnergyUpgrade(energyUpgrade, generation: generation) }
         needsDisplay = true
+    }
+
+    private func playEnergyUpgrade(_ level: String, generation: Int) {
+        switch level {
+        case "charging":
+            shockwave(color: .systemCyan, power: arcadeMode ? 0.42 : 0.24)
+        case "flow":
+            charge(color: .systemCyan, count: arcadeMode ? 58 : 28)
+            shockwave(color: .systemCyan, power: arcadeMode ? 0.72 : 0.42)
+        case "surge":
+            shockwave(color: .systemPurple, power: arcadeMode ? 1.18 : 0.68)
+            charge(color: .systemPurple, count: arcadeMode ? 92 : 44)
+            if arcadeMode {
+                scheduleEffect(after: 0.16, generation: generation) { view in
+                    view.shockwave(color: .systemCyan, power: 0.82)
+                }
+            }
+        case "overdrive":
+            shockwave(color: .systemYellow, power: arcadeMode ? 1.72 : 0.92)
+            burst(color: .systemYellow, count: arcadeMode ? 132 : 58, power: arcadeMode ? 1.18 : 0.78)
+            shake = max(shake, arcadeMode ? 5.5 : 2.2)
+            scheduleEffect(after: 0.18, generation: generation) { view in
+                view.shockwave(color: .systemCyan, power: view.arcadeMode ? 1.28 : 0.62)
+            }
+        default:
+            break
+        }
     }
 
     private func reducedFeedbackKind(for event: PowerEvent) -> String {
@@ -1278,6 +1309,22 @@ private final class PowerModeView: NSView {
         let progress = CGFloat(momentum) / 100
         let energy = energyLevel(momentum)
         let energyPulse = reducedMotion ? CGFloat(1) : 0.88 + 0.12 * sin(shakePhase * energy.rhythm)
+        let tierMarks = energy.name == "flow" ? 4 : energy.name == "surge" ? 8 : energy.name == "overdrive" ? 12 : 0
+        if tierMarks > 0 {
+            let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+            let markers = NSBezierPath()
+            for index in 0..<tierMarks {
+                let angle = CGFloat(index) / CGFloat(tierMarks) * .pi * 2 - .pi / 2
+                let innerRadius: CGFloat = energy.name == "overdrive" ? 36.5 : 37.5
+                let outerRadius: CGFloat = energy.name == "overdrive" ? 41 : 40
+                markers.move(to: CGPoint(x: center.x + cos(angle) * innerRadius, y: center.y + sin(angle) * innerRadius))
+                markers.line(to: CGPoint(x: center.x + cos(angle) * outerRadius, y: center.y + sin(angle) * outerRadius))
+            }
+            markers.lineWidth = energy.name == "overdrive" ? 1.8 : energy.name == "surge" ? 1.35 : 1
+            markers.lineCapStyle = .round
+            phaseColor.withAlphaComponent((energy.name == "overdrive" ? 0.88 : energy.name == "surge" ? 0.68 : 0.48) * energyPulse).setStroke()
+            markers.stroke()
+        }
         let arc = NSBezierPath()
         arc.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 31, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
         arc.lineWidth = energy.lineWidth
@@ -1692,6 +1739,16 @@ private final class PowerModeView: NSView {
         if momentum < 50 { return ("flow", 2.8, 0.055) }
         if momentum < 75 { return ("surge", 3.4, 0.085) }
         return ("overdrive", 4.1, 0.13)
+    }
+
+    private func energyRank(_ level: String) -> Int {
+        switch level {
+        case "charging": return 1
+        case "flow": return 2
+        case "surge": return 3
+        case "overdrive": return 4
+        default: return 0
+        }
     }
 
     private func localizedEnergyLevel(_ level: String) -> String {

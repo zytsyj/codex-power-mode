@@ -80,6 +80,15 @@ main { position: fixed; inset: 0; pointer-events: none; }
     inset 0 0 22px rgba(var(--accent-rgb), .08),
     0 0 28px rgba(var(--accent-rgb), .12);
 }
+.reactor::before,
+.reactor::after { content: ""; position: absolute; pointer-events: none; border-radius: 50%; opacity: 0; }
+body[data-energy-level="flow"] .reactor::before,
+body[data-energy-level="surge"] .reactor::before,
+body[data-energy-level="overdrive"] .reactor::before { inset: -8px; opacity: .58; -webkit-mask: radial-gradient(circle, transparent 67%, #000 69% 73%, transparent 75%); mask: radial-gradient(circle, transparent 67%, #000 69% 73%, transparent 75%); }
+body[data-energy-level="flow"] .reactor::before { background: repeating-conic-gradient(from -2deg, rgba(var(--accent-rgb),.88) 0 4deg, transparent 4deg 90deg); }
+body[data-energy-level="surge"] .reactor::before { background: repeating-conic-gradient(from -2deg, rgba(var(--accent-rgb),.9) 0 4deg, transparent 4deg 45deg); filter: drop-shadow(0 0 5px rgba(var(--accent-rgb),.6)); opacity: .74; }
+body[data-energy-level="overdrive"] .reactor::before { background: repeating-conic-gradient(from -2deg, rgba(var(--accent-rgb),.96) 0 5deg, transparent 5deg 30deg); filter: drop-shadow(0 0 7px rgba(var(--accent-rgb),.8)); opacity: .9; }
+body[data-energy-level="overdrive"] .reactor::after { inset: -11px; border: 1px solid rgba(var(--accent-rgb),.42); box-shadow: 0 0 10px rgba(var(--accent-rgb),.3); opacity: .72; }
 .tick-ring {
   position: absolute;
   inset: -4px;
@@ -529,6 +538,11 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes combo-break-right { from { opacity: 1; transform: translate(-7px, 0) rotate(0); } to { opacity: .86; transform: translate(0, 1px) rotate(5deg); } }
 @keyframes energy-surge { 50% { filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), .96)); } }
 @keyframes energy-overdrive { 50% { filter: drop-shadow(0 0 17px rgba(var(--accent-rgb), 1)); transform: scale(1.025); } }
+@keyframes energy-tier-upgrade { 0% { transform: scale(.92); filter: brightness(1.7); } 48% { transform: scale(1.07); } 100% { transform: scale(1); filter: brightness(1); } }
+body.energy-upgrade-charging .reactor { animation: energy-tier-upgrade .38s ease-out 1; }
+body.energy-upgrade-flow .reactor { animation: energy-tier-upgrade .46s ease-out 1; }
+body.energy-upgrade-surge .reactor { animation: energy-tier-upgrade .56s ease-out 1; }
+body.energy-upgrade-overdrive .reactor { animation: energy-tier-upgrade .68s cubic-bezier(.18,.82,.18,1) 1; }
 @keyframes reactor-fault { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 @keyframes fault-spin { 50% { transform: rotate(-13deg); opacity: .25; } }
 @keyframes system-kick { 40% { transform: translateX(-4px); } }

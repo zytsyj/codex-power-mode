@@ -39,6 +39,7 @@ let effectGeneration = 0;
 let sessionTransitionUntil = 0;
 let visualPhase = null;
 let visualComboStage = null;
+let visualEnergyLevel = null;
 let visualPhaseEnteredAt = parameters.get("tempo") === "settled" ? Date.now() - 20_000 : Date.now();
 
 const copy = {
@@ -318,6 +319,33 @@ function energyLevelAt(momentum) {
   return "overdrive";
 }
 
+function energyRankAt(level) {
+  return { idle: 0, charging: 1, flow: 2, surge: 3, overdrive: 4 }[level] ?? 0;
+}
+
+function reactToEnergyTransition(level) {
+  if (reducedMotion || level === "idle") return;
+  const start = reactorOrigin();
+  const color = level === "overdrive" ? "#ffd66b" : level === "surge" ? "#a987ff" : "#75dfff";
+  document.body.classList.remove("energy-upgrade-charging", "energy-upgrade-flow", "energy-upgrade-surge", "energy-upgrade-overdrive");
+  void document.body.offsetWidth;
+  document.body.classList.add(`energy-upgrade-${level}`);
+  if (level === "charging") {
+    ring(color, preset === "arcade" ? .42 : .24, start);
+  } else if (level === "flow") {
+    ring(color, preset === "arcade" ? .72 : .42, start);
+    burst(color, preset === "arcade" ? 34 : 16, .48, "inward", start);
+  } else if (level === "surge") {
+    ring(color, preset === "arcade" ? 1.18 : .68, start);
+    burst(color, preset === "arcade" ? 58 : 26, .72, "inward", start);
+    if (preset === "arcade") scheduleEffect(160, effectGeneration, () => ring("#75dfff", .82, start));
+  } else {
+    ring(color, preset === "arcade" ? 1.72 : .92, start);
+    burst(color, preset === "arcade" ? 86 : 38, preset === "arcade" ? 1.0 : .68, "radial", start);
+    scheduleEffect(180, effectGeneration, () => ring("#75dfff", preset === "arcade" ? 1.28 : .62, start));
+  }
+}
+
 function comboStageAt(next, progress, status, now = Date.now()) {
   if (status === "broken") return "lost";
   if (status === "idle") return "idle";
@@ -391,6 +419,10 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.completion = presented.completion ?? "none";
   document.body.dataset.activity = presented.currentActivity === "Understanding request" ? "understanding" : "context";
   document.body.dataset.energyLevel = energyLevel;
+  if (energyLevel !== visualEnergyLevel) {
+    if ((visualEnergyLevel !== null && energyRankAt(energyLevel) > energyRankAt(visualEnergyLevel)) || (previewMode && visualEnergyLevel === null)) reactToEnergyTransition(energyLevel);
+    visualEnergyLevel = energyLevel;
+  }
   document.body.dataset.verificationReward = presented.verificationReward ?? "none";
   document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
