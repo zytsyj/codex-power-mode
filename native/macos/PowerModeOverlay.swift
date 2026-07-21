@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 private struct PowerState: Decodable {
+    let sessionId: String?
     let phase: String?
     let status: String?
     let momentum: Int?
@@ -149,7 +150,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerIsHighFrequency = false
-    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -210,6 +211,23 @@ private final class PowerModeView: NSView {
 
     func historySummary() -> String {
         "\(preferences.text("BEST ENERGY", "最高能量")) \(state.bestMomentum ?? 0)  ·  \(preferences.text("BEST COMBO", "最高连击")) \(state.bestCombo ?? 0)×"
+    }
+
+    func activitySourceSummary() -> String {
+        let source = preferences.settings.activitySource == "global"
+            ? preferences.text("Follow all Codex activity", "跟随全部 Codex")
+            : preferences.text("Keep current conversation", "保持当前对话")
+        return "\(preferences.text("Activity source", "动态来源")): \(source)"
+    }
+
+    func sessionSummary() -> (title: String, fullId: String?) {
+        guard let sessionId = state.sessionId, !sessionId.isEmpty else {
+            return (preferences.text("Current session: waiting for activity", "当前会话：等待活动"), nil)
+        }
+        let shortId = sessionId.count > 13
+            ? "\(sessionId.prefix(8))…\(sessionId.suffix(4))"
+            : sessionId
+        return ("\(preferences.text("Current session", "当前会话")): \(shortId)", sessionId)
     }
 
     func beginPositioning() {
@@ -1296,6 +1314,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             let history = NSMenuItem(title: view.historySummary(), action: nil, keyEquivalent: "")
             history.isEnabled = false
             menu.addItem(history)
+            let source = NSMenuItem(title: view.activitySourceSummary(), action: nil, keyEquivalent: "")
+            source.isEnabled = false
+            menu.addItem(source)
+            let summary = view.sessionSummary()
+            let session = NSMenuItem(title: summary.title, action: nil, keyEquivalent: "")
+            session.toolTip = summary.fullId
+            session.isEnabled = false
+            menu.addItem(session)
         }
         menu.addItem(.separator())
 
