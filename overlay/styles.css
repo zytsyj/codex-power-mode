@@ -395,6 +395,26 @@ body[data-phase="complete"][data-completion="cancelled"] .reactor-wrap::after {
   box-shadow: 0 0 9px rgba(var(--accent-rgb), .5);
   opacity: 1;
 }
+body[data-phase="complete"][data-completion="no-change"] .reactor-wrap::before {
+  inset: 1px;
+  border-radius: 50%;
+  background: conic-gradient(from -68deg, var(--accent) 0 136deg, transparent 136deg 180deg, var(--accent) 180deg 316deg, transparent 316deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 0);
+  filter: drop-shadow(0 0 4px rgba(var(--accent-rgb), .3));
+  opacity: .5;
+  animation: no-change-settle 2.8s ease-in-out infinite;
+}
+body[data-phase="complete"][data-completion="no-change"] .reactor-wrap::after {
+  right: 3px;
+  bottom: 12px;
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), .45);
+  opacity: .82;
+}
 body[data-status="needs-attention"] .reactor-wrap { animation: attention 1.35s ease-in-out infinite; }
 body[data-status="failed"] .reactor { animation: reactor-fault .16s linear 3; }
 body[data-status="failed"] .tick-ring { animation: fault-spin .7s steps(4) infinite; }
@@ -425,6 +445,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
 @keyframes complete-halo { to { transform: rotate(360deg); } }
 @keyframes unverified-hold { 50% { opacity: .46; transform: scale(.96); } }
+@keyframes no-change-settle { 50% { opacity: .32; transform: scale(.97); } }
 @keyframes connection-retry { 50% { opacity: .28; transform: scale(.7); } }
 @keyframes combo-hold { 50% { opacity: .48; } }
 @keyframes combo-reward { 50% { transform: translateY(-1px); filter: brightness(1.18); } }

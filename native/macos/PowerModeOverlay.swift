@@ -454,6 +454,11 @@ private final class PowerModeView: NSView {
             }
         case "turn-stop" where event.state?.completion == "unverified":
             shockwave(color: .systemYellow, power: 0.68)
+        case "turn-stop" where event.state?.completion == "no-change":
+            shockwave(color: .systemCyan, power: 0.34)
+            scheduleEffect(after: 0.22, generation: generation) { view in
+                view.focusPulse(color: NSColor.systemCyan.withAlphaComponent(0.62), count: view.arcadeMode ? 34 : 18)
+            }
         default:
             break
         }
@@ -1046,6 +1051,8 @@ private final class PowerModeView: NSView {
                 drawUnverifiedSignal(around: origin, color: phaseColor)
             } else if state.completion == "cancelled" {
                 drawCancelledSignal(around: origin, color: phaseColor)
+            } else if state.completion == "no-change" {
+                drawNoChangeSignal(around: origin, color: phaseColor)
             }
         }
         let combo = comboSnapshot()
@@ -1313,6 +1320,32 @@ private final class PowerModeView: NSView {
         cross.lineCapStyle = .round
         NSColor.white.setStroke()
         cross.stroke()
+    }
+
+    private func drawNoChangeSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let settle = reducedMotion ? CGFloat(0) : 1.5 * sin(shakePhase * 0.045)
+        color.withAlphaComponent(0.48).setStroke()
+        let left = NSBezierPath()
+        left.appendArc(withCenter: center, radius: 40 - settle, startAngle: 112, endAngle: 248)
+        left.lineWidth = 1.5
+        left.lineCapStyle = .round
+        left.stroke()
+        let right = NSBezierPath()
+        right.appendArc(withCenter: center, radius: 40 - settle, startAngle: -68, endAngle: 68)
+        right.lineWidth = 1.5
+        right.lineCapStyle = .round
+        right.stroke()
+
+        color.withAlphaComponent(0.74).setFill()
+        NSBezierPath(ovalIn: CGRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)).fill()
+        color.withAlphaComponent(0.82).setStroke()
+        let quietMark = NSBezierPath()
+        quietMark.move(to: CGPoint(x: origin.x + 68, y: origin.y + 12))
+        quietMark.line(to: CGPoint(x: origin.x + 76, y: origin.y + 12))
+        quietMark.lineWidth = 1.8
+        quietMark.lineCapStyle = .round
+        quietMark.stroke()
     }
 
     private func energyLevel(_ momentum: Int) -> (name: String, lineWidth: CGFloat, rhythm: CGFloat) {

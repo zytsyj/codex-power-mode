@@ -100,6 +100,7 @@ if (previewMode) {
   if (previewEvent === "permission-request") setTimeout(() => react({ type: "permission-request", state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
   if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
+  if (previewEvent === "turn-stop" && noChangeComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
 
 function setConnection(connected, announce = true) {
@@ -441,6 +442,9 @@ function react(event) {
     ring(color, .78, start); scheduleEffect(190, generation, () => ring(color, .52, start));
   } else if (event.type === "turn-stop" && event.state?.completion === "unverified") {
     ring(color, .68, start);
+  } else if (event.type === "turn-stop" && event.state?.completion === "no-change") {
+    ring(color, .34, start);
+    scheduleEffect(220, generation, () => burst(color, preset === "arcade" ? 22 : 12, .42, "focus", start));
   } else if (event.state?.completion === "verified") {
     ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
     scheduleEffect(180, generation, () => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); });
