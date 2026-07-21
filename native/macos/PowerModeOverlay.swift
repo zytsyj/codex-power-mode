@@ -49,7 +49,7 @@ private struct SessionTransition: Decodable {
 private struct OverlaySettings: Codable, Equatable {
     var schemaVersion = 1
     var preset = "focus"
-    var edge = "top-right"
+    var edge = "smart"
     var scale = 1.15
     var reducedMotion = false
     var followWhenInactive = false
@@ -92,12 +92,17 @@ private final class PowerModePreferences {
     func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
     func setLanguage(_ value: String) { mutate { $0.language = value } }
     func setActivitySource(_ value: String) { mutate { $0.activitySource = value == "global" ? "global" : "focused" } }
+    func setEdge(_ value: String) {
+        let supported = ["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]
+        guard supported.contains(value) else { return }
+        mutate { $0.edge = value; $0.positionX = nil; $0.positionY = nil }
+    }
     func setScale(_ value: Double) { mutate { $0.scale = min(1.6, max(0.75, value)) } }
     func toggleEnabled() { mutate { $0.enabled.toggle() } }
     func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
     func toggleFollowWhenInactive() { mutate { $0.followWhenInactive.toggle() } }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
-    func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "top-right" } }
+    func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "smart" } }
 
     private func mutate(_ update: (inout OverlaySettings) -> Void) {
         update(&settings)
@@ -239,7 +244,15 @@ private final class PowerModeView: NSView {
 
     func positionSummary() -> String {
         guard let x = preferences.settings.positionX, let y = preferences.settings.positionY else {
-            return preferences.text("Position: top right · default", "位置：右上 · 默认")
+            let labels = [
+                "smart": preferences.text("smart · avoids side panels", "智能 · 避让侧栏"),
+                "top-right": preferences.text("top right", "右上"),
+                "top-left": preferences.text("top left", "左上"),
+                "bottom-right": preferences.text("bottom right", "右下"),
+                "bottom-left": preferences.text("bottom left", "左下"),
+                "center": preferences.text("center", "中央")
+            ]
+            return "\(preferences.text("Position", "位置")): \(labels[preferences.settings.edge] ?? labels["smart"]!)"
         }
         let horizontal = x < 0.34
             ? preferences.text("left", "左")
@@ -626,6 +639,15 @@ private final class PowerModeView: NSView {
         let bottom = min(preferredMargin, max(safeMargin, bounds.height - size.height - safeMargin))
         let top = max(safeMargin, bounds.height - size.height - preferredMargin)
         switch edge {
+        case "smart":
+            let topInset: CGFloat = bounds.height >= 640 ? 72 : preferredMargin
+            let sidePanelReserve: CGFloat = bounds.width >= 1_400
+                ? min(420, max(300, bounds.width * 0.22))
+                : preferredMargin
+            return CGPoint(
+                x: max(safeMargin, bounds.width - size.width - sidePanelReserve),
+                y: max(safeMargin, bounds.height - size.height - topInset)
+            )
         case "top-left": return CGPoint(x: left, y: top)
         case "bottom-left": return CGPoint(x: left, y: bottom)
         case "bottom-right": return CGPoint(x: right, y: bottom)
@@ -1890,6 +1912,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             action: #selector(selectScale),
             numericSelected: preferences.settings.scale
         ))
+        menu.addItem(submenu(
+            title: preferences.text("Position preset", "位置预设"),
+            choices: [
+                ("smart", preferences.text("Smart · avoid side panels", "智能 · 避让侧栏")),
+                ("top-right", preferences.text("Top right", "右上")),
+                ("top-left", preferences.text("Top left", "左上")),
+                ("bottom-right", preferences.text("Bottom right", "右下")),
+                ("bottom-left", preferences.text("Bottom left", "左下")),
+                ("center", preferences.text("Center", "中央"))
+            ],
+            selected: preferences.settings.positionX == nil ? preferences.settings.edge : "custom",
+            action: #selector(selectEdge)
+        ))
 
         menu.addItem(.separator())
         let adjust = NSMenuItem(title: positioning ? preferences.text("Finish positioning", "完成位置调整") : preferences.text("Adjust position…", "调整位置…"), action: #selector(togglePositioning), keyEquivalent: "p")
@@ -1940,6 +1975,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
     @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
+    @objc private func selectEdge(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEdge(value) } }
     @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
     @objc private func toggleFollow() { preferences?.toggleFollowWhenInactive() }
     @objc private func resetPosition() {

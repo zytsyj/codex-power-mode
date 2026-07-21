@@ -25,7 +25,7 @@ Tell the user the HUD is running at `http://127.0.0.1:4737`. The plugin hooks au
 
 On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, auto-hide versus a quiet Idle orb, English/Chinese, size, reduced motion, global inactive-window visibility, and drag positioning. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior. Settings survive overlay restarts, and the menu reports historical best energy and Combo.
 
-Positioning mode keeps the full HUD inside the Codex window, snaps near edges, shows the active snap direction, and reports the saved region in the menu. Reset position exits positioning and returns to the default top-right anchor.
+Positioning mode keeps the full HUD inside the Codex window, snaps near edges, shows the active snap direction, and reports the saved region in the menu. Position presets include Smart, four corners, and center. Smart placement avoids the title bar and reserves space for common Codex side panels on wide windows; a manually dragged position always wins. Reset position exits positioning and returns to Smart placement.
 
 To stop the native overlay:
 

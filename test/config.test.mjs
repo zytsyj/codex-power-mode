@@ -11,7 +11,7 @@ test("native config reports defaults used by the overlay", () => {
   assert.deepEqual(nativeConfigFromEnvironment(), {
     schemaVersion: 1,
     preset: "focus",
-    edge: "top-right",
+    edge: "smart",
     scale: 1.15,
     reducedMotion: false,
     followWhenInactive: false,
@@ -49,7 +49,8 @@ test("native config normalizes environment overrides", () => {
     positionX: null,
     positionY: null
   });
-  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_EDGE: "sideways" }).edge, "top-right");
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_EDGE: "smart" }).edge, "smart");
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_EDGE: "sideways" }).edge, "smart");
 });
 
 test("native config preserves settings unless an environment override is provided", () => {

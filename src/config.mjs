@@ -1,4 +1,4 @@
-const NATIVE_EDGES = new Set(["top-right", "top-left", "bottom-right", "bottom-left", "center"]);
+const NATIVE_EDGES = new Set(["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]);
 const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global"]);
@@ -41,7 +41,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   return {
     schemaVersion: 1,
     preset: preset === "arcade" ? "arcade" : "focus",
-    edge: NATIVE_EDGES.has(edge) ? edge : "top-right",
+    edge: NATIVE_EDGES.has(edge) ? edge : "smart",
     scale: Number.isFinite(parsedScale) ? Math.min(1.6, Math.max(0.75, parsedScale)) : 1.15,
     reducedMotion,
     followWhenInactive,
