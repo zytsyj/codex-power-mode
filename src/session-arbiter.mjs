@@ -20,7 +20,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
   let suppressedEvents = 0;
 
   return {
-    consider(event) {
+    consider(event, { mode = "focused" } = {}) {
       const sessionId = event?.sessionId ?? null;
       const at = eventTime(event, now());
 
@@ -34,6 +34,18 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
         activeAt = at;
         activeStopped = event.type === "turn-stop";
         return { displayed: true, switched: false };
+      }
+
+      if (mode === "global") {
+        if (at < activeAt) {
+          suppressedEvents += 1;
+          return { displayed: false, switched: false };
+        }
+        activeSessionId = sessionId;
+        activeAt = at;
+        activeStopped = event.type === "turn-stop";
+        lastSwitchAt = at;
+        return { displayed: true, switched: true };
       }
 
       const leaseExpired = at - activeAt >= leaseMs;

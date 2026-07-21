@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -134,6 +134,23 @@ test("event service records concurrent activity without replacing the active HUD
     assert.equal(health.activity.realEventsReceived, 2);
     assert.equal(health.session.activeSessionId, "desktop");
     assert.equal(health.session.suppressedEvents, 1);
+
+    await mkdir(path.join(dataDir, "native"), { recursive: true });
+    await writeFile(path.join(dataDir, "native", "overlay-config.json"), JSON.stringify({ activitySource: "global" }));
+    const global = await post({
+      type: "activity-start",
+      sessionId: "cli",
+      timestamp: new Date(3_000).toISOString(),
+      state: { sessionId: "cli", phase: "act", status: "working", momentum: 4 }
+    });
+    assert.equal((await global.json()).displayed, true);
+
+    const globalState = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
+    const globalHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    assert.equal(globalState.sessionId, "cli");
+    assert.equal(globalState.momentum, 4);
+    assert.equal(globalHealth.activity.realEventsReceived, 3);
+    assert.equal(globalHealth.session.activitySource, "global");
   } finally {
     child.kill("SIGTERM");
     await waitForExit(child).catch(() => child.kill("SIGKILL"));

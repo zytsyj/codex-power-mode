@@ -60,3 +60,18 @@ test("late events from the active session cannot roll the HUD backward", () => {
   assert.equal(arbiter.snapshot().activeSessionId, "desktop");
   assert.equal(arbiter.snapshot().suppressedEvents, 1);
 });
+
+test("global mode follows the latest session while keeping stale events out", () => {
+  const arbiter = createSessionArbiter({}, { now: () => 0 });
+  arbiter.consider(event("desktop", "activity-start", 1_000));
+
+  assert.deepEqual(
+    arbiter.consider(event("cli", "activity-start", 2_000), { mode: "global" }),
+    { displayed: true, switched: true }
+  );
+  assert.deepEqual(
+    arbiter.consider(event("desktop", "edit", 1_500), { mode: "global" }),
+    { displayed: false, switched: false }
+  );
+  assert.equal(arbiter.snapshot().activeSessionId, "cli");
+});

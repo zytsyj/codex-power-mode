@@ -51,7 +51,7 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 
 `npm run status` reports service health, the native overlay PID and launch configuration, the current semantic state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
-The macOS menu-bar bolt is the settings entry point. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json`, survive overlay restarts, and pre-schema development settings are intentionally reset rather than migrated.
+The macOS menu-bar bolt is the settings entry point. **Activity source** can protect the current conversation from concurrent activity or follow the latest activity across all Codex sessions. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json`, survive overlay restarts, and pre-schema development settings are intentionally reset rather than migrated.
 
 Optional environment variables:
 
@@ -63,6 +63,7 @@ Optional environment variables:
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
 - `CODEX_POWER_MODE_IDLE`: `hide` (default), `orb`, or `always`.
 - `CODEX_POWER_MODE_LANGUAGE`: `auto` (default), `zh-CN`, or `en`.
+- `CODEX_POWER_MODE_ACTIVITY_SOURCE`: `focused` (default) or `global`.
 - `CODEX_POWER_MODE_ENABLED=0`: disable drawing while keeping the local service available.
 - `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
 - `CODEX_POWER_MODE_PORT`: local event-service port used consistently by the server, hooks, browser HUD, and native overlay. Defaults to `4737`.

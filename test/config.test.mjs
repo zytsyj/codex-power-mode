@@ -18,6 +18,7 @@ test("native config reports defaults used by the overlay", () => {
     enabled: true,
     idleBehavior: "hide",
     language: "auto",
+    activitySource: "focused",
     positionX: null,
     positionY: null
   });
@@ -32,6 +33,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE: "1",
     CODEX_POWER_MODE_IDLE: "always",
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
+    CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
     CODEX_POWER_MODE_ENABLED: "0"
   }), {
     schemaVersion: 1,
@@ -43,6 +45,7 @@ test("native config normalizes environment overrides", () => {
     enabled: false,
     idleBehavior: "always",
     language: "zh-CN",
+    activitySource: "global",
     positionX: null,
     positionY: null
   });
@@ -60,6 +63,7 @@ test("native config preserves settings unless an environment override is provide
     enabled: false,
     idleBehavior: "orb",
     language: "en",
+    activitySource: "global",
     positionX: 0.42,
     positionY: 0.66
   };

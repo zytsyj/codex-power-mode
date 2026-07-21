@@ -1,6 +1,7 @@
 const NATIVE_EDGES = new Set(["top-right", "top-left", "bottom-right", "bottom-left", "center"]);
 const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
+const ACTIVITY_SOURCES = new Set(["focused", "global"]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
 const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -25,6 +26,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const edge = hasValue(environment, "CODEX_POWER_MODE_EDGE") ? environment.CODEX_POWER_MODE_EDGE : settings.edge;
   const idleBehavior = hasValue(environment, "CODEX_POWER_MODE_IDLE") ? environment.CODEX_POWER_MODE_IDLE : settings.idleBehavior;
   const language = hasValue(environment, "CODEX_POWER_MODE_LANGUAGE") ? environment.CODEX_POWER_MODE_LANGUAGE : settings.language;
+  const activitySource = hasValue(environment, "CODEX_POWER_MODE_ACTIVITY_SOURCE")
+    ? environment.CODEX_POWER_MODE_ACTIVITY_SOURCE
+    : settings.activitySource;
   const reducedMotion = hasValue(environment, "CODEX_POWER_MODE_REDUCED_MOTION")
     ? environment.CODEX_POWER_MODE_REDUCED_MOTION === "1"
     : settings.reducedMotion === true;
@@ -44,6 +48,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     enabled,
     idleBehavior: IDLE_BEHAVIORS.has(idleBehavior) ? idleBehavior : "hide",
     language: LANGUAGES.has(language) ? language : "auto",
+    activitySource: ACTIVITY_SOURCES.has(activitySource) ? activitySource : "focused",
     positionX: storedNumber(settings.positionX),
     positionY: storedNumber(settings.positionY)
   };

@@ -45,6 +45,7 @@ private struct OverlaySettings: Codable, Equatable {
     var enabled = true
     var idleBehavior = "hide"
     var language = "auto"
+    var activitySource: String? = "focused"
     var positionX: Double?
     var positionY: Double?
     var endpoint = "http://127.0.0.1:4737/api/stream"
@@ -79,6 +80,7 @@ private final class PowerModePreferences {
     func setPreset(_ value: String) { mutate { $0.preset = value } }
     func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
     func setLanguage(_ value: String) { mutate { $0.language = value } }
+    func setActivitySource(_ value: String) { mutate { $0.activitySource = value == "global" ? "global" : "focused" } }
     func setScale(_ value: Double) { mutate { $0.scale = min(1.6, max(0.75, value)) } }
     func toggleEnabled() { mutate { $0.enabled.toggle() } }
     func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
@@ -1309,6 +1311,15 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             action: #selector(selectPreset)
         ))
         menu.addItem(submenu(
+            title: preferences.text("Activity source", "动态来源"),
+            choices: [
+                ("focused", preferences.text("Keep current conversation", "保持当前对话")),
+                ("global", preferences.text("Follow all Codex activity", "跟随全部 Codex"))
+            ],
+            selected: preferences.settings.activitySource ?? "focused",
+            action: #selector(selectActivitySource)
+        ))
+        menu.addItem(submenu(
             title: preferences.text("When idle", "静止状态"),
             choices: [
                 ("hide", preferences.text("Auto hide", "自动隐藏")),
@@ -1377,6 +1388,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 
     @objc private func toggleEnabled() { preferences?.toggleEnabled() }
     @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
+    @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
     @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }

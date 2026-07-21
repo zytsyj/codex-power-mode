@@ -25,6 +25,16 @@ const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
 const clients = new Set();
 const activity = createActivityTracker();
 const sessionArbiter = createSessionArbiter(await readState(dataDir));
+const nativeConfigFile = path.join(dataDir, "native", "overlay-config.json");
+
+async function activitySource() {
+  try {
+    const settings = JSON.parse(await readFile(nativeConfigFile, "utf8"));
+    return settings.activitySource === "global" ? "global" : "focused";
+  } catch {
+    return "focused";
+  }
+}
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -61,7 +71,7 @@ const server = http.createServer(async (request, response) => {
       dataDir,
       clients: clients.size,
       activity: activity.snapshot(),
-      session: sessionArbiter.snapshot(),
+      session: { ...sessionArbiter.snapshot(), activitySource: await activitySource() },
       serviceVersion: identity.version,
       serviceRoot: identity.root,
       servicePid: process.pid
@@ -83,7 +93,7 @@ const server = http.createServer(async (request, response) => {
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
     activity.record(event);
-    const decision = sessionArbiter.consider(event);
+    const decision = sessionArbiter.consider(event, { mode: await activitySource() });
     if (decision.displayed) {
       if (event.state) await writeStateSnapshot(dataDir, event.state);
       broadcast(event);
