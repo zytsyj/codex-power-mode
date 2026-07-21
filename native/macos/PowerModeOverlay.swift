@@ -890,7 +890,13 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: scale, y: scale)
         let origin = CGPoint.zero
 
-        if phase == "OBSERVE" { drawObserveSignal(around: origin, color: phaseColor) }
+        if phase == "OBSERVE" {
+            if state.currentActivity == "Understanding request" {
+                drawUnderstandingSignal(around: origin, color: phaseColor)
+            } else {
+                drawObserveSignal(around: origin, color: phaseColor)
+            }
+        }
         if phase == "ACT" { drawActSignal(around: origin, color: phaseColor) }
         if phase == "VERIFY" { drawVerifySignal(around: origin, color: phaseColor) }
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
@@ -1025,6 +1031,30 @@ private final class PowerModeView: NSView {
             color.withAlphaComponent(0.78 - CGFloat(index) * 0.23).setStroke()
             sweep.stroke()
         }
+    }
+
+    private func drawUnderstandingSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let progress = reducedMotion ? CGFloat(0.7) : shakePhase.truncatingRemainder(dividingBy: 58) / 58
+        let half = 42 - progress * 8
+        color.withAlphaComponent(0.44 + progress * 0.42).setStroke()
+        for angle in stride(from: CGFloat(0), to: 360, by: 90) {
+            let radians = angle * .pi / 180
+            let tangent = radians + .pi / 2
+            let point = CGPoint(x: center.x + cos(radians) * half, y: center.y + sin(radians) * half)
+            let marker = NSBezierPath()
+            marker.move(to: CGPoint(x: point.x + cos(tangent) * 5, y: point.y + sin(tangent) * 5))
+            marker.line(to: CGPoint(x: point.x - cos(tangent) * 5, y: point.y - sin(tangent) * 5))
+            marker.lineWidth = 2.2
+            marker.lineCapStyle = .square
+            marker.stroke()
+        }
+
+        let focusRadius = 18 + (1 - progress) * 5
+        let focus = NSBezierPath(ovalIn: CGRect(x: center.x - focusRadius, y: center.y - focusRadius, width: focusRadius * 2, height: focusRadius * 2))
+        focus.lineWidth = 1
+        color.withAlphaComponent(0.32 + progress * 0.28).setStroke()
+        focus.stroke()
     }
 
     private func drawActSignal(around origin: CGPoint, color: NSColor) {

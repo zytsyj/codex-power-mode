@@ -225,6 +225,24 @@ body[data-phase="observe"] .reactor-wrap::before {
   opacity: .82;
   animation: observe-sweep 3.2s linear infinite;
 }
+body[data-phase="observe"][data-activity="understanding"] .reactor-wrap::before {
+  inset: 2px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -5deg, var(--accent) 0 10deg, transparent 10deg 80deg, var(--accent) 80deg 90deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .54));
+  opacity: .86;
+  animation: understanding-lock 1.5s ease-out infinite;
+}
+body[data-phase="observe"][data-activity="understanding"] .reactor-wrap::after {
+  inset: 12px;
+  border: 1px solid rgba(var(--accent-rgb), .66);
+  border-radius: 50%;
+  box-shadow: 0 0 9px rgba(var(--accent-rgb), .22);
+  opacity: .7;
+  animation: understanding-core 1.5s ease-out infinite;
+}
 body[data-phase="act"] .reactor-wrap::before {
   inset: 4px;
   border-radius: 50%;
@@ -383,6 +401,8 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
   15%, 30% { opacity: .68; transform: rotate(45deg) scale(.88); }
 }
 @keyframes observe-sweep { to { transform: rotate(360deg); } }
+@keyframes understanding-lock { from { transform: scale(1.1) rotate(8deg); opacity: .32; } to { transform: scale(.94) rotate(0); opacity: .88; } }
+@keyframes understanding-core { from { transform: scale(1.15); opacity: .12; } to { transform: scale(.76); opacity: .78; } }
 @keyframes act-propagate { from { opacity: .78; transform: scale(.88); } to { opacity: 0; transform: scale(1.12); } }
 @keyframes verify-orbit { to { transform: rotate(360deg); } }
 @keyframes verify-focus { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(.62); } }
@@ -421,6 +441,8 @@ body[data-motion="reduced"].flash::after { display: none; }
 body[data-motion="reduced"] .reactor-halo { opacity: .52; transform: none; }
 body[data-motion="reduced"] .tick-ring { transform: none; }
 body[data-motion="reduced"][data-phase="observe"] .reactor-wrap::before { transform: rotate(35deg); }
+body[data-motion="reduced"][data-phase="observe"][data-activity="understanding"] .reactor-wrap::before { opacity: .86; transform: scale(.96); }
+body[data-motion="reduced"][data-phase="observe"][data-activity="understanding"] .reactor-wrap::after { opacity: .68; transform: scale(.8); }
 body[data-motion="reduced"][data-phase="act"] .reactor-wrap::before { opacity: .78; transform: scale(1); }
 body[data-motion="reduced"][data-phase="verify"] .reactor-wrap::before { transform: none; }
 body[data-motion="reduced"][data-phase="verify"] .reactor-wrap::after { opacity: .5; transform: scale(.72); }

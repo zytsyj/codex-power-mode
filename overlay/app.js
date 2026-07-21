@@ -307,6 +307,7 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.phase = phase;
   document.body.dataset.status = presented.status ?? "ready";
   document.body.dataset.completion = presented.completion ?? "none";
+  document.body.dataset.activity = presented.currentActivity === "Understanding request" ? "understanding" : "context";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
   elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);

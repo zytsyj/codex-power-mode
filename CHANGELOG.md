@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Preserved prompt-understanding semantics in Reduced Motion with a static four-way focus lock distinct from context scanning.
 - Gave prompt submission a converging focus effect while preserving the horizontal scan for file and context reads.
 - Added persistent completion silhouettes: a verified check, an unverified dashed warning, and a cancelled broken-ring cross.
 - Turned Recover into a two-stage fracture-and-reassembly effect with converging repair fragments and visible seam stitches.
