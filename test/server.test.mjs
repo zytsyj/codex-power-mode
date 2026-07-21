@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -67,6 +67,31 @@ test("event service exits cleanly while an SSE overlay is connected", async () =
   } finally {
     request?.destroy();
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("event service health identifies the running plugin build", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-health-"));
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    const health = await response.json();
+    const manifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
+
+    assert.equal(health.ok, true);
+    assert.equal(health.serviceVersion, manifest.version);
+    assert.equal(health.serviceRoot, root);
+    assert.equal(health.servicePid, child.pid);
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
     await rm(dataDir, { recursive: true, force: true });
   }
 });

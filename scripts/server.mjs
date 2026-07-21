@@ -6,9 +6,11 @@ import { fileURLToPath } from "node:url";
 import { servicePortFromEnvironment } from "../src/config.mjs";
 import { createActivityTracker } from "../src/activity.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
+import { pluginIdentity } from "../src/service-identity.mjs";
 import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const identity = await pluginIdentity(root);
 const overlayDir = path.join(root, "overlay");
 const args = process.argv.slice(2);
 const valueAfter = (flag, fallback) => {
@@ -51,7 +53,16 @@ function broadcast(event) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
   if (url.pathname === "/api/health") {
-    return sendJson(response, 200, { ok: true, port, dataDir, clients: clients.size, activity: activity.snapshot() });
+    return sendJson(response, 200, {
+      ok: true,
+      port,
+      dataDir,
+      clients: clients.size,
+      activity: activity.snapshot(),
+      serviceVersion: identity.version,
+      serviceRoot: identity.root,
+      servicePid: process.pid
+    });
   }
   if (url.pathname === "/api/state") return sendJson(response, 200, await readState(dataDir));
   if (url.pathname === "/api/stream") {

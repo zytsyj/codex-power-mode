@@ -10,9 +10,11 @@ import {
   serviceEndpointFromEnvironment
 } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
+import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const identity = await pluginIdentity(root);
 const dataDir = powerModeDataDir();
 const command = process.argv[2] || "start";
 const endpoint = serviceEndpointFromEnvironment(process.env);
@@ -34,7 +36,40 @@ async function isRunning() {
   return Boolean(await serviceHealth());
 }
 
+async function listenerPid() {
+  const health = await serviceHealth();
+  if (Number.isInteger(health?.servicePid) && health.servicePid > 0 && await processIsAlive(health.servicePid)) {
+    return health.servicePid;
+  }
+  if (process.platform === "win32") return null;
+
+  const port = new URL(endpoint).port;
+  const listeners = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8" });
+  if (listeners.status !== 0) return null;
+  for (const value of listeners.stdout.split(/\s+/).filter(Boolean)) {
+    const pid = Number.parseInt(value, 10);
+    if (!Number.isInteger(pid) || pid <= 0 || !(await processIsAlive(pid))) continue;
+    const processInfo = spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" });
+    if (processInfo.status === 0 && isPowerModeServerCommand(processInfo.stdout)) return pid;
+  }
+  return null;
+}
+
+async function replaceStaleService(health) {
+  if (!health || serviceMatchesPlugin(health, identity)) return;
+  const pid = await listenerPid();
+  if (!pid) {
+    throw new Error(`Port ${new URL(endpoint).port} is occupied by an unrecognized service`);
+  }
+  process.kill(pid, "SIGTERM");
+  for (let attempt = 0; attempt < 40 && await isRunning(); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (await isRunning()) throw new Error(`Stale Power Mode service (PID ${pid}) did not stop`);
+}
+
 async function start() {
+  await replaceStaleService(await serviceHealth());
   if (!(await isRunning())) {
     const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--data-dir", dataDir], {
       cwd: root,
