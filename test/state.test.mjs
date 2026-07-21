@@ -117,6 +117,41 @@ test("new work cancels the idle countdown", () => {
   });
   assert.equal(state.turnStoppedAt, null);
   assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
+  assert.equal(state.momentum, 1);
+  assert.equal(state.combo, 1);
+});
+
+test("a new turn resets current energy, evidence, risk, and edit scope while preserving records", () => {
+  let state = reduceState(initialState, {
+    type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1), sessionId: "s"
+  });
+  state = reduceState(state, { type: "edit", timestamp: at(2), addedLines: 80, removedLines: 4, sessionId: "s" });
+  state = reduceState(state, { type: "verification", category: "test", success: true, timestamp: at(3), sessionId: "s" });
+  state = reduceState(state, { type: "turn-stop", timestamp: at(4), sessionId: "s" });
+  const previousBestMomentum = state.bestMomentum;
+  const previousBestCombo = state.bestCombo;
+  assert.equal(state.completion, "verified");
+  assert.equal(state.edits, 1);
+  assert.deepEqual(state.evidence, ["test"]);
+
+  state = reduceState(state, {
+    type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(30), sessionId: "s"
+  });
+  assert.equal(state.momentum, 1);
+  assert.equal(state.combo, 1);
+  assert.equal(state.confidence, 0);
+  assert.equal(state.risk, 0);
+  assert.equal(state.edits, 0);
+  assert.equal(state.addedLines, 0);
+  assert.equal(state.verifications, 0);
+  assert.deepEqual(state.evidence, []);
+  assert.equal(state.lastEditAt, null);
+  assert.equal(state.lastVerificationAt, null);
+  assert.equal(state.bestMomentum, previousBestMomentum);
+  assert.equal(state.bestCombo, previousBestCombo);
+
+  state = reduceState(state, { type: "turn-stop", timestamp: at(31), sessionId: "s" });
+  assert.equal(state.completion, "no-change");
 });
 
 test("abandoned non-terminal activity settles without hiding attention states", () => {

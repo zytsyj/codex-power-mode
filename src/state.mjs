@@ -164,14 +164,21 @@ export function shouldCoalesceActivity(previous, event, windowMs = 900) {
 export function reduceState(previous = initialState, event) {
   const sessionChanged = Boolean(previous.sessionId && event.sessionId && previous.sessionId !== event.sessionId);
   const prior = sessionChanged ? initialState : previous;
+  const startsNewTurn = !sessionChanged && prior.phase === "complete" && event.type !== "turn-stop";
+  const turnBase = startsNewTurn ? {
+    ...initialState,
+    bestMomentum: prior.bestMomentum ?? 0,
+    bestCombo: prior.bestCombo ?? 0,
+    sessionId: prior.sessionId ?? null,
+    sessionSource: prior.sessionSource ?? "unknown"
+  } : prior;
   const state = {
     ...initialState,
-    ...prior,
-    sessionId: event.sessionId ?? prior.sessionId,
-    sessionSource: event.sessionSource && event.sessionSource !== "unknown" ? event.sessionSource : prior.sessionSource
+    ...turnBase,
+    sessionId: event.sessionId ?? turnBase.sessionId,
+    sessionSource: event.sessionSource && event.sessionSource !== "unknown" ? event.sessionSource : turnBase.sessionSource
   };
-  state.evidence = Array.isArray(prior.evidence) ? [...prior.evidence] : [];
-  const startsNewTurn = state.phase === "complete";
+  state.evidence = Array.isArray(turnBase.evidence) ? [...turnBase.evidence] : [];
   if (event.type !== "turn-stop") state.turnStoppedAt = null;
 
   if (event.type === "activity-start") {
