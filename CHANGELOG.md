@@ -2,6 +2,9 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Added a short cyan RELINK stage when useful work resumes after natural Combo expiry, without treating a new turn or task as a continuation.
+- Split the expired Combo rail and emit one restrained break impact so critical countdown, disconnect, and reconnection have distinct rhythms.
+- Increased Arcade's critical cadence while keeping Focus and Reduced Motion calmer and structurally readable.
 - Added event-generation guards so delayed scan echoes, repair passes, typing pulses, and chained bursts cannot leak into a newer HUD state.
 - Reduced native wakeups for a fully hidden, settled HUD from four per second to one while retaining immediate 60 Hz event recovery.
 - Preserved prompt-understanding semantics in Reduced Motion with a static four-way focus lock distinct from context scanning.

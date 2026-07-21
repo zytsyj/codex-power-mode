@@ -18,6 +18,7 @@ const previewStale = parameters.get("age") === "stale";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const finalStateHoldMs = 3_000;
 const comboLostMs = 3_200;
+const comboRelinkFeedbackMs = 1_600;
 const momentumReturnMs = 4_000;
 const abandonedActivityMs = 5 * 60_000;
 const recoveryTimeoutMs = 15_000;
@@ -36,6 +37,7 @@ let connectionOnline = false;
 let effectGeneration = 0;
 let sessionTransitionUntil = 0;
 let visualPhase = null;
+let visualComboStage = null;
 let visualPhaseEnteredAt = parameters.get("tempo") === "settled" ? Date.now() - 20_000 : Date.now();
 
 const copy = {
@@ -43,7 +45,7 @@ const copy = {
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "续连"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
   charging: ["CHARGE", "蓄能"], flow: ["FLOW", "流动"], surge: ["SURGE", "高能"], overdrive: ["OVERDRIVE", "过载"],
-  building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"],
+  building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], relinked: ["RELINK", "重连"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
   confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
@@ -74,6 +76,7 @@ if (previewMode) {
   const comboBroken = previewCombo === "lost";
   const comboHolding = previewCombo === "hold";
   const comboCritical = previewCombo === "critical";
+  const comboRelinked = previewCombo === "relink";
   const previewMomentum = { charging: 18, flow: 38, surge: 64, overdrive: 88 }[previewEnergy] ?? (verifiedComplete ? 100 : 72);
   render({
     phase: previewPhase,
@@ -83,13 +86,14 @@ if (previewMode) {
     riskLevel: previewPhase === "recover" ? "high" : "low",
     completion: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : noChangeComplete ? "no-change" : verifiedComplete ? "verified" : undefined,
     evidence: verifiedComplete ? ["test", "build"] : [],
-    combo: comboBroken || recoveryPreview || previewPhase === "complete" && !verifiedComplete ? 0 : verifiedComplete ? 12 : 8,
+    combo: comboBroken || recoveryPreview || previewPhase === "complete" && !verifiedComplete ? 0 : comboRelinked ? 1 : verifiedComplete ? 12 : 8,
     bestCombo: verifiedComplete ? 12 : 8,
     comboStatus: comboBroken || recoveryPreview || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : comboCritical ? -10_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : comboCritical ? 2_500 : 12_000)).toISOString(),
     comboBrokenAt: comboBroken || recoveryPreview || incompleteOutcome ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
+    comboRelinkedAt: comboRelinked ? new Date(previewNow).toISOString() : null,
     lastFailureAt: previewPhase === "recover" ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
     currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "prompt-submit" ? "Understanding request" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
@@ -310,10 +314,12 @@ function energyLevelAt(momentum) {
   return "overdrive";
 }
 
-function comboStageAt(next, progress, status) {
+function comboStageAt(next, progress, status, now = Date.now()) {
   if (status === "broken") return "lost";
   if (status === "idle") return "idle";
   if (next.comboStatus === "reward" || next.comboStatus === "complete") return "reward";
+  const relinkedAt = Date.parse(next.comboRelinkedAt);
+  if (Number.isFinite(relinkedAt) && now < relinkedAt + comboRelinkFeedbackMs) return "relinked";
   if (progress <= .25) return "critical";
   if ((next.combo ?? 0) < 3) return "building";
   if ((next.combo ?? 0) < 6) return "linked";
@@ -328,13 +334,28 @@ function renderCombo(now = Date.now()) {
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const recentlyLost = Number.isFinite(disconnectedAt) && now < disconnectedAt + 3_200;
   const status = active ? (state.comboStatus ?? "decaying") : recentlyLost ? "broken" : "idle";
-  const stage = comboStageAt(state, progress, status);
-  elements["combo-count"].textContent = `${active ? state.combo : 0}×`;
+  const stage = comboStageAt(state, progress, status, now);
+  elements["combo-count"].textContent = active ? `${state.combo}×` : recentlyLost ? "—" : "0×";
   elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;
   elements["combo-status"].textContent = t(stage);
   document.body.dataset.comboStatus = status;
   document.body.dataset.comboStage = stage;
+  if (stage !== visualComboStage) {
+    if (visualComboStage !== null || previewMode) reactToComboTransition(stage);
+    visualComboStage = stage;
+  }
   updateIdleVisibility(now, active || recentlyLost, presentationAt(state, now));
+}
+
+function reactToComboTransition(stage) {
+  if (reducedMotion || !["lost", "relinked"].includes(stage)) return;
+  const start = reactorOrigin();
+  const color = stage === "lost" ? "#ff5477" : "#65e9de";
+  document.body.classList.remove("combo-break-kick", "combo-relink-kick");
+  void document.body.offsetWidth;
+  document.body.classList.add(stage === "lost" ? "combo-break-kick" : "combo-relink-kick");
+  ring(color, stage === "lost" ? (preset === "arcade" ? .82 : .42) : (preset === "arcade" ? .72 : .38), start);
+  burst(color, stage === "lost" ? (preset === "arcade" ? 42 : 20) : (preset === "arcade" ? 36 : 18), .58, stage === "lost" ? "fragments" : "inward", start);
 }
 
 function updateIdleVisibility(now = Date.now(), comboVisible = false, presented = presentationAt(state, now)) {

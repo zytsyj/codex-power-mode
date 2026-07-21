@@ -261,6 +261,9 @@ test("an expired combo restarts instead of increasing forever", () => {
   });
   assert.equal(state.combo, 1);
   assert.equal(state.comboBreaks, 1);
+  assert.equal(state.comboRelinkedAt, at(20));
+  assert.equal(comboStage(state, at(20.5)), "relinked");
+  assert.equal(comboStage(state, at(22)), "building");
 });
 
 test("failed verification immediately breaks the combo", () => {
@@ -341,10 +344,12 @@ test("a new turn and a new session cannot inherit the previous combo", () => {
     type: "activity-start", phase: "observe", timestamp: at(3), sessionId: "s1"
   });
   assert.equal(state.combo, 1);
+  assert.equal(state.comboRelinkedAt, null);
 
   state = reduceState(state, {
     type: "activity-start", phase: "observe", timestamp: at(4), sessionId: "s2"
   });
   assert.equal(state.combo, 1);
   assert.equal(state.comboBreaks, 0);
+  assert.equal(state.comboRelinkedAt, null);
 });

@@ -13,6 +13,7 @@ private struct PowerState: Decodable {
     let comboHoldUntil: String?
     let comboExpiresAt: String?
     let comboBrokenAt: String?
+    let comboRelinkedAt: String?
     let confidence: Int?
     let riskLevel: String?
     let currentActivity: String?
@@ -172,7 +173,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -183,12 +184,14 @@ private final class PowerModeView: NSView {
     private var comboHoldUntil: Date?
     private var comboExpiresAt: Date?
     private var comboBrokenAt: Date?
+    private var comboRelinkedAt: Date?
     private var turnStoppedAt: Date?
     private var lastActivityAt: Date?
     private var lastFailureAt: Date?
     private var semanticPhase = "observe"
     private var semanticPhaseEnteredAt = Date()
     private var comboWasAnimating = false
+    private var lastComboStage: String?
     private var reducedFeedbackKind = "focus"
     private var reducedFeedbackUntil: Date?
     private var reducedFeedbackWasActive = false
@@ -416,6 +419,7 @@ private final class PowerModeView: NSView {
     }
 
     func handle(_ event: PowerEvent) {
+        let eventAt = event.timestamp.flatMap(isoDateFormatter.date(from:))
         if let nextState = event.state {
             let nextPhase = nextState.phase ?? "observe"
             if nextPhase != semanticPhase {
@@ -426,16 +430,20 @@ private final class PowerModeView: NSView {
             comboHoldUntil = nextState.comboHoldUntil.flatMap(isoDateFormatter.date(from:))
             comboExpiresAt = nextState.comboExpiresAt.flatMap(isoDateFormatter.date(from:))
             comboBrokenAt = nextState.comboBrokenAt.flatMap(isoDateFormatter.date(from:))
+            comboRelinkedAt = nextState.comboRelinkedAt.flatMap(isoDateFormatter.date(from:))
             turnStoppedAt = nextState.turnStoppedAt.flatMap(isoDateFormatter.date(from:))
             lastActivityAt = nextState.lastActivityAt.flatMap(isoDateFormatter.date(from:))
             lastFailureAt = nextState.lastFailureAt.flatMap(isoDateFormatter.date(from:))
         }
+        let triggeredRelink = eventAt.map { eventDate in
+            comboRelinkedAt.map { abs(eventDate.timeIntervalSince($0)) < 0.05 } ?? false
+        } ?? false
         eventText = describe(event)
         if event.type == "connected" {
             needsDisplay = true
             return
         }
-        lastLiveEventAt = event.timestamp.flatMap(isoDateFormatter.date(from:)) ?? Date()
+        lastLiveEventAt = eventAt ?? Date()
         effectGeneration &+= 1
         let generation = effectGeneration
         let switchedSession = event.sessionTransition != nil
@@ -599,6 +607,10 @@ private final class PowerModeView: NSView {
             shockwave(color: .systemCyan, power: 0.24)
         default:
             break
+        }
+        if triggeredRelink {
+            charge(color: .systemCyan, count: arcadeMode ? 72 : 34)
+            shockwave(color: .systemCyan, power: arcadeMode ? 0.72 : 0.38)
         }
         needsDisplay = true
     }
@@ -1064,6 +1076,17 @@ private final class PowerModeView: NSView {
             comboWasAnimating = comboIsAnimating
             needsDisplay = true
         }
+        let currentComboStage = showsCombo ? comboSnapshot(now: now).stage : "idle"
+        if let previousComboStage = lastComboStage,
+           currentComboStage == "lost",
+           previousComboStage != "lost",
+           previousComboStage != "idle",
+           !reducedMotion {
+            shockwave(color: .systemRed, power: arcadeMode ? 0.78 : 0.42)
+            fragments(color: .systemRed, count: arcadeMode ? 54 : 24)
+            shake = arcadeMode ? 5 : 1.8
+        }
+        lastComboStage = currentComboStage
         let reducedFeedbackActive = reducedMotion && now < (reducedFeedbackUntil ?? .distantPast)
         if reducedFeedbackActive != reducedFeedbackWasActive {
             reducedFeedbackWasActive = reducedFeedbackActive
@@ -1672,14 +1695,19 @@ private final class PowerModeView: NSView {
             return (0, 0, false, lost, lost ? "lost" : "idle")
         }
         guard let hold = comboHoldUntil, now > hold else {
-            let stage = state.comboStatus == "reward" || state.comboStatus == "complete" ? "reward" : comboCountStage(count)
+            let stage = state.comboStatus == "reward" || state.comboStatus == "complete" ? "reward" : comboRelinkActive(now: now) ? "relinked" : comboCountStage(count)
             return (count, 1, true, false, stage)
         }
         let duration = expires.timeIntervalSince(hold)
         let remaining = expires.timeIntervalSince(now)
         let progress = CGFloat(max(0, min(1, remaining / max(0.001, duration))))
-        let stage = progress <= 0.25 ? "critical" : comboCountStage(count)
+        let stage = comboRelinkActive(now: now) ? "relinked" : progress <= 0.25 ? "critical" : comboCountStage(count)
         return (count, progress, true, false, stage)
+    }
+
+    private func comboRelinkActive(now: Date) -> Bool {
+        guard let relinkedAt = comboRelinkedAt else { return false }
+        return now >= relinkedAt && now < relinkedAt.addingTimeInterval(1.6)
     }
 
     private func comboCountStage(_ count: Int) -> String {
@@ -1695,6 +1723,7 @@ private final class PowerModeView: NSView {
         case "chain": return preferences.text("CHAIN", "连锁")
         case "critical": return preferences.text("BREAK", "将断")
         case "reward": return preferences.text("BOOST", "奖励")
+        case "relinked": return preferences.text("RELINK", "重连")
         case "lost": return preferences.text("LOST", "断连")
         default: return preferences.text("READY", "就绪")
         }
@@ -1702,8 +1731,9 @@ private final class PowerModeView: NSView {
 
     private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool, lost: Bool, stage: String), at origin: CGPoint, color: NSColor) {
         guard combo.active || combo.lost else { return }
-        let stageColor: NSColor = combo.stage == "critical" || combo.stage == "lost" ? .systemRed : combo.stage == "reward" ? .systemGreen : color
-        let rhythm = reducedMotion ? CGFloat(1) : combo.stage == "critical" ? 0.52 + 0.48 * abs(sin(shakePhase * 0.22)) : combo.stage == "reward" ? 0.72 + 0.28 * abs(sin(shakePhase * 0.12)) : 1
+        let stageColor: NSColor = combo.stage == "critical" || combo.stage == "lost" ? .systemRed : combo.stage == "reward" ? .systemGreen : combo.stage == "relinked" ? .systemCyan : color
+        let criticalSpeed: CGFloat = arcadeMode ? 0.36 : 0.22
+        let rhythm = reducedMotion ? CGFloat(1) : combo.stage == "critical" ? 0.52 + 0.48 * abs(sin(shakePhase * criticalSpeed)) : combo.stage == "reward" ? 0.72 + 0.28 * abs(sin(shakePhase * 0.12)) : combo.stage == "relinked" ? 0.7 + 0.3 * abs(sin(shakePhase * 0.16)) : 1
         let capsuleRect = CGRect(x: origin.x + 5, y: origin.y - 23, width: 72, height: 21)
         let capsule = NSBezierPath(roundedRect: capsuleRect, xRadius: 8, yRadius: 8)
         NSColor(calibratedWhite: 0.025, alpha: 0.92).setFill()
@@ -1716,6 +1746,11 @@ private final class PowerModeView: NSView {
         let track = NSBezierPath(roundedRect: trackRect, xRadius: 2.5, yRadius: 2.5)
         NSColor.white.withAlphaComponent(0.18).setFill()
         track.fill()
+        if combo.lost {
+            stageColor.withAlphaComponent(0.9).setFill()
+            NSBezierPath(roundedRect: CGRect(x: trackRect.minX, y: trackRect.minY + 1, width: 24, height: 3), xRadius: 1.5, yRadius: 1.5).fill()
+            NSBezierPath(roundedRect: CGRect(x: trackRect.maxX - 24, y: trackRect.minY - 1, width: 24, height: 3), xRadius: 1.5, yRadius: 1.5).fill()
+        }
         if combo.progress > 0 {
             let fillRect = CGRect(x: trackRect.minX, y: trackRect.minY, width: trackRect.width * combo.progress, height: trackRect.height)
             let fill = NSBezierPath(roundedRect: fillRect, xRadius: 2.5, yRadius: 2.5)
@@ -1731,6 +1766,9 @@ private final class PowerModeView: NSView {
             stageColor.withAlphaComponent(rhythm).setFill()
             NSBezierPath(roundedRect: CGRect(x: capsuleRect.minX - 2, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
             NSBezierPath(roundedRect: CGRect(x: capsuleRect.maxX, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
+        } else if combo.stage == "relinked" {
+            stageColor.withAlphaComponent(0.82 * rhythm).setFill()
+            NSBezierPath(ovalIn: CGRect(x: trackRect.midX - 2.5, y: trackRect.midY - 2.5, width: 5, height: 5)).fill()
         }
     }
 

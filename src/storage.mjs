@@ -75,6 +75,7 @@ export async function readState(dataDir) {
       state.comboHoldUntil = null;
       state.comboExpiresAt = null;
       state.comboBrokenAt = null;
+      state.comboRelinkedAt = null;
     }
     return state;
   } catch (error) {

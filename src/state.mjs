@@ -11,6 +11,7 @@ export const initialState = Object.freeze({
   comboHoldUntil: null,
   comboExpiresAt: null,
   comboBrokenAt: null,
+  comboRelinkedAt: null,
   confidence: 0,
   risk: 0,
   riskLevel: "low",
@@ -38,6 +39,7 @@ export const initialState = Object.freeze({
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 export const COMBO_DECAY_MS = 12_000;
 export const COMBO_LOST_MS = 3_200;
+export const COMBO_RELINK_FEEDBACK_MS = 1_600;
 export const VERIFICATION_REWARD_HOLD_MS = 1_800;
 export const FINAL_STATE_HOLD_MS = 3_000;
 export const MOMENTUM_RETURN_MS = 4_000;
@@ -56,13 +58,16 @@ function advanceCombo(state, event, weight = 1, holdMs = 0, forceNew = false, st
   const expiresAt = Date.parse(state.comboExpiresAt);
   const continues = !forceNew && state.combo > 0 && Number.isFinite(eventAt) &&
     Number.isFinite(expiresAt) && eventAt <= expiresAt;
-  if (!continues && state.combo > 0) state.comboBreaks += 1;
+  const hadCombo = state.combo > 0;
+  const relinked = !forceNew && hadCombo && !continues;
+  if (!continues && hadCombo) state.comboBreaks += 1;
   state.combo = (continues ? state.combo : 0) + weight;
   state.comboStatus = status ?? (holdMs > 0 ? "holding" : "decaying");
   state.comboLastAt = event.timestamp;
   state.comboHoldUntil = timestampAfter(event.timestamp, holdMs);
   state.comboExpiresAt = timestampAfter(event.timestamp, holdMs + COMBO_DECAY_MS);
   state.comboBrokenAt = null;
+  state.comboRelinkedAt = relinked ? event.timestamp : continues ? state.comboRelinkedAt : null;
 }
 
 function breakCombo(state, status = "broken", timestamp = null) {
@@ -72,6 +77,7 @@ function breakCombo(state, status = "broken", timestamp = null) {
   state.comboHoldUntil = null;
   state.comboExpiresAt = null;
   state.comboBrokenAt = status === "broken" ? timestamp : null;
+  state.comboRelinkedAt = null;
 }
 
 export function comboProgress(state, now = Date.now()) {
@@ -109,6 +115,9 @@ export function comboStage(state, now = Date.now()) {
   if (status === "broken") return "lost";
   if (status === "idle") return "idle";
   if (state.comboStatus === "reward" || state.comboStatus === "complete") return "reward";
+  const current = typeof now === "number" ? now : Date.parse(now);
+  const relinkedAt = Date.parse(state.comboRelinkedAt);
+  if (Number.isFinite(current) && Number.isFinite(relinkedAt) && current < relinkedAt + COMBO_RELINK_FEEDBACK_MS) return "relinked";
   if (progress <= 0.25) return "critical";
   if ((state.combo ?? 0) < 3) return "building";
   if ((state.combo ?? 0) < 6) return "linked";

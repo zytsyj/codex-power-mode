@@ -109,8 +109,8 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 12 seconds.
 - Permission waits preserve Combo for 15 seconds before draining, so approval latency is not treated as an instant failure.
 - Failed verification and unverified completion break Combo immediately.
-- An expired link, a new turn, or a new Codex session starts again at `1×`; Combo cannot increase forever across unrelated work.
-- Active Combo uses a dedicated high-contrast bar below the orb; the bar drains continuously and flashes `LOST` / `断连` after a break.
+- An expired link starts again at `1×` with a brief `RELINK` / `重连` bridge; a new turn or Codex session also starts at `1×` but is deliberately not presented as a continuation.
+- Active Combo uses a dedicated high-contrast bar below the orb; its critical cadence accelerates near expiry, then the rail visibly splits and flashes `LOST` / `断连` once after a break.
 
 ## Roadmap
 
