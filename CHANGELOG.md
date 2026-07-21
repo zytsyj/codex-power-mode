@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Gave Act a directional three-chevron silhouette and leftward rectangular drive burst so it no longer reads like Observe or Verify.
 - Entered Observe immediately on `UserPromptSubmit` while deliberately discarding prompt text.
 - Scoped lifecycle tracking to Codex desktop conversations so CLI and subagent activity cannot drive the HUD.
 - Added session-source diagnostics to state and service health output.

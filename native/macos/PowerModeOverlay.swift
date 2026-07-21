@@ -934,19 +934,29 @@ private final class PowerModeView: NSView {
 
     private func drawActSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let progress = reducedMotion ? CGFloat(0.45) : shakePhase.truncatingRemainder(dividingBy: 66) / 66
-        let innerRadius = 31 + progress * 9
-        let outerRadius = innerRadius + 5
-        color.withAlphaComponent((1 - progress) * 0.78).setStroke()
-        let shards = NSBezierPath()
-        for index in 0..<8 {
-            let angle = (CGFloat(index) * 45 + 22.5) * .pi / 180
-            shards.move(to: CGPoint(x: center.x + cos(angle) * innerRadius, y: center.y + sin(angle) * innerRadius))
-            shards.line(to: CGPoint(x: center.x + cos(angle) * outerRadius, y: center.y + sin(angle) * outerRadius))
+        let progress = reducedMotion ? CGFloat(0.38) : shakePhase.truncatingRemainder(dividingBy: 54) / 54
+        for index in 0..<3 {
+            let trail = CGFloat(index) * 8
+            let x = center.x - 27 - progress * 10 - trail
+            let alpha = max(0.18, (1 - progress) * (0.92 - CGFloat(index) * 0.2))
+            color.withAlphaComponent(alpha).setStroke()
+            let chevron = NSBezierPath()
+            chevron.move(to: CGPoint(x: x + 7, y: center.y - 7))
+            chevron.line(to: CGPoint(x: x, y: center.y))
+            chevron.line(to: CGPoint(x: x + 7, y: center.y + 7))
+            chevron.lineWidth = 2.1
+            chevron.lineCapStyle = .round
+            chevron.lineJoinStyle = .round
+            chevron.stroke()
         }
-        shards.lineWidth = 1.8
-        shards.lineCapStyle = .round
-        shards.stroke()
+
+        color.withAlphaComponent(0.42).setStroke()
+        let driveLine = NSBezierPath()
+        driveLine.move(to: CGPoint(x: center.x + 29, y: center.y))
+        driveLine.line(to: CGPoint(x: center.x + 12, y: center.y))
+        driveLine.lineWidth = 1.4
+        driveLine.lineCapStyle = .square
+        driveLine.stroke()
     }
 
     private func drawVerifySignal(around origin: CGPoint, color: NSColor) {

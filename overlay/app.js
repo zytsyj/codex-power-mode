@@ -86,6 +86,7 @@ if (previewMode) {
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
   if (previewEvent === "prompt-submit") setTimeout(() => react({ type: "activity-start", phase: "observe", toolGroup: "prompt", state }), 0);
+  if (previewEvent === "activity-start") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
   if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
@@ -124,7 +125,9 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
   if (reducedMotion) return;
   const count = Math.min(220, Math.round(amount * intensity));
   for (let index = 0; index < count; index += 1) {
-    const angle = mode === "outward" || mode === "fragments"
+    const angle = mode === "left"
+      ? Math.PI - .34 + Math.random() * .68
+      : mode === "outward" || mode === "fragments"
       ? Math.PI - .62 + Math.random() * 1.24
       : Math.random() * Math.PI * 2;
     const source = mode === "inward" ? workOrigin() : start;
@@ -141,7 +144,7 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
       color,
       drag: mode === "inward" ? 1.012 : .985,
-      square: mode === "fragments"
+      square: mode === "fragments" || mode === "left"
     });
   }
   scheduleEffectsFrame();
@@ -332,7 +335,8 @@ function react(event) {
   } else if (event.type === "activity-start" && phase === "verify") {
     burst(color, 34, .55, "inward", start); ring(color, .55, start);
   } else if (event.type === "activity-start") {
-    burst(color, 18, .55, "outward", start);
+    burst(color, 26, .72, "left", start);
+    if (preset === "arcade") setTimeout(() => burst(color, 20, .6, "left", start), 110);
   } else if (event.type === "permission-request") {
     ring(color, .65, start); setTimeout(() => ring(color, .65, start), 320);
   } else if (event.type === "edit") {
