@@ -19,6 +19,14 @@ test("classifyCommand recognizes successful tests", () => {
   });
 });
 
+test("classifyCommand recognizes the Node test runner", () => {
+  assert.deepEqual(classifyCommand("node --test", { exit_code: 0 }), {
+    type: "verification",
+    category: "test",
+    success: true
+  });
+});
+
 test("classifyCommand recognizes a failed build", () => {
   assert.deepEqual(classifyCommand("pnpm run build", { exitCode: 1 }), {
     type: "verification",

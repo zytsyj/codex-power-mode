@@ -47,7 +47,7 @@ The native executable is compiled locally with the installed Swift toolchain and
 
 On macOS, the Codex `SessionStart` hook automatically ensures both the event service and native overlay are running. Existing processes are reused, so opening another session does not create duplicate overlays.
 
-`npm run status` reports service health, the native overlay PID and launch configuration, and the current semantic state in one JSON snapshot.
+`npm run status` reports service health, the native overlay PID and launch configuration, the current semantic state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
 Optional environment variables:
 

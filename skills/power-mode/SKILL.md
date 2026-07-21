@@ -57,7 +57,7 @@ Run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" status
 ```
 
-Summarize phase, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`.
+Summarize phase, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`. If the service is running but `service.activity.realEventsReceived` stays at `0` after a tool call, explain that the Power Mode hooks still need to be reviewed and trusted in Codex.
 
 ## Behavior
 

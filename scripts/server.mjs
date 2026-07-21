@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { servicePortFromEnvironment } from "../src/config.mjs";
+import { createActivityTracker } from "../src/activity.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
@@ -19,6 +20,7 @@ const port = servicePortFromEnvironment({
 });
 const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
 const clients = new Set();
+const activity = createActivityTracker();
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -48,7 +50,9 @@ function broadcast(event) {
 
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
-  if (url.pathname === "/api/health") return sendJson(response, 200, { ok: true, port, dataDir, clients: clients.size });
+  if (url.pathname === "/api/health") {
+    return sendJson(response, 200, { ok: true, port, dataDir, clients: clients.size, activity: activity.snapshot() });
+  }
   if (url.pathname === "/api/state") return sendJson(response, 200, await readState(dataDir));
   if (url.pathname === "/api/stream") {
     response.writeHead(200, {
@@ -65,6 +69,7 @@ const server = http.createServer(async (request, response) => {
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
     if (event.state) await writeStateSnapshot(dataDir, event.state);
+    activity.record(event);
     broadcast(event);
     return sendJson(response, 202, { accepted: true });
   }
@@ -88,6 +93,15 @@ server.listen(port, "127.0.0.1", () => {
   process.stdout.write(`Codex Power Mode HUD: http://127.0.0.1:${port}\n`);
 });
 
-const shutdown = () => server.close(() => process.exit(0));
+let shuttingDown = false;
+const shutdown = () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  for (const client of clients) client.end();
+  clients.clear();
+  server.close(() => process.exit(0));
+  server.closeAllConnections?.();
+  setTimeout(() => process.exit(0), 1_000).unref();
+};
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

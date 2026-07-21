@@ -1,4 +1,4 @@
-const TEST_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b|\b(?:pytest|vitest|jest|go test|cargo test|swift test|dotnet test|mvn test|gradle test)\b/i;
+const TEST_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?test\b|\b(?:node --test|pytest|vitest|jest|go test|cargo test|swift test|dotnet test|mvn test|gradle test)\b/i;
 const BUILD_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?build\b|\b(?:cargo build|go build|swift build|dotnet build|mvn package|gradle build)\b/i;
 const LINT_PATTERN = /(?:^|\s)(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:lint|typecheck|check)\b|\b(?:eslint|ruff|mypy|tsc|biome check)\b/i;
 const OBSERVE_TOOLS = /^(?:Read|Glob|Grep|WebSearch|WebFetch|ListMcpResources|ReadMcpResource)$/i;
