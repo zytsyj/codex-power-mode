@@ -11,6 +11,8 @@ import {
 } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
+import { connectionDiagnostics } from "../src/diagnostics.mjs";
+import { presentationSnapshot } from "../src/state.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -265,6 +267,8 @@ async function status() {
   return {
     service: { running: Boolean(health), url: endpoint, ...(health ?? {}) },
     nativeOverlay: { running: Boolean(nativePid), pid: nativePid, configuration: nativeConfiguration },
+    connection: connectionDiagnostics({ health, nativePid, state }),
+    presentation: presentationSnapshot(state),
     state
   };
 }

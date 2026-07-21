@@ -27,6 +27,7 @@ private struct PowerState: Decodable {
 
 private struct PowerEvent: Decodable {
     let type: String
+    let timestamp: String?
     let addedLines: Int?
     let removedLines: Int?
     let addedChars: Int?
@@ -167,6 +168,7 @@ private final class PowerModeView: NSView {
     private var lastActivityAt: Date?
     private var comboWasAnimating = false
     private var streamConnected: Bool?
+    private var lastLiveEventAt: Date?
     private var hudAlpha: CGFloat = 0
     private var effectGeneration = 0
     private var positioning = false
@@ -232,6 +234,37 @@ private final class PowerModeView: NSView {
             ? "\(sessionId.prefix(8))…\(sessionId.suffix(4))"
             : sessionId
         return ("\(preferences.text("Current session", "当前会话")): \(shortId)", sessionId)
+    }
+
+    func displaySummary() -> String {
+        let presentation = presentationSnapshot()
+        let phaseLabels = [
+            "observe": preferences.text("OBSERVE", "观察"),
+            "act": preferences.text("ACT", "执行"),
+            "verify": preferences.text("VERIFY", "验证"),
+            "wait": preferences.text("WAIT", "等待"),
+            "recover": preferences.text("RECOVER", "恢复"),
+            "complete": preferences.text("COMPLETE", "完成"),
+            "idle": preferences.text("IDLE", "待机")
+        ]
+        let phase = phaseLabels[presentation.phase] ?? presentation.phase.uppercased()
+        return "\(preferences.text("Current display", "当前显示")): \(phase)  ·  \(preferences.text("ENERGY", "能量")) \(presentation.momentum)"
+    }
+
+    func connectionSummary(now: Date = Date()) -> String {
+        guard streamConnected == true else {
+            return preferences.text("Event connection: reconnecting", "事件连接：正在重连")
+        }
+        guard let lastLiveEventAt else {
+            return preferences.text("Event connection: online · waiting for new activity", "事件连接：在线 · 等待新活动")
+        }
+        let minutes = max(0, Int(now.timeIntervalSince(lastLiveEventAt) / 60))
+        if minutes == 0 {
+            return preferences.text("Event connection: online · activity just received", "事件连接：在线 · 刚收到活动")
+        }
+        return preferences.isChinese
+            ? "事件连接：在线 · \(minutes) 分钟前收到活动"
+            : "Event connection: online · activity \(minutes)m ago"
     }
 
     func beginPositioning() {
@@ -308,6 +341,7 @@ private final class PowerModeView: NSView {
             needsDisplay = true
             return
         }
+        lastLiveEventAt = event.timestamp.flatMap(isoDateFormatter.date(from:)) ?? Date()
         effectGeneration &+= 1
         let generation = effectGeneration
         scheduleTick(highFrequency: !reducedMotion)
@@ -1539,6 +1573,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             let history = NSMenuItem(title: view.historySummary(), action: nil, keyEquivalent: "")
             history.isEnabled = false
             menu.addItem(history)
+            let display = NSMenuItem(title: view.displaySummary(), action: nil, keyEquivalent: "")
+            display.isEnabled = false
+            menu.addItem(display)
+            let connection = NSMenuItem(title: view.connectionSummary(), action: nil, keyEquivalent: "")
+            connection.isEnabled = false
+            menu.addItem(connection)
             let source = NSMenuItem(title: view.activitySourceSummary(), action: nil, keyEquivalent: "")
             source.isEnabled = false
             menu.addItem(source)
