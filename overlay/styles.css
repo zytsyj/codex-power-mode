@@ -208,6 +208,9 @@ body[data-phase="wait"] { --accent: #ffc567; --accent-rgb: 255, 197, 103; }
 body[data-phase="recover"] { --accent: #ff5f7f; --accent-rgb: 255, 95, 127; }
 body[data-phase="complete"] { --accent: #75dfff; --accent-rgb: 117, 223, 255; }
 body[data-phase="complete"][data-completion="verified"] { --accent: #68e9bb; --accent-rgb: 104, 233, 187; }
+body[data-phase="idle"] { --accent: #aeb7c4; --accent-rgb: 174, 183, 196; }
+body[data-phase="idle"] .reactor-halo { opacity: .35; animation: none; }
+body[data-phase="idle"] .tick-ring { opacity: .22; animation: none; }
 body[data-completion="unverified"] { --accent: #ffe07a; --accent-rgb: 255, 224, 122; }
 body[data-completion="cancelled"] { --accent: #ffad66; --accent-rgb: 255, 173, 102; }
 

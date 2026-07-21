@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboDisplayStatus, comboProgress, initialState, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboDisplayStatus, comboProgress, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -77,6 +77,36 @@ test("turn completes as verified only after post-edit evidence", () => {
   state = reduceState(state, { type: "turn-stop", timestamp: at(4) });
   assert.equal(state.phase, "complete");
   assert.equal(state.completion, "verified");
+  assert.equal(state.turnStoppedAt, at(4));
+});
+
+test("a completed turn becomes idle only after combo feedback and returns momentum to zero", () => {
+  let state = reduceState(initialState, {
+    type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, sessionId: "s"
+  });
+  state = reduceState(state, {
+    type: "verification", category: "test", success: true, timestamp: at(3), sessionId: "s"
+  });
+  state = reduceState(state, { type: "turn-stop", timestamp: at(4), sessionId: "s" });
+
+  assert.equal(presentationSnapshot(state, at(22)).phase, "complete");
+  const returning = presentationSnapshot(state, at(24.4));
+  assert.equal(returning.phase, "idle");
+  assert.equal(returning.status, "ready");
+  assert.ok(returning.momentum > 0 && returning.momentum < state.momentum);
+  const settled = presentationSnapshot(state, at(27));
+  assert.equal(settled.momentum, 0);
+  assert.equal(settled.settled, true);
+  assert.equal(state.bestMomentum, settled.bestMomentum);
+});
+
+test("new work cancels the idle countdown", () => {
+  let state = reduceState(initialState, { type: "turn-stop", timestamp: at(2), sessionId: "s" });
+  state = reduceState(state, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(3), sessionId: "s"
+  });
+  assert.equal(state.turnStoppedAt, null);
+  assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
 });
 
 test("unverified edits cannot claim an evidence-backed completion", () => {

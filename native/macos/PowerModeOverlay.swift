@@ -16,6 +16,7 @@ private struct PowerState: Decodable {
     let riskLevel: String?
     let currentActivity: String?
     let completion: String?
+    let turnStoppedAt: String?
     let evidence: [String]?
     let addedLines: Int?
     let removedLines: Int?
@@ -146,7 +147,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerIsHighFrequency = false
-    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -157,6 +158,7 @@ private final class PowerModeView: NSView {
     private var comboHoldUntil: Date?
     private var comboExpiresAt: Date?
     private var comboBrokenAt: Date?
+    private var turnStoppedAt: Date?
     private var comboWasAnimating = false
     private var streamConnected: Bool?
     private var hudAlpha: CGFloat = 0
@@ -202,6 +204,10 @@ private final class PowerModeView: NSView {
     func preferencesChanged() {
         scheduleTick(highFrequency: !reducedMotion)
         needsDisplay = true
+    }
+
+    func historySummary() -> String {
+        "\(preferences.text("BEST ENERGY", "最高能量")) \(state.bestMomentum ?? 0)  ·  \(preferences.text("BEST COMBO", "最高连击")) \(state.bestCombo ?? 0)×"
     }
 
     func beginPositioning() {
@@ -270,6 +276,7 @@ private final class PowerModeView: NSView {
             comboHoldUntil = nextState.comboHoldUntil.flatMap(isoDateFormatter.date(from:))
             comboExpiresAt = nextState.comboExpiresAt.flatMap(isoDateFormatter.date(from:))
             comboBrokenAt = nextState.comboBrokenAt.flatMap(isoDateFormatter.date(from:))
+            turnStoppedAt = nextState.turnStoppedAt.flatMap(isoDateFormatter.date(from:))
         }
         eventText = describe(event)
         if event.type == "connected" {
@@ -383,8 +390,8 @@ private final class PowerModeView: NSView {
     }
 
     private func localizedPhase(_ phase: String) -> String {
-        if state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
-        if state.completion == "unverified" { return preferences.text("UNVERIFIED", "未验证") }
+        if phase != "IDLE" && state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
+        if phase != "IDLE" && state.completion == "unverified" { return preferences.text("UNVERIFIED", "未验证") }
         switch phase {
         case "OBSERVE": return preferences.text("OBSERVE", "观察")
         case "ACT": return preferences.text("ACT", "执行")
@@ -392,11 +399,13 @@ private final class PowerModeView: NSView {
         case "WAIT": return preferences.text("WAIT", "等待")
         case "RECOVER": return preferences.text("RECOVER", "恢复")
         case "COMPLETE": return preferences.text("COMPLETE", "完成")
+        case "IDLE": return preferences.text("IDLE", "待机")
         default: return phase
         }
     }
 
-    private func localizedActivity() -> String {
+    private func localizedActivity(idle: Bool = false) -> String {
+        if idle { return preferences.text("Waiting for Codex activity", "等待 Codex 活动") }
         if state.status == "needs-attention" { return preferences.text("Waiting for your approval", "等待你的授权") }
         if state.status == "failed" || state.phase == "recover" { return preferences.text("Repairing the latest failure", "正在修复最近的失败") }
         if state.completion == "verified" { return preferences.text("Latest changes are backed by evidence", "最新修改已有验证证据") }
@@ -456,6 +465,20 @@ private final class PowerModeView: NSView {
         return CGRect(origin: hudOrigin(size: size), size: size)
     }
 
+    private func presentationSnapshot(now: Date = Date()) -> (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool) {
+        let phase = state.phase ?? "observe"
+        let status = state.status ?? "ready"
+        let momentum = min(100, max(0, state.momentum ?? 0))
+        guard let turnStoppedAt else { return (phase, status, momentum, false, false, false) }
+        let finalHoldEnd = turnStoppedAt.addingTimeInterval(3)
+        let disconnectedAt = comboBrokenAt ?? comboExpiresAt
+        let comboEnd = disconnectedAt?.addingTimeInterval(3.2) ?? .distantPast
+        let idleAt = max(finalHoldEnd, comboEnd)
+        guard now >= idleAt else { return (phase, status, momentum, false, false, false) }
+        let progress = min(1, max(0, now.timeIntervalSince(idleAt) / 4))
+        return ("idle", "ready", Int((Double(momentum) * (1 - progress)).rounded()), true, progress >= 1, progress < 1)
+    }
+
     private func shouldShowHUD(now: Date) -> Bool {
         guard preferences.settings.enabled else { return false }
         if positioning || streamConnected != true { return true }
@@ -464,7 +487,8 @@ private final class PowerModeView: NSView {
         if state.status == "working" { return true }
         if now < hudExpandedUntil { return true }
         let combo = comboSnapshot(now: now)
-        return combo.active || combo.lost
+        if combo.active || combo.lost { return true }
+        return turnStoppedAt != nil && !presentationSnapshot(now: now).settled
     }
 
     private func reactorCenter() -> CGPoint {
@@ -673,13 +697,14 @@ private final class PowerModeView: NSView {
         }
         let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
         let comboIsDecaying = (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
+        let presentation = presentationSnapshot(now: now)
         let targetAlpha: CGFloat = shouldShowHUD(now: now) ? 1 : 0
         let previousAlpha = hudAlpha
         let fadeStep: CGFloat = reducedMotion ? 1 : 0.12
         hudAlpha += min(fadeStep, max(-fadeStep, targetAlpha - hudAlpha))
         let hudIsFading = abs(hudAlpha - targetAlpha) > 0.001
-        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying || hudIsFading)
-        if hasEffects || hudIsExpanded || comboIsAnimating || previousAlpha != hudAlpha { needsDisplay = true }
+        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying || presentation.returning || hudIsFading)
+        if hasEffects || hudIsExpanded || comboIsAnimating || presentation.returning || previousAlpha != hudAlpha { needsDisplay = true }
         scheduleTick(highFrequency: needsHighFrequency)
     }
 
@@ -735,7 +760,9 @@ private final class PowerModeView: NSView {
     }
 
     private func drawHUD() {
-        let expanded = positioning || preferences.settings.idleBehavior == "always" || Date() < hudExpandedUntil
+        let now = Date()
+        let presentation = presentationSnapshot(now: now)
+        let expanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
         let baseSize = hudBaseSize(expanded: expanded)
         let scale = effectiveHudScale(for: baseSize)
         let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
@@ -745,8 +772,8 @@ private final class PowerModeView: NSView {
             y: cos(shakePhase * 1.73) * shake * 0.55
         )
         let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
-        let phase = (state.phase ?? "observe").uppercased()
-        let phaseColor: NSColor = state.completion == "cancelled" ? .systemOrange : state.completion == "unverified" ? .systemYellow : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
+        let phase = presentation.phase.uppercased()
+        let phaseColor: NSColor = phase == "IDLE" ? NSColor(calibratedWhite: 0.7, alpha: 1) : state.completion == "cancelled" ? .systemOrange : state.completion == "unverified" ? .systemYellow : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
         let phaseLabel = localizedPhase(phase)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
@@ -787,7 +814,7 @@ private final class PowerModeView: NSView {
         ticks.lineWidth = 1
         ticks.stroke()
 
-        let momentum = min(100, max(0, state.momentum ?? 0))
+        let momentum = presentation.momentum
         let progress = CGFloat(momentum) / 100
         let arc = NSBezierPath()
         arc.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 31, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
@@ -824,8 +851,9 @@ private final class PowerModeView: NSView {
             let isConnected = streamConnected == true
             let connectionLabel = positioning ? preferences.text("DRAG TO POSITION", "拖动调整位置") : isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : preferences.text("RECONNECTING", "重新连接中")
             drawText(connectionLabel, at: CGPoint(x: origin.x + (positioning || !isConnected ? 226 : 273), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: positioning ? phaseColor : isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: preferences.isChinese ? 0.2 : 1.0)
-            drawText(String(eventText.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
-            drawText(String(localizedActivity().prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
+            let presentedEvent = presentation.idle ? preferences.text("POWER MODE READY", "POWER MODE 待机") : eventText
+            drawText(String(presentedEvent.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
+            drawText(String(localizedActivity(idle: presentation.idle).prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
 
             let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { localizedCategory($0) }.joined(separator: "+")) ✓" : preferences.text("NO EVIDENCE", "暂无证据")
             let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  " + preferences.text("RISK", "风险")
@@ -1124,20 +1152,33 @@ private final class CodexWindowTracker {
 
     private func refresh() {
         guard let panel else { return }
-        guard preferences.settings.followWhenInactive || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleIdentifier else {
+        let followsInactive = preferences.settings.followWhenInactive
+        let codexIsFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleIdentifier
+        panel.level = followsInactive ? .statusBar : .floating
+        guard followsInactive || codexIsFrontmost else {
             panel.orderOut(nil)
             return
         }
-        guard let frame = codexWindowFrame(), frame.width > 400, frame.height > 300 else {
+        if codexIsFrontmost {
+            guard let frame = codexWindowFrame(), frame.width > 400, frame.height > 300 else {
+                panel.orderOut(nil)
+                return
+            }
+            if !frame.equalTo(lastFrame) {
+                panel.setFrame(frame, display: true)
+                panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
+                lastFrame = frame
+            }
+        } else if lastFrame.equalTo(.zero) {
             panel.orderOut(nil)
             return
         }
-        if !frame.equalTo(lastFrame) {
-            panel.setFrame(frame, display: true)
-            panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
-            lastFrame = frame
+        if followsInactive && !codexIsFrontmost {
+            NSApp.unhideWithoutActivation()
+            panel.orderFrontRegardless()
+        } else if !panel.isVisible {
+            panel.orderFrontRegardless()
         }
-        if !panel.isVisible { panel.orderFrontRegardless() }
     }
 
     private func codexWindowFrame() -> CGRect? {
@@ -1177,6 +1218,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     private var localMouseMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
         let environment = ProcessInfo.processInfo.environment
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { NSApp.terminate(nil); return }
         let preferences = PowerModePreferences(environment: environment)
@@ -1192,6 +1234,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
+        panel.canHide = false
+        panel.hidesOnDeactivate = false
         panel.ignoresMouseEvents = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -1241,6 +1285,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         let title = NSMenuItem(title: "Codex Power Mode", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
+        if let view = window?.contentView as? PowerModeView {
+            let history = NSMenuItem(title: view.historySummary(), action: nil, keyEquivalent: "")
+            history.isEnabled = false
+            menu.addItem(history)
+        }
         menu.addItem(.separator())
 
         let enabled = NSMenuItem(title: preferences.text("Enabled", "启用"), action: #selector(toggleEnabled), keyEquivalent: "")

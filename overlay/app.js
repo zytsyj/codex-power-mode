@@ -14,6 +14,9 @@ const previewEvent = parameters.get("event");
 const previewCompletion = parameters.get("completion");
 const previewOffline = parameters.get("connection") === "offline";
 const intensity = preset === "arcade" ? 1.75 : 1;
+const finalStateHoldMs = 3_000;
+const comboLostMs = 3_200;
+const momentumReturnMs = 4_000;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
   : { particles: 280, rings: 10, scans: 4 };
@@ -29,9 +32,9 @@ let connectionOnline = false;
 
 const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
-  observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"],
+  observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "连击"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
-  approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], observing: ["Reading and understanding context", "正在读取并理解上下文"],
+  approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
 };
 const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
@@ -44,7 +47,7 @@ if (parameters.get("preview") === "light") document.body.dataset.preview = "ligh
 
 const palette = {
   observe: "#75dfff", act: "#a886ff", verify: "#62e3ad",
-  wait: "#ffc568", recover: "#ff6486", complete: "#72e9bf"
+  wait: "#ffc568", recover: "#ff6486", complete: "#72e9bf", idle: "#b7bec9"
 };
 const previewMode = previewPhase in palette;
 
@@ -205,6 +208,7 @@ function frame() {
 }
 
 function statusCopy(next) {
+  if (next.phase === "idle") return t("standby");
   if (next.phase === "wait") return t("approval");
   if (next.completion === "cancelled") return t("approvalDenied");
   if (next.completion === "unverified") return t("verifyRecommended");
@@ -215,6 +219,29 @@ function statusCopy(next) {
   if (next.phase === "verify") return t("checking");
   if (next.phase === "act") return t("acting");
   return t("observing");
+}
+
+function presentationAt(next, now = Date.now()) {
+  const stoppedAt = Date.parse(next.turnStoppedAt);
+  const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
+  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false };
+  const explicitBreak = Date.parse(next.comboBrokenAt);
+  const naturalBreak = Date.parse(next.comboExpiresAt);
+  const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
+  const comboEnd = Number.isFinite(disconnectedAt) ? disconnectedAt + comboLostMs : 0;
+  const idleAt = Math.max(stoppedAt + finalStateHoldMs, comboEnd);
+  if (now < idleAt) return { ...next, momentum, idle: false, settled: false };
+  const progress = Math.max(0, Math.min(1, (now - idleAt) / momentumReturnMs));
+  return {
+    ...next,
+    phase: "idle",
+    status: "ready",
+    completion: null,
+    currentActivity: t("standby"),
+    momentum: Math.round(momentum * (1 - progress)),
+    idle: true,
+    settled: progress >= 1
+  };
 }
 
 function comboProgressAt(next, now = Date.now()) {
@@ -240,29 +267,35 @@ function renderCombo(now = Date.now()) {
   elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;
   elements["combo-status"].textContent = labels[status] ?? "LINK";
   document.body.dataset.comboStatus = status;
-  updateIdleVisibility(now, active || recentlyLost);
+  updateIdleVisibility(now, active || recentlyLost, presentationAt(state, now));
 }
 
-function updateIdleVisibility(now = Date.now(), comboVisible = false) {
+function updateIdleVisibility(now = Date.now(), comboVisible = false, presented = presentationAt(state, now)) {
   if (previewMode) return;
-  const urgent = state.phase === "wait" || state.phase === "recover" || state.status === "needs-attention" || state.status === "failed";
-  const working = state.status === "working";
-  const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || now < hudVisibleUntil;
+  const urgent = presented.phase === "wait" || presented.phase === "recover" || presented.status === "needs-attention" || presented.status === "failed";
+  const working = presented.status === "working";
+  const terminalReturning = Boolean(state.turnStoppedAt) && !presented.settled;
+  const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || terminalReturning || now < hudVisibleUntil;
   elements.hud.classList.toggle("idle-hidden", !visible);
+}
+
+function renderPresentation(now = Date.now()) {
+  const presented = presentationAt(state, now);
+  const phase = presented.phase ?? "observe";
+  const momentum = presented.momentum ?? 0;
+  document.body.dataset.phase = phase;
+  document.body.dataset.status = presented.status ?? "ready";
+  document.body.dataset.completion = presented.completion ?? "none";
+  elements.momentum.textContent = momentum;
+  elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
+  elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);
+  elements.event.textContent = presented.idle ? t("ready") : statusCopy(presented);
+  elements["status-copy"].textContent = statusCopy(presented);
 }
 
 function render(next = state) {
   state = { ...state, ...next };
-  const phase = state.phase ?? "observe";
-  const momentum = state.momentum ?? 0;
-  document.body.dataset.phase = phase;
-  document.body.dataset.status = state.status ?? "ready";
-  document.body.dataset.completion = state.completion ?? "none";
-  elements.momentum.textContent = momentum;
-  elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
-  elements.phase.textContent = state.completion === "cancelled" ? t("cancelled") : state.completion === "unverified" ? t("unverified") : t(phase);
-  elements.event.textContent = statusCopy(state);
-  elements["status-copy"].textContent = statusCopy(state);
+  renderPresentation();
   elements.confidence.textContent = `${t("confidence")} ${state.confidence ?? 0}%`;
   elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : t("noEvidence");
   const riskLevel = String(state.riskLevel ?? "low");
@@ -334,4 +367,8 @@ if (!previewMode) {
 
 addEventListener("resize", resize);
 resize();
-setInterval(() => renderCombo(), 100);
+setInterval(() => {
+  const now = Date.now();
+  renderPresentation(now);
+  renderCombo(now);
+}, 100);

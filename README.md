@@ -15,9 +15,10 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Recognizes common test, build, lint, and type-check commands.
 - Requires successful post-edit verification for an evidence-backed completion.
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
-- Includes a native macOS transparent, click-through overlay constrained to the Codex window.
+- Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
 - Includes semantic demo and recent-event replay tools for visual tuning.
-- Auto-hides after activity and Combo expire, while Wait, Recover, and reconnect states remain visible.
+- Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy returns to zero.
+- Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
 - Supports restrained `focus` and high-energy `arcade` effect presets.
 - Adds a lightweight macOS menu-bar control for language, effects, idle behavior, size, motion, and drag positioning.
 
@@ -44,13 +45,13 @@ npm run status
 npm run native:stop
 ```
 
-The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the foremost Codex window, hides when Codex is not in front, and does not modify or inject code into the Codex app.
+The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the foremost Codex window and does not modify or inject code into the Codex app. When **Show while Codex is inactive** is enabled, it freezes the last valid Codex anchor and remains globally visible above other apps.
 
 On macOS, the Codex `SessionStart` hook automatically ensures both the event service and native overlay are running. Existing processes are reused, so opening another session does not create duplicate overlays.
 
 `npm run status` reports service health, the native overlay PID and launch configuration, the current semantic state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
-The macOS menu-bar bolt is the settings entry point. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. Settings are saved immediately in the versioned `overlay-config.json`; pre-schema development settings are intentionally reset rather than migrated.
+The macOS menu-bar bolt is the settings entry point. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json`, survive overlay restarts, and pre-schema development settings are intentionally reset rather than migrated.
 
 Optional environment variables:
 

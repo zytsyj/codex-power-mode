@@ -212,13 +212,11 @@ async function stopNative() {
   const pid = await currentNativePid();
   if (!pid) {
     await unlink(nativePidFile).catch(() => {});
-    await unlink(nativeConfigFile).catch(() => {});
     process.stdout.write("Native overlay is not running\n");
     return;
   }
   process.kill(pid, "SIGTERM");
   await unlink(nativePidFile).catch(() => {});
-  await unlink(nativeConfigFile).catch(() => {});
   process.stdout.write(`Native overlay stopped (PID ${pid})\n`);
 }
 

@@ -23,7 +23,7 @@ node "${PLUGIN_ROOT}/scripts/power-mode.mjs" start --open
 
 Tell the user the HUD is running at `http://127.0.0.1:4737`. The plugin hooks automatically capture supported Codex edits and verification commands after the user has reviewed and trusted them.
 
-On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, auto-hide behavior, English/Chinese, size, reduced motion, inactive-window visibility, and drag positioning. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior.
+On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, auto-hide versus a quiet Idle orb, English/Chinese, size, reduced motion, global inactive-window visibility, and drag positioning. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior. Settings survive overlay restarts, and the menu reports historical best energy and Combo.
 
 To stop the native overlay:
 
@@ -69,4 +69,5 @@ Summarize phase, momentum, confidence, risk, edited lines, and verification evid
 - Successful tests, builds, lint, or type checks add confidence and evidence.
 - Failed verification enters recovery and lowers confidence.
 - A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.
+- A terminal result holds briefly, Combo drains and disconnects, then the HUD enters Idle while visible energy returns to zero. Historical best values remain available in the menu.
 - Do not run extra commands solely to increase momentum or confidence.
