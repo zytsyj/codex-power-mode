@@ -320,6 +320,9 @@ private final class PowerModeView: NSView {
                 scan(color: .systemCyan)
             } else if event.phase == "verify" {
                 charge(color: .systemGreen, count: arcadeMode ? 100 : 58)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                    self?.shockwave(color: .systemGreen, power: 0.42)
+                }
             } else {
                 directionalSparks(color: .systemPurple, count: arcadeMode ? 48 : 26)
             }
@@ -588,18 +591,21 @@ private final class PowerModeView: NSView {
         guard !reducedMotion else { return }
         let target = reactorCenter()
         let source = codingOrigin()
-        for _ in 0..<count {
-            let angle = CGFloat.random(in: 0...(2 * .pi))
-            let distance = CGFloat.random(in: 70...190)
+        for index in 0..<count {
+            let lane = CGFloat(index % 4) - 1.5
             let life = CGFloat.random(in: 38...58)
             particles.append(Particle(
-                position: CGPoint(x: source.x + cos(angle) * distance, y: source.y + sin(angle) * distance),
+                position: CGPoint(
+                    x: source.x + CGFloat.random(in: -36...130),
+                    y: source.y + lane * 18 + CGFloat.random(in: -3...3)
+                ),
                 velocity: .zero,
                 life: life,
                 maxLife: life,
                 radius: CGFloat.random(in: 1.0...2.5),
                 color: color,
-                target: target
+                target: target,
+                square: true
             ))
         }
     }
@@ -961,23 +967,26 @@ private final class PowerModeView: NSView {
 
     private func drawVerifySignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let rotation = reducedMotion ? 0 : shakePhase * 0.34
-        color.withAlphaComponent(0.82).setStroke()
-        for index in 0..<3 {
-            let start = CGFloat(index) * 120 + rotation
-            let segment = NSBezierPath()
-            segment.appendArc(withCenter: center, radius: 38, startAngle: start, endAngle: start + 18)
-            segment.lineWidth = 2
-            segment.lineCapStyle = .round
-            segment.stroke()
+        let progress = reducedMotion ? CGFloat(0.32) : shakePhase.truncatingRemainder(dividingBy: 64) / 64
+        let half = 38 - progress * 8
+        let arm: CGFloat = 10
+        color.withAlphaComponent(0.82 - progress * 0.28).setStroke()
+        for (xDirection, yDirection) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+            let x = center.x + CGFloat(xDirection) * half
+            let y = center.y + CGFloat(yDirection) * half
+            let bracket = NSBezierPath()
+            bracket.move(to: CGPoint(x: x - CGFloat(xDirection) * arm, y: y))
+            bracket.line(to: CGPoint(x: x, y: y))
+            bracket.line(to: CGPoint(x: x, y: y - CGFloat(yDirection) * arm))
+            bracket.lineWidth = 2
+            bracket.lineCapStyle = .square
+            bracket.lineJoinStyle = .miter
+            bracket.stroke()
         }
 
-        let progress = reducedMotion ? CGFloat(0.35) : shakePhase.truncatingRemainder(dividingBy: 75) / 75
-        let radius = 34 - progress * 12
-        let focus = NSBezierPath(ovalIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
-        color.withAlphaComponent((1 - progress) * 0.52).setStroke()
-        focus.lineWidth = 1
-        focus.stroke()
+        let coreSize = 4 + (1 - progress) * 4
+        color.withAlphaComponent(0.56).setFill()
+        NSBezierPath(rect: CGRect(x: center.x - coreSize / 2, y: center.y - coreSize / 2, width: coreSize, height: coreSize)).fill()
     }
 
     private func drawRecoverSignal(around origin: CGPoint, color: NSColor) {

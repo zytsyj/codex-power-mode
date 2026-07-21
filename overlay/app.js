@@ -125,26 +125,30 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
   if (reducedMotion) return;
   const count = Math.min(220, Math.round(amount * intensity));
   for (let index = 0; index < count; index += 1) {
+    const evidenceLane = index % 4;
     const angle = mode === "left"
       ? Math.PI - .34 + Math.random() * .68
       : mode === "outward" || mode === "fragments"
       ? Math.PI - .62 + Math.random() * 1.24
       : Math.random() * Math.PI * 2;
-    const source = mode === "inward" ? workOrigin() : start;
+    const source = mode === "evidence"
+      ? { x: start.x - 78 - Math.random() * 190, y: start.y + (evidenceLane - 1.5) * 18 + (Math.random() - .5) * 6 }
+      : mode === "inward" ? workOrigin() : start;
     const distance = mode === "inward" ? 18 + Math.random() * 90 : 0;
     const x = source.x + Math.cos(angle) * distance;
     const y = source.y + Math.sin(angle) * distance;
     const speed = (1.1 + Math.random() * 4.7) * power * intensity;
+    const approachFrames = 24 + Math.random() * 12;
     particles.push({
       x, y,
-      vx: mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
-      vy: mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
+      vx: mode === "evidence" ? (start.x - x) / approachFrames : mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
+      vy: mode === "evidence" ? (start.y - y) / approachFrames : mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
       life: 34 + Math.random() * 44,
       maxLife: 78,
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
       color,
-      drag: mode === "inward" ? 1.012 : .985,
-      square: mode === "fragments" || mode === "left"
+      drag: mode === "inward" || mode === "evidence" ? 1.012 : .985,
+      square: mode === "fragments" || mode === "left" || mode === "evidence"
     });
   }
   scheduleEffectsFrame();
@@ -333,7 +337,8 @@ function react(event) {
     scan(color);
     if (preset === "arcade") setTimeout(() => scan(color), 130);
   } else if (event.type === "activity-start" && phase === "verify") {
-    burst(color, 34, .55, "inward", start); ring(color, .55, start);
+    burst(color, 38, .62, "evidence", start); ring(color, .48, start);
+    if (preset === "arcade") setTimeout(() => ring(color, .34, start), 180);
   } else if (event.type === "activity-start") {
     burst(color, 26, .72, "left", start);
     if (preset === "arcade") setTimeout(() => burst(color, 20, .6, "left", start), 110);
