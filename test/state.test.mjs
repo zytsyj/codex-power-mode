@@ -194,6 +194,30 @@ test("abandoned non-terminal activity settles without hiding attention states", 
   assert.equal(presentationSnapshot(waiting, at(10_000)).idle, false);
 });
 
+test("failed recovery remains visible briefly and then safely returns to idle", () => {
+  const recovery = reduceState(initialState, {
+    type: "verification", category: "test", success: false, timestamp: at(2), sessionId: "s"
+  });
+  assert.equal(recovery.lastFailureAt, at(2));
+  assert.equal(presentationSnapshot(recovery, at(19)).phase, "recover");
+  const returning = presentationSnapshot(recovery, at(21));
+  assert.equal(returning.phase, "idle");
+  assert.equal(returning.status, "ready");
+  assert.equal(presentationSnapshot(recovery, at(25)).settled, true);
+});
+
+test("legacy failed recovery can settle from its verification timestamp", () => {
+  const recovery = {
+    ...initialState,
+    phase: "recover",
+    status: "failed",
+    momentum: 12,
+    lastFailureAt: null,
+    lastVerificationAt: at(2)
+  };
+  assert.equal(presentationSnapshot(recovery, at(25)).phase, "idle");
+});
+
 test("unverified edits cannot claim an evidence-backed completion", () => {
   let state = reduceState(initialState, {
     type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, addedChars: 20

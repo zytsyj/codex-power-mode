@@ -19,6 +19,7 @@ private struct PowerState: Decodable {
     let completion: String?
     let turnStoppedAt: String?
     let lastActivityAt: String?
+    let lastFailureAt: String?
     let evidence: [String]?
     let addedLines: Int?
     let removedLines: Int?
@@ -159,7 +160,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -172,6 +173,7 @@ private final class PowerModeView: NSView {
     private var comboBrokenAt: Date?
     private var turnStoppedAt: Date?
     private var lastActivityAt: Date?
+    private var lastFailureAt: Date?
     private var semanticPhase = "observe"
     private var semanticPhaseEnteredAt = Date()
     private var comboWasAnimating = false
@@ -348,6 +350,7 @@ private final class PowerModeView: NSView {
             comboBrokenAt = nextState.comboBrokenAt.flatMap(isoDateFormatter.date(from:))
             turnStoppedAt = nextState.turnStoppedAt.flatMap(isoDateFormatter.date(from:))
             lastActivityAt = nextState.lastActivityAt.flatMap(isoDateFormatter.date(from:))
+            lastFailureAt = nextState.lastFailureAt.flatMap(isoDateFormatter.date(from:))
         }
         eventText = describe(event)
         if event.type == "connected" {
@@ -608,7 +611,11 @@ private final class PowerModeView: NSView {
         let status = state.status ?? "ready"
         let momentum = min(100, max(0, state.momentum ?? 0))
         let canSettleAbandoned = ["observe", "act", "verify"].contains(phase) && status != "needs-attention" && status != "failed"
-        let effectiveStopAt = turnStoppedAt ?? (canSettleAbandoned ? lastActivityAt?.addingTimeInterval(5 * 60) : nil)
+        let canSettleRecovery = phase == "recover" && status == "failed"
+        let recoveryAt = lastFailureAt ?? lastActivityAt
+        let effectiveStopAt = turnStoppedAt
+            ?? (canSettleRecovery ? recoveryAt?.addingTimeInterval(15) : nil)
+            ?? (canSettleAbandoned ? lastActivityAt?.addingTimeInterval(5 * 60) : nil)
         guard let effectiveStopAt else { return (phase, status, momentum, false, false, false) }
         let finalHoldEnd = effectiveStopAt.addingTimeInterval(3)
         let disconnectedAt = comboBrokenAt ?? comboExpiresAt
@@ -623,8 +630,9 @@ private final class PowerModeView: NSView {
         guard preferences.settings.enabled else { return false }
         if positioning || streamConnected != true { return true }
         if preferences.settings.idleBehavior != "hide" { return true }
-        if state.phase == "wait" || state.phase == "recover" || state.status == "needs-attention" || state.status == "failed" { return true }
+        if state.phase == "wait" || state.status == "needs-attention" { return true }
         let presentation = presentationSnapshot(now: now)
+        if presentation.phase == "recover" || presentation.status == "failed" { return true }
         if presentation.status == "working" { return true }
         if now < hudExpandedUntil { return true }
         let combo = comboSnapshot(now: now)

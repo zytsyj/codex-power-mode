@@ -14,11 +14,13 @@ const previewEnergy = parameters.get("energy");
 const previewEvent = parameters.get("event");
 const previewCompletion = parameters.get("completion");
 const previewOffline = parameters.get("connection") === "offline";
+const previewStale = parameters.get("age") === "stale";
 const intensity = preset === "arcade" ? 1.75 : 1;
 const finalStateHoldMs = 3_000;
 const comboLostMs = 3_200;
 const momentumReturnMs = 4_000;
 const abandonedActivityMs = 5 * 60_000;
+const recoveryTimeoutMs = 15_000;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
   : { particles: 280, rings: 10, scans: 4 };
@@ -67,6 +69,7 @@ if (previewMode) {
   const noChangeComplete = previewPhase === "complete" && previewCompletion === "no-change";
   const verifiedComplete = previewPhase === "complete" && !cancelledComplete && !unverifiedComplete && !noChangeComplete;
   const incompleteOutcome = cancelledComplete || unverifiedComplete;
+  const recoveryPreview = previewPhase === "recover";
   const previewNow = Date.now();
   const comboBroken = previewCombo === "lost";
   const comboHolding = previewCombo === "hold";
@@ -80,13 +83,14 @@ if (previewMode) {
     riskLevel: previewPhase === "recover" ? "high" : "low",
     completion: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : noChangeComplete ? "no-change" : verifiedComplete ? "verified" : undefined,
     evidence: verifiedComplete ? ["test", "build"] : [],
-    combo: comboBroken || previewPhase === "complete" && !verifiedComplete ? 0 : verifiedComplete ? 12 : 8,
+    combo: comboBroken || recoveryPreview || previewPhase === "complete" && !verifiedComplete ? 0 : verifiedComplete ? 12 : 8,
     bestCombo: verifiedComplete ? 12 : 8,
-    comboStatus: comboBroken || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
+    comboStatus: comboBroken || recoveryPreview || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : comboCritical ? -10_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : comboCritical ? 2_500 : 12_000)).toISOString(),
-    comboBrokenAt: comboBroken || incompleteOutcome ? new Date(previewNow).toISOString() : null,
+    comboBrokenAt: comboBroken || recoveryPreview || incompleteOutcome ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
+    lastFailureAt: previewPhase === "recover" ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
     currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "prompt-submit" ? "Understanding request" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   if (previewOffline) setConnection(false, false);
@@ -258,8 +262,16 @@ function statusCopy(next) {
 function presentationAt(next, now = Date.now()) {
   const explicitStopAt = Date.parse(next.turnStoppedAt);
   const lastActivityAt = Date.parse(next.lastActivityAt);
+  const lastFailureAt = Date.parse(next.lastFailureAt ?? next.lastVerificationAt ?? next.lastActivityAt);
   const canSettleAbandoned = ["observe", "act", "verify"].includes(next.phase) && next.status !== "needs-attention" && next.status !== "failed";
-  const stoppedAt = Number.isFinite(explicitStopAt) ? explicitStopAt : canSettleAbandoned && Number.isFinite(lastActivityAt) ? lastActivityAt + abandonedActivityMs : Number.NaN;
+  const canSettleRecovery = next.phase === "recover" && next.status === "failed" && Number.isFinite(lastFailureAt);
+  const stoppedAt = Number.isFinite(explicitStopAt)
+    ? explicitStopAt
+    : canSettleRecovery
+      ? lastFailureAt + recoveryTimeoutMs
+      : canSettleAbandoned && Number.isFinite(lastActivityAt)
+        ? lastActivityAt + abandonedActivityMs
+        : Number.NaN;
   const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
   if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false };
   const explicitBreak = Date.parse(next.comboBrokenAt);

@@ -28,6 +28,7 @@ export const initialState = Object.freeze({
   lastEditAt: null,
   lastVerificationAt: null,
   lastVerificationPassed: false,
+  lastFailureAt: null,
   turnStoppedAt: null,
   completion: null,
   sessionId: null,
@@ -41,6 +42,7 @@ export const VERIFICATION_REWARD_HOLD_MS = 1_800;
 export const FINAL_STATE_HOLD_MS = 3_000;
 export const MOMENTUM_RETURN_MS = 4_000;
 export const ABANDONED_ACTIVITY_MS = 5 * 60_000;
+export const RECOVERY_TIMEOUT_MS = 15_000;
 
 const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
 
@@ -117,11 +119,15 @@ export function presentationSnapshot(state, now = Date.now()) {
   const current = typeof now === "number" ? now : Date.parse(now);
   const explicitStopAt = Date.parse(state.turnStoppedAt);
   const lastActivityAt = Date.parse(state.lastActivityAt);
+  const lastFailureAt = Date.parse(state.lastFailureAt ?? state.lastVerificationAt ?? state.lastActivityAt);
   const canSettleAbandoned = ["observe", "act", "verify"].includes(state.phase) &&
     state.status !== "needs-attention" && state.status !== "failed";
+  const canSettleRecovery = state.phase === "recover" && state.status === "failed" && Number.isFinite(lastFailureAt);
   const stoppedAt = Number.isFinite(explicitStopAt)
     ? explicitStopAt
-    : canSettleAbandoned && Number.isFinite(lastActivityAt)
+    : canSettleRecovery
+      ? lastFailureAt + RECOVERY_TIMEOUT_MS
+      : canSettleAbandoned && Number.isFinite(lastActivityAt)
       ? lastActivityAt + ABANDONED_ACTIVITY_MS
       : Number.NaN;
   const momentum = clamp(state.momentum ?? 0);
@@ -241,6 +247,7 @@ export function reduceState(previous = initialState, event) {
     state.phase = "recover";
     state.status = "failed";
     state.currentActivity = "Repairing a failed edit";
+    state.lastFailureAt = event.timestamp;
     state.completion = null;
     breakCombo(state, "broken", event.timestamp);
   } else if (event.type === "verification") {
@@ -261,6 +268,7 @@ export function reduceState(previous = initialState, event) {
       state.phase = "recover";
       state.status = "failed";
       state.currentActivity = `${event.category} failed — recovering`;
+      state.lastFailureAt = event.timestamp;
       state.failedVerifications += 1;
       state.momentum = clamp(state.momentum - 8);
       state.confidence = clamp(state.confidence - 28);
