@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { eventFromHook } from "../src/events.mjs";
+import { serviceEndpointFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { recordEventResult } from "../src/storage.mjs";
 
@@ -13,7 +14,7 @@ async function notifyServer(event, state) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 250);
   try {
-    await fetch("http://127.0.0.1:4737/api/events", {
+    await fetch(`${serviceEndpointFromEnvironment(process.env)}/api/events`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...event, state }),

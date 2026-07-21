@@ -3,6 +3,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { servicePortFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { readState, writeStateSnapshot } from "../src/storage.mjs";
 
@@ -13,7 +14,9 @@ const valueAfter = (flag, fallback) => {
   const index = args.indexOf(flag);
   return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
 };
-const port = Number(valueAfter("--port", process.env.CODEX_POWER_MODE_PORT || "4737"));
+const port = servicePortFromEnvironment({
+  CODEX_POWER_MODE_PORT: valueAfter("--port", process.env.CODEX_POWER_MODE_PORT)
+});
 const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
 const clients = new Set();
 

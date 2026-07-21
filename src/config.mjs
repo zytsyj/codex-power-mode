@@ -1,5 +1,14 @@
 const NATIVE_EDGES = new Set(["top-right", "top-left", "bottom-right", "bottom-left", "center"]);
 
+export function servicePortFromEnvironment(environment = {}) {
+  const parsedPort = Number(environment.CODEX_POWER_MODE_PORT);
+  return Number.isInteger(parsedPort) && parsedPort >= 1 && parsedPort <= 65_535 ? parsedPort : 4_737;
+}
+
+export function serviceEndpointFromEnvironment(environment = {}) {
+  return `http://127.0.0.1:${servicePortFromEnvironment(environment)}`;
+}
+
 export function nativeConfigFromEnvironment(environment = {}) {
   const parsedScale = Number.parseFloat(environment.CODEX_POWER_MODE_SCALE);
   return {

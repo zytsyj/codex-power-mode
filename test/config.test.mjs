@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nativeConfigFromEnvironment } from "../src/config.mjs";
+import {
+  nativeConfigFromEnvironment,
+  serviceEndpointFromEnvironment,
+  servicePortFromEnvironment
+} from "../src/config.mjs";
 
 test("native config reports defaults used by the overlay", () => {
   assert.deepEqual(nativeConfigFromEnvironment(), {
@@ -27,4 +31,16 @@ test("native config normalizes environment overrides", () => {
     followWhenInactive: true
   });
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_EDGE: "sideways" }).edge, "top-right");
+});
+
+test("service config keeps controllers and hooks on the configured port", () => {
+  const environment = { CODEX_POWER_MODE_PORT: "5812" };
+  assert.equal(servicePortFromEnvironment(environment), 5_812);
+  assert.equal(serviceEndpointFromEnvironment(environment), "http://127.0.0.1:5812");
+});
+
+test("service config rejects invalid ports", () => {
+  for (const value of ["0", "65536", "4737extra", "", undefined]) {
+    assert.equal(servicePortFromEnvironment({ CODEX_POWER_MODE_PORT: value }), 4_737);
+  }
 });

@@ -3,14 +3,14 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { nativeConfigFromEnvironment } from "../src/config.mjs";
+import { nativeConfigFromEnvironment, serviceEndpointFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { recordEvent, readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = powerModeDataDir();
 const command = process.argv[2] || "start";
-const endpoint = "http://127.0.0.1:4737";
+const endpoint = serviceEndpointFromEnvironment(process.env);
 const nativeDir = path.join(dataDir, "native");
 const nativeBinary = path.join(nativeDir, "codex-power-mode-overlay");
 const nativePidFile = path.join(nativeDir, "overlay.pid");
