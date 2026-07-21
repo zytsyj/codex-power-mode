@@ -1022,9 +1022,24 @@ private final class PowerModeView: NSView {
         let fadeStep: CGFloat = reducedMotion ? 1 : 0.12
         hudAlpha += min(fadeStep, max(-fadeStep, targetAlpha - hudAlpha))
         let hudIsFading = abs(hudAlpha - targetAlpha) > 0.001
-        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying || presentation.returning || hudIsFading)
-        if hasEffects || hudIsExpanded || comboIsAnimating || presentation.returning || previousAlpha != hudAlpha { needsDisplay = true }
-        let dormant = targetAlpha == 0 && !hasEffects && !comboIsAnimating && !presentation.returning
+        let semanticIsAnimating = !reducedMotion
+            && ["observe", "act", "verify", "wait", "recover"].contains(presentation.phase)
+            && (presentation.status == "working" || presentation.status == "needs-attention" || presentation.status == "failed")
+        // An expanded information card is static by itself. Only transient effects,
+        // positioning, decaying Combo, and fades need the 60 Hz path.
+        let needsHighFrequency = !reducedMotion
+            && (hasEffects || positioning || comboIsDecaying || presentation.returning || hudIsFading)
+        if hasEffects || positioning || comboIsAnimating || semanticIsAnimating || presentation.returning || previousAlpha != hudAlpha {
+            needsDisplay = true
+        }
+        // Visible Idle/orb/always-expanded HUDs still poll connection state, but do not
+        // wake four times per second or redraw an identical frame.
+        let dormant = !hasEffects
+            && !positioning
+            && !comboIsAnimating
+            && !semanticIsAnimating
+            && !presentation.returning
+            && !hudIsFading
         scheduleTick(highFrequency: needsHighFrequency, dormant: dormant)
     }
 
