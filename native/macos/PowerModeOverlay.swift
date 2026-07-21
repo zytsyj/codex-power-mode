@@ -150,7 +150,7 @@ private final class PowerModeView: NSView {
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
-    private var timerIsHighFrequency = false
+    private var timerInterval: TimeInterval = 0
     private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
@@ -190,15 +190,15 @@ private final class PowerModeView: NSView {
         scheduleTick(highFrequency: false)
     }
 
-    private func scheduleTick(highFrequency: Bool) {
-        guard timer == nil || timerIsHighFrequency != highFrequency else { return }
+    private func scheduleTick(highFrequency: Bool, dormant: Bool = false) {
+        let interval: TimeInterval = highFrequency ? 1.0 / 60.0 : dormant ? 1.0 : 0.25
+        guard timer == nil || abs(timerInterval - interval) > 0.0001 else { return }
         timer?.invalidate()
-        timerIsHighFrequency = highFrequency
-        let interval = highFrequency ? 1.0 / 60.0 : 0.25
+        timerInterval = interval
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
-        timer?.tolerance = highFrequency ? 0.001 : 0.04
+        timer?.tolerance = highFrequency ? 0.001 : dormant ? 0.15 : 0.04
     }
 
     required init?(coder: NSCoder) { nil }
@@ -813,7 +813,8 @@ private final class PowerModeView: NSView {
         let hudIsFading = abs(hudAlpha - targetAlpha) > 0.001
         let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying || presentation.returning || hudIsFading)
         if hasEffects || hudIsExpanded || comboIsAnimating || presentation.returning || previousAlpha != hudAlpha { needsDisplay = true }
-        scheduleTick(highFrequency: needsHighFrequency)
+        let dormant = targetAlpha == 0 && !hasEffects && !comboIsAnimating && !presentation.returning
+        scheduleTick(highFrequency: needsHighFrequency, dormant: dormant)
     }
 
     override func draw(_ dirtyRect: NSRect) {
