@@ -166,6 +166,7 @@ private final class PowerModeView: NSView {
     private var comboWasAnimating = false
     private var streamConnected: Bool?
     private var hudAlpha: CGFloat = 0
+    private var effectGeneration = 0
     private var positioning = false
     private var dragOffset: CGPoint?
     private var dragPosition: CGPoint?
@@ -304,6 +305,8 @@ private final class PowerModeView: NSView {
             needsDisplay = true
             return
         }
+        effectGeneration &+= 1
+        let generation = effectGeneration
         scheduleTick(highFrequency: !reducedMotion)
         let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
@@ -321,12 +324,12 @@ private final class PowerModeView: NSView {
                     focusPulse(color: .systemCyan, count: arcadeMode ? 92 : 54)
                     shockwave(color: .systemCyan, power: 0.38)
                 } else {
-                    scan(color: .systemCyan)
+                    scan(color: .systemCyan, generation: generation)
                 }
             } else if event.phase == "verify" {
                 charge(color: .systemGreen, count: arcadeMode ? 100 : 58)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
-                    self?.shockwave(color: .systemGreen, power: 0.42)
+                scheduleEffect(after: 0.18, generation: generation) { view in
+                    view.shockwave(color: .systemGreen, power: 0.42)
                 }
             } else {
                 directionalSparks(color: .systemPurple, count: arcadeMode ? 48 : 26)
@@ -334,9 +337,9 @@ private final class PowerModeView: NSView {
         case "permission-request":
             attentionGates(color: .systemYellow, count: arcadeMode ? 72 : 42)
             shockwave(color: .systemYellow, power: 0.58)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { [weak self] in
-                self?.attentionGates(color: .systemYellow, count: self?.arcadeMode == true ? 48 : 28)
-                self?.shockwave(color: .systemYellow, power: 0.42)
+            scheduleEffect(after: 0.26, generation: generation) { view in
+                view.attentionGates(color: .systemYellow, count: view.arcadeMode ? 48 : 28)
+                view.shockwave(color: .systemYellow, power: 0.42)
             }
         case "edit":
             let added = event.addedLines ?? 0
@@ -346,18 +349,18 @@ private final class PowerModeView: NSView {
             shake = min(8, 1.5 + CGFloat(added + removed) * 0.12)
             shockwave(color: primary, power: min(1.8, 0.8 + CGFloat(added + removed) / 30))
             burst(color: primary, count: max(18, min(130, added * 3 + removed * 4)), power: 1.0, directional: true)
-            replayTyping(characters: addedChars, lines: added)
+            replayTyping(characters: addedChars, lines: added, generation: generation)
             if removed > 0 { deletionSparks(lines: removed) }
         case "edit-failure":
             shockwave(color: .systemRed, power: 1.15)
             fragments(color: .systemRed, count: arcadeMode ? 132 : 82)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
-                self?.shockwave(color: .systemRed, power: 0.68)
+            scheduleEffect(after: 0.18, generation: generation) { view in
+                view.shockwave(color: .systemRed, power: 0.68)
             }
             dangerAlpha = 0.42
             shake = 12
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { [weak self] in
-                self?.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: self?.arcadeMode == true ? 112 : 68)
+            scheduleEffect(after: 0.30, generation: generation) { view in
+                view.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: view.arcadeMode ? 112 : 68)
             }
         case "verification":
             let passed = event.success == true
@@ -370,25 +373,25 @@ private final class PowerModeView: NSView {
                 fragments(color: .systemRed, count: arcadeMode ? 120 : 72)
                 dangerAlpha = 0.38
                 shake = 10
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { [weak self] in
-                    self?.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: self?.arcadeMode == true ? 96 : 58)
+                scheduleEffect(after: 0.30, generation: generation) { view in
+                    view.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: view.arcadeMode ? 96 : 58)
                 }
             }
         case "turn-stop" where event.state?.completion == "verified":
             shockwave(color: .systemGreen, power: 2.2)
             burst(color: NSColor.systemGreen, count: 180, power: 1.55)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
-                self?.shockwave(color: .systemPurple, power: 2.0)
-                self?.burst(color: .systemPurple, count: 180, power: 1.5)
+            scheduleEffect(after: 0.18, generation: generation) { view in
+                view.shockwave(color: .systemPurple, power: 2.0)
+                view.burst(color: .systemPurple, count: 180, power: 1.5)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) { [weak self] in
-                self?.shockwave(color: .systemCyan, power: 1.8)
-                self?.burst(color: .systemCyan, count: 180, power: 1.45)
+            scheduleEffect(after: 0.36, generation: generation) { view in
+                view.shockwave(color: .systemCyan, power: 1.8)
+                view.burst(color: .systemCyan, count: 180, power: 1.45)
             }
         case "turn-stop" where event.state?.completion == "cancelled":
             shockwave(color: .systemOrange, power: 0.78)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.19) { [weak self] in
-                self?.shockwave(color: .systemOrange, power: 0.52)
+            scheduleEffect(after: 0.19, generation: generation) { view in
+                view.shockwave(color: .systemOrange, power: 0.52)
             }
         case "turn-stop" where event.state?.completion == "unverified":
             shockwave(color: .systemYellow, power: 0.68)
@@ -546,12 +549,19 @@ private final class PowerModeView: NSView {
         )
     }
 
-    private func replayTyping(characters: Int, lines: Int) {
+    private func scheduleEffect(after delay: TimeInterval, generation: Int, _ effect: @escaping (PowerModeView) -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.effectGeneration == generation else { return }
+            effect(self)
+        }
+    }
+
+    private func replayTyping(characters: Int, lines: Int, generation: Int) {
         let base = max(4, min(32, max(lines, characters / 22)))
         let pulses = arcadeMode ? min(44, Int(Double(base) * 1.45)) : base
         for index in 0..<pulses {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.028) { [weak self] in
-                self?.typingPulse(index: index)
+            scheduleEffect(after: Double(index) * 0.028, generation: generation) { view in
+                view.typingPulse(index: index)
             }
         }
     }
@@ -574,13 +584,15 @@ private final class PowerModeView: NSView {
         needsDisplay = true
     }
 
-    private func scan(color: NSColor, echo: Bool = true) {
+    private func scan(color: NSColor, echo: Bool = true, generation: Int) {
         guard !reducedMotion else { return }
         let origin = reactorCenter()
         let life: CGFloat = 58
         scanBeams.append(ScanBeam(origin: origin, length: -min(bounds.width * 0.72, origin.x - 48), life: life, maxLife: life, color: color))
         if arcadeMode && echo {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in self?.scan(color: color.withAlphaComponent(0.7), echo: false) }
+            scheduleEffect(after: 0.16, generation: generation) { view in
+                view.scan(color: color.withAlphaComponent(0.7), echo: false, generation: generation)
+            }
         }
     }
 

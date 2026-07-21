@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Added event-generation guards so delayed scan echoes, repair passes, typing pulses, and chained bursts cannot leak into a newer HUD state.
 - Reduced native wakeups for a fully hidden, settled HUD from four per second to one while retaining immediate 60 Hz event recovery.
 - Preserved prompt-understanding semantics in Reduced Motion with a static four-way focus lock distinct from context scanning.
 - Gave prompt submission a converging focus effect while preserving the horizontal scan for file and context reads.

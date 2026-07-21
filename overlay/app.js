@@ -29,6 +29,7 @@ let collapseTimer;
 let effectsFrame = null;
 let hudVisibleUntil = Date.now() + 1800;
 let connectionOnline = false;
+let effectGeneration = 0;
 
 const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
@@ -334,7 +335,14 @@ function flashAt(start) {
   document.body.classList.add("flash");
 }
 
+function scheduleEffect(delay, generation, effect) {
+  setTimeout(() => {
+    if (generation === effectGeneration) effect();
+  }, delay);
+}
+
 function react(event) {
+  const generation = ++effectGeneration;
   render(event.state);
   const phase = event.state?.phase ?? event.phase ?? "observe";
   const color = event.state?.completion === "cancelled" ? "#ffad66" : event.state?.completion === "unverified" ? "#ffe07a" : palette[phase];
@@ -349,39 +357,39 @@ function react(event) {
   if (event.type === "activity-start" && phase === "observe") {
     if (event.toolGroup === "prompt") {
       burst(color, 42, .72, "focus", start); ring(color, .44, start);
-      if (preset === "arcade") setTimeout(() => burst(color, 24, .56, "focus", start), 150);
+      if (preset === "arcade") scheduleEffect(150, generation, () => burst(color, 24, .56, "focus", start));
     } else {
       scan(color);
-      if (preset === "arcade") setTimeout(() => scan(color), 130);
+      if (preset === "arcade") scheduleEffect(130, generation, () => scan(color));
     }
   } else if (event.type === "activity-start" && phase === "verify") {
     burst(color, 38, .62, "evidence", start); ring(color, .48, start);
-    if (preset === "arcade") setTimeout(() => ring(color, .34, start), 180);
+    if (preset === "arcade") scheduleEffect(180, generation, () => ring(color, .34, start));
   } else if (event.type === "activity-start") {
     burst(color, 26, .72, "left", start);
-    if (preset === "arcade") setTimeout(() => burst(color, 20, .6, "left", start), 110);
+    if (preset === "arcade") scheduleEffect(110, generation, () => burst(color, 20, .6, "left", start));
   } else if (event.type === "permission-request") {
     burst(color, 34, .82, "gate", start); ring(color, .48, start);
-    setTimeout(() => { burst(color, 24, .68, "gate", start); ring(color, .36, start); }, 260);
+    scheduleEffect(260, generation, () => { burst(color, 24, .68, "gate", start); ring(color, .36, start); });
   } else if (event.type === "edit") {
     burst(color, 38, momentumPower, "outward", start); ring(color, momentumPower, start);
   } else if (event.type === "edit-failure") {
     burst(color, 74, 1.15, "fragments", start); ring(color, .95, start);
-    setTimeout(() => ring(color, .62, start), 180);
-    setTimeout(() => burst("#ffadc0", 54, .82, "repair", start), 300);
+    scheduleEffect(180, generation, () => ring(color, .62, start));
+    scheduleEffect(300, generation, () => burst("#ffadc0", 54, .82, "repair", start));
   } else if (event.type === "verification" && event.success) {
     burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
-    setTimeout(() => burst(color, 38, .85, "radial", start), 280);
+    scheduleEffect(280, generation, () => burst(color, 38, .85, "radial", start));
   } else if (event.type === "verification") {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
-    setTimeout(() => burst("#ffadc0", 46, .76, "repair", start), 300);
+    scheduleEffect(300, generation, () => burst("#ffadc0", 46, .76, "repair", start));
   } else if (event.type === "turn-stop" && event.state?.completion === "cancelled") {
-    ring(color, .78, start); setTimeout(() => ring(color, .52, start), 190);
+    ring(color, .78, start); scheduleEffect(190, generation, () => ring(color, .52, start));
   } else if (event.type === "turn-stop" && event.state?.completion === "unverified") {
     ring(color, .68, start);
   } else if (event.state?.completion === "verified") {
     ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
-    setTimeout(() => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); }, 180);
+    scheduleEffect(180, generation, () => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); });
   }
 }
 
