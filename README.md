@@ -19,6 +19,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Includes semantic demo and recent-event replay tools for visual tuning.
 - Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy returns to zero.
 - Drops static Idle, orb, and always-expanded HUDs to a one-second heartbeat; active particles, fades, positioning, and Combo decay still use the responsive render path.
+- Keeps reduced-motion feedback semantic: events briefly show a fixed, phase-colored confirmation ring and compact glyph instead of particles, rotation, shaking, or full-screen flashes.
 - Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
 - Supports restrained `focus` and high-energy `arcade` effect presets.
 - Adds a lightweight macOS menu-bar control for language, effects, idle behavior, size, motion, and drag positioning.

@@ -189,6 +189,9 @@ private final class PowerModeView: NSView {
     private var semanticPhase = "observe"
     private var semanticPhaseEnteredAt = Date()
     private var comboWasAnimating = false
+    private var reducedFeedbackKind = "focus"
+    private var reducedFeedbackUntil: Date?
+    private var reducedFeedbackWasActive = false
     private var streamConnected: Bool?
     private var lastLiveEventAt: Date?
     private var hudAlpha: CGFloat = 0
@@ -447,6 +450,8 @@ private final class PowerModeView: NSView {
         flashAlpha = reducedMotion ? 0 : 0.24
 
         guard !reducedMotion else {
+            reducedFeedbackKind = reducedFeedbackKind(for: event)
+            reducedFeedbackUntil = Date().addingTimeInterval(event.type == "permission-request" || event.type == "edit-failure" ? 2.4 : 1.35)
             needsDisplay = true
             return
         }
@@ -571,6 +576,26 @@ private final class PowerModeView: NSView {
             break
         }
         needsDisplay = true
+    }
+
+    private func reducedFeedbackKind(for event: PowerEvent) -> String {
+        if event.sessionTransition != nil { return "switch" }
+        switch event.type {
+        case "activity-start":
+            return event.phase == "verify" ? "verify" : event.phase == "act" ? "act" : "focus"
+        case "permission-request": return "wait"
+        case "edit": return "act"
+        case "edit-failure": return "recover"
+        case "verification": return event.success == true ? "verified" : "recover"
+        case "turn-stop":
+            switch event.state?.completion {
+            case "verified": return "verified"
+            case "unverified": return "caution"
+            case "cancelled": return "cancelled"
+            default: return "no-change"
+            }
+        default: return "focus"
+        }
     }
 
     private func describe(_ event: PowerEvent) -> String {
@@ -1014,6 +1039,11 @@ private final class PowerModeView: NSView {
             comboWasAnimating = comboIsAnimating
             needsDisplay = true
         }
+        let reducedFeedbackActive = reducedMotion && now < (reducedFeedbackUntil ?? .distantPast)
+        if reducedFeedbackActive != reducedFeedbackWasActive {
+            reducedFeedbackWasActive = reducedFeedbackActive
+            needsDisplay = true
+        }
         let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
         let comboIsDecaying = showsCombo && (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
         let presentation = presentationSnapshot(now: now)
@@ -1037,6 +1067,7 @@ private final class PowerModeView: NSView {
         let dormant = !hasEffects
             && !positioning
             && !comboIsAnimating
+            && !reducedFeedbackActive
             && !semanticIsAnimating
             && !presentation.returning
             && !hudIsFading
@@ -1141,6 +1172,9 @@ private final class PowerModeView: NSView {
         if phase == "VERIFY" { drawVerifySignal(around: origin, color: phaseColor) }
         if phase == "WAIT" { drawWaitSignal(around: origin, color: phaseColor) }
         if phase == "RECOVER" { drawRecoverSignal(around: origin, color: phaseColor) }
+        if reducedMotion, now < (reducedFeedbackUntil ?? .distantPast) {
+            drawReducedMotionFeedback(kind: reducedFeedbackKind, around: origin)
+        }
 
         let haloRect = CGRect(x: origin.x + 1, y: origin.y + 1, width: 80, height: 80)
         let halo = NSBezierPath(ovalIn: haloRect)
@@ -1245,6 +1279,39 @@ private final class PowerModeView: NSView {
             drawText("\(evidence)  ·  \(preferences.text("CONF", "可信度")) \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: preferences.isChinese ? 0.15 : 0.45)
         }
         context.restoreGState()
+    }
+
+    private func drawReducedMotionFeedback(kind: String, around origin: CGPoint) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let style: (color: NSColor, symbol: String, dash: [CGFloat])
+        switch kind {
+        case "act": style = (.systemPurple, "▶", [15, 5])
+        case "verify": style = (.systemGreen, "◆", [7, 4])
+        case "verified": style = (.systemGreen, "✓", [])
+        case "wait": style = (.systemYellow, "Ⅱ", [4, 7])
+        case "recover": style = (.systemRed, "×", [8, 5])
+        case "caution": style = (.systemYellow, "!", [7, 5])
+        case "cancelled": style = (.systemOrange, "×", [10, 7])
+        case "no-change": style = (.systemCyan, "–", [3, 6])
+        case "switch": style = (.systemCyan, "↔", [12, 4])
+        default: style = (.systemCyan, "◎", [2, 4])
+        }
+
+        let confirmation = NSBezierPath(ovalIn: CGRect(x: center.x - 42, y: center.y - 42, width: 84, height: 84))
+        if !style.dash.isEmpty { confirmation.setLineDash(style.dash, count: style.dash.count, phase: 0) }
+        confirmation.lineWidth = 2.8
+        style.color.withAlphaComponent(0.92).setStroke()
+        confirmation.stroke()
+
+        let badgeRect = CGRect(x: origin.x + 61, y: origin.y + 59, width: 20, height: 20)
+        let badge = NSBezierPath(ovalIn: badgeRect)
+        NSColor(calibratedWhite: 0.025, alpha: 0.96).setFill()
+        badge.fill()
+        style.color.withAlphaComponent(0.95).setStroke()
+        badge.lineWidth = 1.4
+        badge.stroke()
+        let x = style.symbol == "Ⅱ" ? origin.x + 66.1 : style.symbol == "↔" ? origin.x + 64.3 : origin.x + 66
+        drawText(style.symbol, at: CGPoint(x: x, y: origin.y + 64), font: .systemFont(ofSize: 9.5, weight: .bold), color: .white)
     }
 
     private func drawWaitSignal(around origin: CGPoint, color: NSColor) {
