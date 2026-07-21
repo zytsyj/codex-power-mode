@@ -182,6 +182,7 @@ private final class PowerModeView: NSView {
     private var hudAlpha: CGFloat = 0
     private var effectGeneration = 0
     private var positioning = false
+    private var positioningHint = ""
     private var dragOffset: CGPoint?
     private var dragPosition: CGPoint?
     private let isoDateFormatter: ISO8601DateFormatter = {
@@ -236,6 +237,24 @@ private final class PowerModeView: NSView {
         return "\(preferences.text("Activity source", "动态来源")): \(source)"
     }
 
+    func positionSummary() -> String {
+        guard let x = preferences.settings.positionX, let y = preferences.settings.positionY else {
+            return preferences.text("Position: top right · default", "位置：右上 · 默认")
+        }
+        let horizontal = x < 0.34
+            ? preferences.text("left", "左")
+            : x > 0.66 ? preferences.text("right", "右") : preferences.text("center", "中")
+        let vertical = y < 0.34
+            ? preferences.text("bottom", "下")
+            : y > 0.66 ? preferences.text("top", "上") : preferences.text("middle", "中")
+        if x >= 0.34, x <= 0.66, y >= 0.34, y <= 0.66 {
+            return preferences.text("Position: center · saved", "位置：中央 · 已保存")
+        }
+        return preferences.isChinese
+            ? "位置：\(horizontal)\(vertical) · 已保存"
+            : "Position: \(vertical) \(horizontal) · saved"
+    }
+
     func sessionSummary() -> (title: String, fullId: String?) {
         guard let sessionId = state.sessionId, !sessionId.isEmpty else {
             return (preferences.text("Current session: waiting for activity", "当前会话：等待活动"), nil)
@@ -279,6 +298,7 @@ private final class PowerModeView: NSView {
 
     func beginPositioning() {
         positioning = true
+        positioningHint = preferences.text("DRAG HUD · EDGES SNAP", "拖动小球 · 靠边吸附")
         hudExpandedUntil = .distantFuture
         hudAlpha = 1
         needsDisplay = true
@@ -286,6 +306,7 @@ private final class PowerModeView: NSView {
 
     func cancelPositioning() {
         positioning = false
+        positioningHint = ""
         dragOffset = nil
         dragPosition = nil
         hudExpandedUntil = Date().addingTimeInterval(1.2)
@@ -311,8 +332,34 @@ private final class PowerModeView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let size = currentHudRect().size
         let origin = CGPoint(x: point.x - dragOffset.x, y: point.y - dragOffset.y)
-        let centerX = min(bounds.maxX - size.width / 2, max(size.width / 2, origin.x + size.width / 2))
-        let centerY = min(bounds.maxY - size.height / 2, max(size.height / 2, origin.y + size.height / 2))
+        let safeMargin: CGFloat = 12
+        let snapDistance: CGFloat = 30
+        let minimumX = safeMargin + size.width / 2
+        let maximumX = max(minimumX, bounds.maxX - safeMargin - size.width / 2)
+        let minimumY = safeMargin + size.height / 2
+        let maximumY = max(minimumY, bounds.maxY - safeMargin - size.height / 2)
+        var centerX = min(maximumX, max(minimumX, origin.x + size.width / 2))
+        var centerY = min(maximumY, max(minimumY, origin.y + size.height / 2))
+        var horizontalSnap: String?
+        var verticalSnap: String?
+        if abs(centerX - minimumX) <= snapDistance {
+            centerX = minimumX
+            horizontalSnap = preferences.text("LEFT", "左侧")
+        } else if abs(centerX - maximumX) <= snapDistance {
+            centerX = maximumX
+            horizontalSnap = preferences.text("RIGHT", "右侧")
+        }
+        if abs(centerY - minimumY) <= snapDistance {
+            centerY = minimumY
+            verticalSnap = preferences.text("BOTTOM", "底部")
+        } else if abs(centerY - maximumY) <= snapDistance {
+            centerY = maximumY
+            verticalSnap = preferences.text("TOP", "顶部")
+        }
+        let snappedEdges = [verticalSnap, horizontalSnap].compactMap { $0 }
+        positioningHint = snappedEdges.isEmpty
+            ? preferences.text("DRAG HUD · EDGES SNAP", "拖动小球 · 靠边吸附")
+            : preferences.text("SNAP ", "吸附 ") + snappedEdges.joined(separator: preferences.isChinese ? " · " : " ")
         dragPosition = CGPoint(x: centerX / max(1, bounds.width), y: centerY / max(1, bounds.height))
         needsDisplay = true
     }
@@ -1009,6 +1056,19 @@ private final class PowerModeView: NSView {
         context.scaleBy(x: scale, y: scale)
         let origin = CGPoint.zero
 
+        if positioning {
+            let guideRect = CGRect(x: -5, y: -5, width: baseSize.width + 10, height: baseSize.height + 10)
+            let guide = NSBezierPath(roundedRect: guideRect, xRadius: 13, yRadius: 13)
+            let dash: [CGFloat] = [4, 3]
+            guide.setLineDash(dash, count: dash.count, phase: 0)
+            phaseColor.withAlphaComponent(0.7).setStroke()
+            guide.lineWidth = 1.2
+            guide.stroke()
+            let handle = NSBezierPath(roundedRect: CGRect(x: baseSize.width / 2 - 13, y: baseSize.height - 5, width: 26, height: 3), xRadius: 1.5, yRadius: 1.5)
+            phaseColor.withAlphaComponent(0.86).setFill()
+            handle.fill()
+        }
+
         if phase == "OBSERVE" {
             if state.currentActivity == "Understanding request" {
                 drawUnderstandingSignal(around: origin, color: phaseColor)
@@ -1110,7 +1170,7 @@ private final class PowerModeView: NSView {
 
             drawText("●  \(phaseLabel)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
             let isConnected = streamConnected == true
-            let connectionLabel = positioning ? preferences.text("DRAG TO POSITION", "拖动调整位置") : isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : preferences.text("RECONNECTING", "重新连接中")
+            let connectionLabel = positioning ? positioningHint : isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : preferences.text("RECONNECTING", "重新连接中")
             drawText(connectionLabel, at: CGPoint(x: origin.x + (positioning || !isConnected ? 226 : 273), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: positioning ? phaseColor : isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: preferences.isChinese ? 0.2 : 1.0)
             let presentedEvent = presentation.idle ? preferences.text("POWER MODE READY", "POWER MODE 待机") : eventText
             drawText(String(presentedEvent.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
@@ -1727,6 +1787,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             self?.rebuildMenu()
         }
         installStatusItem()
+        if environment["CODEX_POWER_MODE_POSITIONING_PREVIEW"] == "1" {
+            setPositioning(true)
+        }
 
         let endpoint = environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream"
         guard let url = URL(string: endpoint), let view = panel.contentView as? PowerModeView else { return }
@@ -1778,6 +1841,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             session.toolTip = summary.fullId
             session.isEnabled = false
             menu.addItem(session)
+            let position = NSMenuItem(title: view.positionSummary(), action: nil, keyEquivalent: "")
+            position.isEnabled = false
+            menu.addItem(position)
         }
         menu.addItem(.separator())
 
@@ -1876,7 +1942,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
     @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
     @objc private func toggleFollow() { preferences?.toggleFollowWhenInactive() }
-    @objc private func resetPosition() { preferences?.resetPosition() }
+    @objc private func resetPosition() {
+        if positioning { setPositioning(false) }
+        preferences?.resetPosition()
+    }
     @objc private func togglePositioning() { setPositioning(!positioning) }
     @objc private func quitOverlay() { NSApp.terminate(nil) }
 
