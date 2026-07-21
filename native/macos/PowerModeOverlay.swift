@@ -14,6 +14,7 @@ private struct PowerState: Decodable {
     let comboExpiresAt: String?
     let comboBrokenAt: String?
     let comboRelinkedAt: String?
+    let verificationReward: String?
     let confidence: Int?
     let riskLevel: String?
     let currentActivity: String?
@@ -173,7 +174,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -253,7 +254,8 @@ private final class PowerModeView: NSView {
     }
 
     func historySummary() -> String {
-        "\(preferences.text("BEST ENERGY", "最高能量")) \(state.bestMomentum ?? 0)  ·  \(preferences.text("BEST COMBO", "最高连击")) \(state.bestCombo ?? 0)×"
+        let record = state.verificationReward == "record" ? preferences.text("★ NEW · ", "★ 新纪录 · ") : ""
+        return record + "\(preferences.text("BEST ENERGY", "最高能量")) \(state.bestMomentum ?? 0)  ·  \(preferences.text("BEST COMBO", "最高连击")) \(state.bestCombo ?? 0)×"
     }
 
     func activitySourceSummary() -> String {
@@ -557,12 +559,29 @@ private final class PowerModeView: NSView {
             }
         case "verification":
             let passed = event.success == true
-            let color: NSColor = passed ? .systemGreen : .systemRed
-            shockwave(color: color, power: passed ? 1.8 : 1.1)
-            burst(color: color, count: passed ? 140 : 88, power: passed ? 1.35 : 0.9)
             if passed {
-                shake = 4
+                switch event.state?.verificationReward {
+                case "record":
+                    shockwave(color: .systemYellow, power: arcadeMode ? 2.15 : 1.15)
+                    charge(color: .systemYellow, count: arcadeMode ? 140 : 72)
+                    shake = arcadeMode ? 6 : 2.5
+                    scheduleEffect(after: 0.18, generation: generation) { view in
+                        view.shockwave(color: .systemCyan, power: view.arcadeMode ? 1.55 : 0.72)
+                        view.burst(color: .systemCyan, count: view.arcadeMode ? 96 : 42, power: 1.0)
+                    }
+                case "evidence":
+                    shockwave(color: .systemGreen, power: arcadeMode ? 1.8 : 1.05)
+                    charge(color: .systemGreen, count: arcadeMode ? 120 : 62)
+                    scheduleEffect(after: 0.24, generation: generation) { view in
+                        view.shockwave(color: .systemGreen, power: view.arcadeMode ? 0.82 : 0.48)
+                    }
+                default:
+                    charge(color: .systemGreen, count: arcadeMode ? 64 : 34)
+                    shockwave(color: .systemGreen, power: arcadeMode ? 0.88 : 0.52)
+                }
             } else {
+                shockwave(color: .systemRed, power: 1.1)
+                burst(color: .systemRed, count: 88, power: 0.9)
                 fragments(color: .systemRed, count: arcadeMode ? 120 : 72)
                 dangerAlpha = 0.38
                 shake = 10
@@ -623,7 +642,10 @@ private final class PowerModeView: NSView {
         case "permission-request": return "wait"
         case "edit": return "act"
         case "edit-failure": return "recover"
-        case "verification": return event.success == true ? "verified" : "recover"
+        case "verification":
+            if event.success != true { return "recover" }
+            if event.state?.verificationReward == "record" { return "record" }
+            return event.state?.verificationReward == "confirmation" ? "confirmed" : "verified"
         case "turn-stop":
             switch event.state?.completion {
             case "verified": return "verified"
@@ -644,7 +666,9 @@ private final class PowerModeView: NSView {
         case "permission-request": return preferences.text("WAITING FOR YOUR APPROVAL", "等待你的授权")
         case "edit": return preferences.text("CHANGE APPLIED", "修改已应用") + "  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
         case "edit-failure": return preferences.text("CHANGE COULD NOT BE APPLIED", "修改应用失败")
-        case "verification": return "\(localizedCategory(event.category)) \(event.success == true ? preferences.text("PASSED", "通过") : preferences.text("FAILED", "失败"))"
+        case "verification":
+            let result = "\(localizedCategory(event.category)) \(event.success == true ? preferences.text("PASSED", "通过") : preferences.text("FAILED", "失败"))"
+            return event.state?.verificationReward == "record" ? preferences.text("NEW BEST", "刷新纪录") + " · " + result : result
         case "turn-stop":
             switch event.state?.completion {
             case "verified": return preferences.text("COMPLETED WITH EVIDENCE", "已完成并通过验证")
@@ -1336,6 +1360,8 @@ private final class PowerModeView: NSView {
         case "act": style = (.systemPurple, "▶", [15, 5])
         case "verify": style = (.systemGreen, "◆", [7, 4])
         case "verified": style = (.systemGreen, "✓", [])
+        case "confirmed": style = (.systemGreen, "◆", [5, 5])
+        case "record": style = (.systemYellow, "★", [])
         case "wait": style = (.systemYellow, "Ⅱ", [4, 7])
         case "recover": style = (.systemRed, "×", [8, 5])
         case "caution": style = (.systemYellow, "!", [7, 5])
@@ -1695,7 +1721,7 @@ private final class PowerModeView: NSView {
             return (0, 0, false, lost, lost ? "lost" : "idle")
         }
         guard let hold = comboHoldUntil, now > hold else {
-            let stage = state.comboStatus == "reward" || state.comboStatus == "complete" ? "reward" : comboRelinkActive(now: now) ? "relinked" : comboCountStage(count)
+            let stage = state.comboStatus == "reward" || state.comboStatus == "complete" ? comboRewardStage() : comboRelinkActive(now: now) ? "relinked" : comboCountStage(count)
             return (count, 1, true, false, stage)
         }
         let duration = expires.timeIntervalSince(hold)
@@ -1716,6 +1742,12 @@ private final class PowerModeView: NSView {
         return "chain"
     }
 
+    private func comboRewardStage() -> String {
+        if state.verificationReward == "record" { return "record" }
+        if state.verificationReward == "confirmation" { return "confirmed" }
+        return "reward"
+    }
+
     private func localizedComboStage(_ stage: String) -> String {
         switch stage {
         case "building": return preferences.text("BUILD", "蓄连")
@@ -1723,6 +1755,8 @@ private final class PowerModeView: NSView {
         case "chain": return preferences.text("CHAIN", "连锁")
         case "critical": return preferences.text("BREAK", "将断")
         case "reward": return preferences.text("BOOST", "奖励")
+        case "confirmed": return preferences.text("CHECK", "确认")
+        case "record": return preferences.text("RECORD", "纪录")
         case "relinked": return preferences.text("RELINK", "重连")
         case "lost": return preferences.text("LOST", "断连")
         default: return preferences.text("READY", "就绪")
@@ -1731,15 +1765,15 @@ private final class PowerModeView: NSView {
 
     private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool, lost: Bool, stage: String), at origin: CGPoint, color: NSColor) {
         guard combo.active || combo.lost else { return }
-        let stageColor: NSColor = combo.stage == "critical" || combo.stage == "lost" ? .systemRed : combo.stage == "reward" ? .systemGreen : combo.stage == "relinked" ? .systemCyan : color
+        let stageColor: NSColor = combo.stage == "critical" || combo.stage == "lost" ? .systemRed : combo.stage == "reward" || combo.stage == "confirmed" ? .systemGreen : combo.stage == "record" ? .systemYellow : combo.stage == "relinked" ? .systemCyan : color
         let criticalSpeed: CGFloat = arcadeMode ? 0.36 : 0.22
-        let rhythm = reducedMotion ? CGFloat(1) : combo.stage == "critical" ? 0.52 + 0.48 * abs(sin(shakePhase * criticalSpeed)) : combo.stage == "reward" ? 0.72 + 0.28 * abs(sin(shakePhase * 0.12)) : combo.stage == "relinked" ? 0.7 + 0.3 * abs(sin(shakePhase * 0.16)) : 1
+        let rhythm = reducedMotion ? CGFloat(1) : combo.stage == "critical" ? 0.52 + 0.48 * abs(sin(shakePhase * criticalSpeed)) : combo.stage == "reward" || combo.stage == "record" ? 0.72 + 0.28 * abs(sin(shakePhase * 0.12)) : combo.stage == "relinked" ? 0.7 + 0.3 * abs(sin(shakePhase * 0.16)) : 1
         let capsuleRect = CGRect(x: origin.x + 5, y: origin.y - 23, width: 72, height: 21)
         let capsule = NSBezierPath(roundedRect: capsuleRect, xRadius: 8, yRadius: 8)
         NSColor(calibratedWhite: 0.025, alpha: 0.92).setFill()
         capsule.fill()
         stageColor.withAlphaComponent(0.3 + 0.28 * rhythm).setStroke()
-        capsule.lineWidth = combo.stage == "reward" ? 1.5 : 1
+        capsule.lineWidth = combo.stage == "reward" || combo.stage == "record" ? 1.5 : 1
         capsule.stroke()
 
         let trackRect = CGRect(x: origin.x + 11, y: origin.y - 17, width: 60, height: 5)
@@ -1766,7 +1800,7 @@ private final class PowerModeView: NSView {
             stageColor.withAlphaComponent(rhythm).setFill()
             NSBezierPath(roundedRect: CGRect(x: capsuleRect.minX - 2, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
             NSBezierPath(roundedRect: CGRect(x: capsuleRect.maxX, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
-        } else if combo.stage == "relinked" {
+        } else if combo.stage == "relinked" || combo.stage == "record" {
             stageColor.withAlphaComponent(0.82 * rhythm).setFill()
             NSBezierPath(ovalIn: CGRect(x: trackRect.midX - 2.5, y: trackRect.midY - 2.5, width: 5, height: 5)).fill()
         }

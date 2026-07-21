@@ -111,6 +111,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Failed verification and unverified completion break Combo immediately.
 - An expired link starts again at `1×` with a brief `RELINK` / `重连` bridge; a new turn or Codex session also starts at `1×` but is deliberately not presented as a continuation.
 - Active Combo uses a dedicated high-contrast bar below the orb; its critical cadence accelerates near expiry, then the rail visibly splits and flashes `LOST` / `断连` once after a break.
+- Passing checks use three reward tiers: restrained confirmation without a recent edit, green Boost when evidence backs the latest change, and a gold Record beat when that evidence also sets a personal best.
 
 ## Roadmap
 

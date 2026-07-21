@@ -2,6 +2,8 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Split successful verification into confirmation, evidence-backed reward, and new-record feedback instead of giving every passing check the same climax.
+- Added a gold RECORD Combo stage and bilingual new-best copy while preserving green for ordinary evidence and dashed green for standalone confirmation.
 - Added a short cyan RELINK stage when useful work resumes after natural Combo expiry, without treating a new turn or task as a continuation.
 - Split the expired Combo rail and emit one restrained break impact so critical countdown, disconnect, and reconnection have distinct rhythms.
 - Increased Arcade's critical cadence while keeping Focus and Reduced Motion calmer and structurally readable.

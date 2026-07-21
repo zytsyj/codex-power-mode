@@ -12,6 +12,8 @@ export const initialState = Object.freeze({
   comboExpiresAt: null,
   comboBrokenAt: null,
   comboRelinkedAt: null,
+  verificationReward: null,
+  verificationRewardAt: null,
   confidence: 0,
   risk: 0,
   riskLevel: "low",
@@ -114,7 +116,11 @@ export function comboStage(state, now = Date.now()) {
   const status = comboDisplayStatus(state, now);
   if (status === "broken") return "lost";
   if (status === "idle") return "idle";
-  if (state.comboStatus === "reward" || state.comboStatus === "complete") return "reward";
+  if (state.comboStatus === "reward" || state.comboStatus === "complete") {
+    if (state.verificationReward === "record") return "record";
+    if (state.verificationReward === "confirmation") return "confirmed";
+    return "reward";
+  }
   const current = typeof now === "number" ? now : Date.parse(now);
   const relinkedAt = Date.parse(state.comboRelinkedAt);
   if (Number.isFinite(current) && Number.isFinite(relinkedAt) && current < relinkedAt + COMBO_RELINK_FEEDBACK_MS) return "relinked";
@@ -273,6 +279,10 @@ export function reduceState(previous = initialState, event) {
       state.risk = clamp(state.risk - 18);
       if (!state.evidence.includes(event.category)) state.evidence.push(event.category);
       advanceCombo(state, event, 2, VERIFICATION_REWARD_HOLD_MS, startsNewTurn, "reward");
+      const backsLatestEdit = state.edits > 0 && state.lastEditAt && event.timestamp >= state.lastEditAt;
+      const establishesRecord = state.momentum > state.bestMomentum || state.combo > state.bestCombo;
+      state.verificationReward = backsLatestEdit ? (establishesRecord ? "record" : "evidence") : "confirmation";
+      state.verificationRewardAt = event.timestamp;
     } else {
       state.phase = "recover";
       state.status = "failed";
@@ -282,6 +292,8 @@ export function reduceState(previous = initialState, event) {
       state.momentum = clamp(state.momentum - 8);
       state.confidence = clamp(state.confidence - 28);
       state.risk = clamp(state.risk + 24);
+      state.verificationReward = null;
+      state.verificationRewardAt = null;
       breakCombo(state, "broken", event.timestamp);
     }
   } else if (event.type === "turn-stop") {

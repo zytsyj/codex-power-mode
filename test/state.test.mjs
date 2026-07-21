@@ -76,8 +76,26 @@ test("successful verification creates evidence and confidence", () => {
   assert.equal(state.confidence, 38);
   assert.deepEqual(state.evidence, ["test"]);
   assert.equal(state.comboStatus, "reward");
-  assert.equal(comboStage(state, at(4)), "reward");
+  assert.equal(state.verificationReward, "confirmation");
+  assert.equal(comboStage(state, at(4)), "confirmed");
   assert.equal(comboProgress(state, at(4)), 1);
+});
+
+test("verification rewards distinguish evidence, records, and standalone confirmation", () => {
+  let state = reduceState({ ...initialState, bestMomentum: 80, bestCombo: 12 }, {
+    type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s"
+  });
+  state = reduceState(state, { type: "verification", category: "test", success: true, timestamp: at(2), sessionId: "s" });
+  assert.equal(state.verificationReward, "evidence");
+  assert.equal(comboStage(state, at(2.5)), "reward");
+
+  let record = reduceState(initialState, {
+    type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s"
+  });
+  record = reduceState(record, { type: "verification", category: "build", success: true, timestamp: at(2), sessionId: "s" });
+  assert.equal(record.verificationReward, "record");
+  assert.equal(record.verificationRewardAt, at(2));
+  assert.equal(comboStage(record, at(2.5)), "record");
 });
 
 test("energy levels communicate charging, flow, surge, and overdrive", () => {

@@ -13,6 +13,7 @@ const previewCombo = parameters.get("combo");
 const previewEnergy = parameters.get("energy");
 const previewEvent = parameters.get("event");
 const previewCompletion = parameters.get("completion");
+const previewReward = ["confirmation", "evidence", "record"].includes(parameters.get("reward")) ? parameters.get("reward") : null;
 const previewOffline = parameters.get("connection") === "offline";
 const previewStale = parameters.get("age") === "stale";
 const intensity = preset === "arcade" ? 1.75 : 1;
@@ -45,10 +46,10 @@ const copy = {
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "续连"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
   charging: ["CHARGE", "蓄能"], flow: ["FLOW", "流动"], surge: ["SURGE", "高能"], overdrive: ["OVERDRIVE", "过载"],
-  building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], relinked: ["RELINK", "重连"],
+  building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], confirmed: ["CHECK", "确认"], record: ["RECORD", "纪录"], relinked: ["RELINK", "重连"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
-  confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
+  confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"], newBest: ["NEW PERSONAL BEST", "刷新个人纪录"]
 };
 const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
 
@@ -85,15 +86,17 @@ if (previewMode) {
     confidence: verifiedComplete ? 100 : 84,
     riskLevel: previewPhase === "recover" ? "high" : "low",
     completion: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : noChangeComplete ? "no-change" : verifiedComplete ? "verified" : undefined,
-    evidence: verifiedComplete ? ["test", "build"] : [],
+    evidence: verifiedComplete ? ["test", "build"] : previewReward === "confirmation" ? [] : previewReward ? ["test"] : [],
     combo: comboBroken || recoveryPreview || previewPhase === "complete" && !verifiedComplete ? 0 : comboRelinked ? 1 : verifiedComplete ? 12 : 8,
     bestCombo: verifiedComplete ? 12 : 8,
-    comboStatus: comboBroken || recoveryPreview || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : verifiedComplete ? "complete" : "decaying",
+    comboStatus: comboBroken || recoveryPreview || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : previewReward ? "reward" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : comboCritical ? -10_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : comboCritical ? 2_500 : 12_000)).toISOString(),
     comboBrokenAt: comboBroken || recoveryPreview || incompleteOutcome ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
     comboRelinkedAt: comboRelinked ? new Date(previewNow).toISOString() : null,
+    verificationReward: previewReward,
+    verificationRewardAt: previewReward ? new Date(previewNow).toISOString() : null,
     lastFailureAt: previewPhase === "recover" ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
     currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "prompt-submit" ? "Understanding request" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
@@ -106,6 +109,7 @@ if (previewMode) {
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
   if (previewEvent === "prompt-submit") setTimeout(() => react({ type: "activity-start", phase: "observe", toolGroup: "prompt", state }), 0);
   if (previewEvent === "activity-start") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state }), 0);
+  if (previewEvent === "verification") setTimeout(() => react({ type: "verification", phase: "verify", category: "test", success: true, state }), 0);
   if (previewEvent === "session-switch") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state, sessionTransition: { previousSessionId: "preview-a", currentSessionId: "preview-b" } }), 0);
   if (previewEvent === "permission-request") setTimeout(() => react({ type: "permission-request", state }), 0);
   if (previewEvent === "turn-stop" && previewPhase === "complete") setTimeout(() => react({ type: "turn-stop", state }), 0);
@@ -317,7 +321,11 @@ function energyLevelAt(momentum) {
 function comboStageAt(next, progress, status, now = Date.now()) {
   if (status === "broken") return "lost";
   if (status === "idle") return "idle";
-  if (next.comboStatus === "reward" || next.comboStatus === "complete") return "reward";
+  if (next.comboStatus === "reward" || next.comboStatus === "complete") {
+    if (next.verificationReward === "record") return "record";
+    if (next.verificationReward === "confirmation") return "confirmed";
+    return "reward";
+  }
   const relinkedAt = Date.parse(next.comboRelinkedAt);
   if (Number.isFinite(relinkedAt) && now < relinkedAt + comboRelinkFeedbackMs) return "relinked";
   if (progress <= .25) return "critical";
@@ -383,6 +391,7 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.completion = presented.completion ?? "none";
   document.body.dataset.activity = presented.currentActivity === "Understanding request" ? "understanding" : "context";
   document.body.dataset.energyLevel = energyLevel;
+  document.body.dataset.verificationReward = presented.verificationReward ?? "none";
   document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
@@ -390,6 +399,7 @@ function renderPresentation(now = Date.now()) {
   elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);
   elements.event.textContent = presented.idle ? t("ready") : presented.currentActivity === "Understanding request" ? t("understandingTitle") : statusCopy(presented);
   elements["status-copy"].textContent = statusCopy(presented);
+  if (presented.verificationReward === "record" && !presented.idle) elements.event.textContent = t("newBest");
   if (now < sessionTransitionUntil) {
     elements.event.textContent = t("taskSwitched");
     elements["status-copy"].textContent = t("followingTask");
@@ -479,8 +489,16 @@ function react(event) {
     scheduleEffect(180, generation, () => ring(color, .62, start));
     scheduleEffect(300, generation, () => burst("#ffadc0", 54, .82, "repair", start));
   } else if (event.type === "verification" && event.success) {
-    burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
-    scheduleEffect(280, generation, () => burst(color, 38, .85, "radial", start));
+    if (event.state?.verificationReward === "record") {
+      ring("#ffd66b", preset === "arcade" ? 2.15 : 1.15, start);
+      burst("#ffd66b", preset === "arcade" ? 100 : 48, 1.08, "inward", start);
+      scheduleEffect(180, generation, () => { ring("#65e9de", preset === "arcade" ? 1.55 : .72, start); burst("#65e9de", preset === "arcade" ? 72 : 30, .88, "radial", start); });
+    } else if (event.state?.verificationReward === "evidence") {
+      burst(color, preset === "arcade" ? 76 : 44, momentumPower, "inward", start); ring(color, preset === "arcade" ? 1.45 : .88, start);
+      scheduleEffect(240, generation, () => ring(color, preset === "arcade" ? .76 : .4, start));
+    } else {
+      burst(color, preset === "arcade" ? 42 : 24, .62, "evidence", start); ring(color, preset === "arcade" ? .82 : .46, start);
+    }
   } else if (event.type === "verification") {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
     scheduleEffect(300, generation, () => burst("#ffadc0", 46, .76, "repair", start));

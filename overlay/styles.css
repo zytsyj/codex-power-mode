@@ -155,6 +155,12 @@ body[data-combo-stage="chain"] .combo-meter { border-color: rgba(var(--accent-rg
 body[data-combo-stage="chain"] .combo-meter > i span { box-shadow: 0 0 9px rgba(var(--accent-rgb), .9); }
 body[data-combo-stage="reward"] .combo-meter { border-color: rgba(104,233,187,.7); box-shadow: inset 0 0 10px rgba(104,233,187,.12), 0 0 13px rgba(104,233,187,.2); animation: combo-reward .82s ease-in-out infinite; }
 body[data-combo-stage="reward"] .combo-meter > i span { background: linear-gradient(90deg, #62e3ad, #fff); animation: combo-reward-bar .82s ease-in-out infinite; }
+body[data-combo-stage="confirmed"] .combo-meter { border-style: dashed; border-color: rgba(104,233,187,.48); box-shadow: inset 0 0 8px rgba(104,233,187,.08); }
+body[data-combo-stage="confirmed"] .combo-meter > i span { background: linear-gradient(90deg, #62e3ad, #c5fff0); box-shadow: 0 0 6px rgba(104,233,187,.5); }
+body[data-combo-stage="record"] .combo-meter { border-color: rgba(255,214,107,.86); box-shadow: inset 0 0 11px rgba(255,214,107,.14), 0 0 16px rgba(255,214,107,.32); animation: combo-record .66s ease-in-out 2; }
+body[data-combo-stage="record"] .combo-meter > i span { background: linear-gradient(90deg, #ffd66b, #65e9de, #fff); box-shadow: 0 0 11px rgba(255,214,107,.94); }
+body[data-combo-stage="record"] .combo-meter em { color: #ffe498; }
+body[data-combo-stage="record"] .combo-meter::after { content: "★"; top: -7px; right: -4px; width: auto; height: auto; color: #ffd66b; background: none; box-shadow: none; opacity: 1; font-size: 9px; text-shadow: 0 0 7px rgba(255,214,107,.9); }
 body[data-combo-stage="relinked"] .combo-meter { border-color: rgba(101,233,222,.76); box-shadow: inset 0 0 10px rgba(101,233,222,.13), 0 0 14px rgba(101,233,222,.24); animation: combo-relink .72s ease-out 2; }
 body[data-combo-stage="relinked"] .combo-meter > i span { background: linear-gradient(90deg, #65e9de, #62e3ad, #fff); box-shadow: 0 0 10px rgba(101,233,222,.92); }
 body[data-combo-stage="relinked"] .combo-meter em { color: #83f3e8; }
@@ -516,6 +522,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes combo-hold { 50% { opacity: .48; } }
 @keyframes combo-reward { 50% { transform: translateY(-1px); filter: brightness(1.18); } }
 @keyframes combo-reward-bar { 50% { opacity: .66; } }
+@keyframes combo-record { 0% { transform: translateY(1px) scale(.94); filter: brightness(1.45); } 55% { transform: translateY(-1px) scale(1.035); } 100% { transform: none; filter: brightness(1); } }
 @keyframes combo-critical { 50% { opacity: .68; transform: translateX(1px); } }
 @keyframes combo-relink { 0% { transform: scaleX(.9); filter: brightness(1.55); } 55% { transform: scaleX(1.035); } 100% { transform: scaleX(1); filter: brightness(1); } }
 @keyframes combo-break-left { from { opacity: 1; transform: translate(7px, 0) rotate(0); } to { opacity: .86; transform: translate(0, -1px) rotate(-5deg); } }
