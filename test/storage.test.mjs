@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { access, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readState, recordEventResult, writeStateSnapshot } from "../src/storage.mjs";
+import {
+  readSessionState,
+  readState,
+  recordEventResult,
+  recordSessionEventResult,
+  writeStateSnapshot
+} from "../src/storage.mjs";
 
 const eventAt = (milliseconds) => ({
   type: "activity-start",
@@ -78,6 +84,29 @@ test("storage recovers a stale lock left by a terminated hook process", async ()
     assert.equal(result.recorded, true);
     assert.equal(result.state.steps, 1);
     await assert.rejects(access(lockPath), { code: "ENOENT" });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("hook sessions keep independent momentum and combo state", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-sessions-"));
+  try {
+    await recordSessionEventResult(directory, { ...eventAt(1_000), sessionId: "thread-a" });
+    await recordSessionEventResult(directory, { ...eventAt(1_200), sessionId: "thread-a" });
+    await recordSessionEventResult(directory, { ...eventAt(1_300), sessionId: "thread-b" });
+
+    const [threadA, threadB, displayed] = await Promise.all([
+      readSessionState(directory, "thread-a"),
+      readSessionState(directory, "thread-b"),
+      readState(directory)
+    ]);
+    assert.equal(threadA.steps, 2);
+    assert.equal(threadA.combo, 2);
+    assert.equal(threadB.steps, 1);
+    assert.equal(threadB.combo, 1);
+    assert.equal(displayed.steps, 0);
+    assert.equal(displayed.combo, 0);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

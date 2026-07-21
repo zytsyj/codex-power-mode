@@ -88,6 +88,35 @@ async function writeStateFile(dataDir, state) {
   await rename(temp, path.join(dataDir, "state.json"));
 }
 
+function sessionStatePath(dataDir, sessionId) {
+  const safeSessionId = String(sessionId || "unknown").replace(/[^a-zA-Z0-9._-]/g, "_");
+  return path.join(dataDir, "sessions", `${safeSessionId}.json`);
+}
+
+async function readStateFile(filePath) {
+  try {
+    const stored = JSON.parse(await readFile(filePath, "utf8"));
+    const { score: _legacyScore, mode: _legacyMode, ...current } = stored;
+    return { ...initialState, ...current };
+  } catch (error) {
+    if (error.code === "ENOENT") return { ...initialState };
+    throw error;
+  }
+}
+
+async function writeSessionStateFile(dataDir, sessionId, state) {
+  const sessionsDir = path.join(dataDir, "sessions");
+  await mkdir(sessionsDir, { recursive: true });
+  const target = sessionStatePath(dataDir, sessionId);
+  const temp = path.join(sessionsDir, `${path.basename(target)}-${process.pid}.tmp`);
+  await writeFile(temp, JSON.stringify(state, null, 2));
+  await rename(temp, target);
+}
+
+export async function readSessionState(dataDir, sessionId) {
+  return readStateFile(sessionStatePath(dataDir, sessionId));
+}
+
 export async function writeStateSnapshot(dataDir, state) {
   if (!state || typeof state !== "object" || Array.isArray(state)) throw new TypeError("Power Mode state must be an object");
   await mkdir(dataDir, { recursive: true });
@@ -107,6 +136,20 @@ export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 }
     const next = reduceState(previous, event);
     await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
     await writeStateFile(dataDir, next);
+    return { state: next, recorded: true };
+  });
+}
+
+export async function recordSessionEventResult(dataDir, event, { coalesceWindowMs = 0 } = {}) {
+  await mkdir(dataDir, { recursive: true });
+  return withLock(dataDir, async () => {
+    const previous = await readSessionState(dataDir, event.sessionId);
+    if (shouldCoalesceActivity(previous, event, coalesceWindowMs)) {
+      return { state: previous, recorded: false };
+    }
+    const next = reduceState(previous, event);
+    await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
+    await writeSessionStateFile(dataDir, event.sessionId, next);
     return { state: next, recorded: true };
   });
 }

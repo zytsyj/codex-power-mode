@@ -2,7 +2,7 @@
 import { eventFromHook } from "../src/events.mjs";
 import { serviceEndpointFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
-import { recordEventResult } from "../src/storage.mjs";
+import { recordSessionEventResult } from "../src/storage.mjs";
 
 async function readStdin() {
   const chunks = [];
@@ -34,7 +34,7 @@ try {
     const dataDir = powerModeDataDir();
     const configuredWindow = Number.parseInt(process.env.CODEX_POWER_MODE_OBSERVE_THROTTLE_MS || "900", 10);
     const coalesceWindowMs = Number.isFinite(configuredWindow) ? Math.max(0, Math.min(5_000, configuredWindow)) : 900;
-    const result = await recordEventResult(dataDir, event, { coalesceWindowMs });
+    const result = await recordSessionEventResult(dataDir, event, { coalesceWindowMs });
     if (result.recorded) await notifyServer(event, result.state);
   }
 } catch (error) {
