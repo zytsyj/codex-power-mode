@@ -1159,19 +1159,15 @@ private final class CodexWindowTracker {
             panel.orderOut(nil)
             return
         }
-        if codexIsFrontmost {
-            guard let frame = codexWindowFrame(), frame.width > 400, frame.height > 300 else {
-                panel.orderOut(nil)
-                return
-            }
-            if !frame.equalTo(lastFrame) {
-                panel.setFrame(frame, display: true)
-                panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
-                lastFrame = frame
-            }
-        } else if lastFrame.equalTo(.zero) {
+        let targetFrame = codexIsFrontmost ? codexWindowFrame() : frontmostWindowFrame()
+        guard let frame = targetFrame, frame.width > 400, frame.height > 300 else {
             panel.orderOut(nil)
             return
+        }
+        if !frame.equalTo(lastFrame) {
+            panel.setFrame(frame, display: true)
+            panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
+            lastFrame = frame
         }
         if followsInactive && !codexIsFrontmost {
             NSApp.unhideWithoutActivation()
@@ -1183,6 +1179,15 @@ private final class CodexWindowTracker {
 
     private func codexWindowFrame() -> CGRect? {
         guard let application = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else { return nil }
+        return windowFrame(for: application)
+    }
+
+    private func frontmostWindowFrame() -> CGRect? {
+        guard let application = NSWorkspace.shared.frontmostApplication else { return NSScreen.main?.frame }
+        return windowFrame(for: application) ?? NSScreen.main?.frame
+    }
+
+    private func windowFrame(for application: NSRunningApplication) -> CGRect? {
         guard let rawWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
         let candidates = rawWindows.compactMap { info -> CGRect? in
             guard let pid = info[kCGWindowOwnerPID as String] as? Int, pid == Int(application.processIdentifier) else { return nil }

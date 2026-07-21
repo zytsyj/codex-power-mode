@@ -45,7 +45,7 @@ npm run status
 npm run native:stop
 ```
 
-The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the foremost Codex window and does not modify or inject code into the Codex app. When **Show while Codex is inactive** is enabled, it freezes the last valid Codex anchor and remains globally visible above other apps.
+The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the foremost Codex window and does not modify or inject code into the Codex app. When **Show while Codex is inactive** is enabled, it re-anchors to the current foreground window and remains globally visible above other apps, including across displays and Stage Manager groups.
 
 On macOS, the Codex `SessionStart` hook automatically ensures both the event service and native overlay are running. Existing processes are reused, so opening another session does not create duplicate overlays.
 
