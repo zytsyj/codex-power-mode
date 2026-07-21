@@ -14,6 +14,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Measures added and removed lines without storing source code in the HUD event stream.
 - Recognizes common test, build, lint, and type-check commands.
 - Requires successful post-edit verification for an evidence-backed completion.
+- Gives verified, unverified, cancelled, and no-change endings distinct motion rhythms; Focus confirms quietly while Arcade reserves multi-stage impact for evidence-backed success.
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
 - Includes semantic demo and recent-event replay tools for visual tuning.

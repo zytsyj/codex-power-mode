@@ -104,9 +104,7 @@ if (previewMode) {
   if (previewEvent === "activity-start") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state }), 0);
   if (previewEvent === "session-switch") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state, sessionTransition: { previousSessionId: "preview-a", currentSessionId: "preview-b" } }), 0);
   if (previewEvent === "permission-request") setTimeout(() => react({ type: "permission-request", state }), 0);
-  if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
-  if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
-  if (previewEvent === "turn-stop" && noChangeComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
+  if (previewEvent === "turn-stop" && previewPhase === "complete") setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
 
 function setConnection(connected, announce = true) {
@@ -388,9 +386,10 @@ function render(next = state) {
   renderCombo();
 }
 
-function flashAt(start) {
+function flashAt(start, strength = .14) {
   document.body.style.setProperty("--flash-x", `${start.x}px`);
   document.body.style.setProperty("--flash-y", `${start.y}px`);
+  document.body.style.setProperty("--flash-alpha", strength);
   document.body.classList.remove("flash");
   void document.body.offsetWidth;
   document.body.classList.add("flash");
@@ -416,12 +415,17 @@ function react(event) {
   const phase = event.state?.phase ?? event.phase ?? "observe";
   const color = event.state?.completion === "cancelled" ? "#ffad66" : event.state?.completion === "unverified" ? "#ffe07a" : palette[phase];
   const start = reactorOrigin();
+  const completion = event.state?.completion;
+  const quietCompletion = event.type === "turn-stop" && completion === "no-change";
   const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
   expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
-  flashAt(start);
-  document.body.classList.remove("event-kick");
-  void document.body.offsetWidth;
-  document.body.classList.add("event-kick");
+  const flashStrength = event.type !== "turn-stop" ? .14 : completion === "verified" ? (preset === "arcade" ? .18 : .09) : completion === "cancelled" ? .08 : completion === "unverified" ? .10 : .035;
+  flashAt(start, flashStrength);
+  if (!quietCompletion) {
+    document.body.classList.remove("event-kick");
+    void document.body.offsetWidth;
+    document.body.classList.add("event-kick");
+  }
 
   if (switchedSession) {
     ring("#75dfff", .78, start);
@@ -460,15 +464,22 @@ function react(event) {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
     scheduleEffect(300, generation, () => burst("#ffadc0", 46, .76, "repair", start));
   } else if (event.type === "turn-stop" && event.state?.completion === "cancelled") {
-    ring(color, .78, start); scheduleEffect(190, generation, () => ring(color, .52, start));
+    ring(color, preset === "arcade" ? .92 : .62, start);
+    burst(color, preset === "arcade" ? 46 : 22, preset === "arcade" ? .82 : .54, "fragments", start);
+    if (preset === "arcade") scheduleEffect(160, generation, () => burst(color, 24, .62, "left", start));
   } else if (event.type === "turn-stop" && event.state?.completion === "unverified") {
-    ring(color, .68, start);
+    burst(color, preset === "arcade" ? 44 : 24, .56, "inward", start); ring(color, preset === "arcade" ? .82 : .58, start);
+    scheduleEffect(240, generation, () => { burst(color, preset === "arcade" ? 30 : 16, .48, "gate", start); if (preset === "arcade") ring(color, .46, start); });
   } else if (event.type === "turn-stop" && event.state?.completion === "no-change") {
-    ring(color, .34, start);
-    scheduleEffect(220, generation, () => burst(color, preset === "arcade" ? 22 : 12, .42, "focus", start));
+    burst(color, preset === "arcade" ? 20 : 12, .36, "focus", start); ring(color, .24, start);
   } else if (event.state?.completion === "verified") {
-    ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
-    scheduleEffect(180, generation, () => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); });
+    if (preset === "arcade") {
+      ring(color, 2.4, start); burst(color, 95, 1.2, "radial", start);
+      scheduleEffect(180, generation, () => { ring("#a886ff", 1.9, start); burst("#a886ff", 52, .9, "radial", start); });
+      scheduleEffect(360, generation, () => { ring("#75dfff", 1.55, start); burst("#75dfff", 38, .78, "radial", start); });
+    } else {
+      burst(color, 34, .62, "inward", start); ring(color, .92, start);
+    }
   }
 }
 

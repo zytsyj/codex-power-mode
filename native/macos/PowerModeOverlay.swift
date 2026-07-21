@@ -447,7 +447,20 @@ private final class PowerModeView: NSView {
         scheduleTick(highFrequency: !reducedMotion)
         let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
-        flashAlpha = reducedMotion ? 0 : 0.24
+        let completion = event.state?.completion
+        if reducedMotion {
+            flashAlpha = 0
+        } else if event.type == "turn-stop" && completion == "no-change" {
+            flashAlpha = 0.04
+        } else if event.type == "turn-stop" && completion == "cancelled" {
+            flashAlpha = arcadeMode ? 0.16 : 0.09
+        } else if event.type == "turn-stop" && completion == "unverified" {
+            flashAlpha = arcadeMode ? 0.20 : 0.12
+        } else if event.type == "turn-stop" && completion == "verified" {
+            flashAlpha = arcadeMode ? 0.28 : 0.14
+        } else {
+            flashAlpha = 0.24
+        }
 
         guard !reducedMotion else {
             reducedFeedbackKind = reducedFeedbackKind(for: event)
@@ -550,28 +563,40 @@ private final class PowerModeView: NSView {
                 }
             }
         case "turn-stop" where event.state?.completion == "verified":
-            shockwave(color: .systemGreen, power: 2.2)
-            burst(color: NSColor.systemGreen, count: 180, power: 1.55)
-            scheduleEffect(after: 0.18, generation: generation) { view in
-                view.shockwave(color: .systemPurple, power: 2.0)
-                view.burst(color: .systemPurple, count: 180, power: 1.5)
-            }
-            scheduleEffect(after: 0.36, generation: generation) { view in
-                view.shockwave(color: .systemCyan, power: 1.8)
-                view.burst(color: .systemCyan, count: 180, power: 1.45)
+            if arcadeMode {
+                shockwave(color: .systemGreen, power: 2.2)
+                burst(color: NSColor.systemGreen, count: 180, power: 1.55)
+                scheduleEffect(after: 0.18, generation: generation) { view in
+                    view.shockwave(color: .systemPurple, power: 2.0)
+                    view.burst(color: .systemPurple, count: 150, power: 1.5)
+                }
+                scheduleEffect(after: 0.36, generation: generation) { view in
+                    view.shockwave(color: .systemCyan, power: 1.8)
+                    view.burst(color: .systemCyan, count: 120, power: 1.45)
+                }
+            } else {
+                charge(color: .systemGreen, count: 48)
+                shockwave(color: .systemGreen, power: 0.92)
             }
         case "turn-stop" where event.state?.completion == "cancelled":
-            shockwave(color: .systemOrange, power: 0.78)
-            scheduleEffect(after: 0.19, generation: generation) { view in
-                view.shockwave(color: .systemOrange, power: 0.52)
+            shockwave(color: .systemOrange, power: arcadeMode ? 0.92 : 0.62)
+            fragments(color: .systemOrange, count: arcadeMode ? 72 : 34)
+            shake = arcadeMode ? 6 : 2.5
+            if arcadeMode {
+                scheduleEffect(after: 0.16, generation: generation) { view in
+                    view.directionalSparks(color: .systemOrange, count: 32)
+                }
             }
         case "turn-stop" where event.state?.completion == "unverified":
-            shockwave(color: .systemYellow, power: 0.68)
-        case "turn-stop" where event.state?.completion == "no-change":
-            shockwave(color: .systemCyan, power: 0.34)
-            scheduleEffect(after: 0.22, generation: generation) { view in
-                view.focusPulse(color: NSColor.systemCyan.withAlphaComponent(0.62), count: view.arcadeMode ? 34 : 18)
+            charge(color: .systemYellow, count: arcadeMode ? 68 : 34)
+            shockwave(color: .systemYellow, power: arcadeMode ? 0.82 : 0.58)
+            scheduleEffect(after: 0.24, generation: generation) { view in
+                view.attentionGates(color: .systemYellow, count: view.arcadeMode ? 46 : 24)
+                if view.arcadeMode { view.shockwave(color: .systemYellow, power: 0.46) }
             }
+        case "turn-stop" where event.state?.completion == "no-change":
+            focusPulse(color: NSColor.systemCyan.withAlphaComponent(0.58), count: arcadeMode ? 28 : 16)
+            shockwave(color: .systemCyan, power: 0.24)
         default:
             break
         }
@@ -1500,15 +1525,24 @@ private final class PowerModeView: NSView {
 
     private func drawCompleteSignal(around origin: CGPoint) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let rotation = reducedMotion ? 0 : shakePhase * 0.18
-        let colors: [NSColor] = [.systemGreen, .systemPurple, .systemCyan]
-        for (index, color) in colors.enumerated() {
-            let start = CGFloat(index) * 120 + rotation
+        let rotation = reducedMotion ? 0 : shakePhase * (arcadeMode ? 0.28 : 0.055)
+        if arcadeMode {
+            let colors: [NSColor] = [.systemGreen, .systemPurple, .systemCyan]
+            for (index, color) in colors.enumerated() {
+                let start = CGFloat(index) * 120 + rotation
+                let ribbon = NSBezierPath()
+                ribbon.appendArc(withCenter: center, radius: 41, startAngle: start + 4, endAngle: start + 112)
+                ribbon.lineWidth = 2.3
+                ribbon.lineCapStyle = .round
+                color.withAlphaComponent(0.94).setStroke()
+                ribbon.stroke()
+            }
+        } else {
             let ribbon = NSBezierPath()
-            ribbon.appendArc(withCenter: center, radius: 41, startAngle: start + 4, endAngle: start + 112)
+            ribbon.appendArc(withCenter: center, radius: 41, startAngle: rotation + 8, endAngle: rotation + 350)
             ribbon.lineWidth = 2
             ribbon.lineCapStyle = .round
-            color.withAlphaComponent(0.9).setStroke()
+            NSColor.systemGreen.withAlphaComponent(0.78).setStroke()
             ribbon.stroke()
         }
 
@@ -1526,10 +1560,18 @@ private final class PowerModeView: NSView {
     private func drawUnverifiedSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         let ring = NSBezierPath(ovalIn: CGRect(x: center.x - 40, y: center.y - 40, width: 80, height: 80))
-        ring.setLineDash([7, 5], count: 2, phase: reducedMotion ? 0 : shakePhase * 0.12)
+        ring.setLineDash([7, 5], count: 2, phase: reducedMotion ? 0 : shakePhase * (arcadeMode ? 0.24 : 0.08))
         ring.lineWidth = 2
         color.withAlphaComponent(0.72).setStroke()
         ring.stroke()
+
+        if arcadeMode {
+            let inner = NSBezierPath(ovalIn: CGRect(x: center.x - 35, y: center.y - 35, width: 70, height: 70))
+            inner.setLineDash([2, 8], count: 2, phase: reducedMotion ? 0 : -shakePhase * 0.18)
+            inner.lineWidth = 1
+            color.withAlphaComponent(0.36).setStroke()
+            inner.stroke()
+        }
 
         let badge = NSBezierPath(ovalIn: CGRect(x: origin.x + 65, y: origin.y + 3, width: 17, height: 17))
         NSColor(calibratedWhite: 0.04, alpha: 0.94).setFill()

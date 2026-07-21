@@ -371,6 +371,15 @@ body[data-phase="complete"][data-completion="verified"] .reactor-wrap::before {
   opacity: .95;
   animation: complete-halo 4.8s linear infinite;
 }
+body[data-preset="focus"][data-phase="complete"][data-completion="verified"] .reactor-wrap::before {
+  background: conic-gradient(var(--accent) 0 97%, transparent 97%);
+  opacity: .78;
+  animation-duration: 12s;
+}
+body[data-preset="arcade"][data-phase="complete"][data-completion="verified"] .reactor-wrap::before {
+  filter: drop-shadow(0 0 10px rgba(114, 233, 191, .72));
+  animation-duration: 1.8s;
+}
 body[data-phase="complete"][data-completion="verified"] .reactor-wrap::after {
   right: 0;
   bottom: 9px;
@@ -407,6 +416,11 @@ body[data-phase="complete"][data-completion="unverified"] .reactor-wrap::after {
   box-shadow: 0 0 9px rgba(var(--accent-rgb), .48);
   opacity: 1;
 }
+body[data-preset="arcade"][data-phase="complete"][data-completion="unverified"] .reactor-wrap::before {
+  background: repeating-conic-gradient(from -20deg, var(--accent) 0 12deg, transparent 12deg 24deg);
+  filter: drop-shadow(0 0 9px rgba(var(--accent-rgb), .62));
+  animation-duration: .9s;
+}
 body[data-phase="complete"][data-completion="cancelled"] .reactor-wrap::before {
   inset: 1px;
   border-radius: 50%;
@@ -429,6 +443,9 @@ body[data-phase="complete"][data-completion="cancelled"] .reactor-wrap::after {
   border: 1px solid var(--accent);
   box-shadow: 0 0 9px rgba(var(--accent-rgb), .5);
   opacity: 1;
+}
+body[data-preset="arcade"][data-phase="complete"][data-completion="cancelled"] .reactor-wrap::before {
+  animation: cancelled-snap 1.5s steps(2, end) infinite;
 }
 body[data-phase="complete"][data-completion="no-change"] .reactor-wrap::before {
   inset: 1px;
@@ -455,7 +472,7 @@ body[data-status="failed"] .reactor { animation: reactor-fault .16s linear 3; }
 body[data-status="failed"] .tick-ring { animation: fault-spin .7s steps(4) infinite; }
 body[data-preset="arcade"] .reactor-halo { filter: blur(7px); transform: scale(1.14); }
 body.event-kick .power-system { animation: system-kick .38s cubic-bezier(.2,.8,.2,1); }
-body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at var(--flash-x, 80%) var(--flash-y, 12%), rgba(var(--accent-rgb), .14), transparent 25%); animation: flash .48s ease-out forwards; }
+body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at var(--flash-x, 80%) var(--flash-y, 12%), rgba(var(--accent-rgb), var(--flash-alpha, .14)), transparent 25%); animation: flash .48s ease-out forwards; }
 
 @keyframes slow-spin { to { transform: rotate(360deg); } }
 @keyframes halo-breathe { 50% { opacity: .6; transform: scale(1.09); } }
@@ -482,6 +499,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes complete-halo { to { transform: rotate(360deg); } }
 @keyframes unverified-hold { 50% { opacity: .46; transform: scale(.96); } }
 @keyframes no-change-settle { 50% { opacity: .32; transform: scale(.97); } }
+@keyframes cancelled-snap { 50% { opacity: .48; transform: rotate(-4deg) scale(.94); } }
 @keyframes connection-retry { 50% { opacity: .28; transform: scale(.7); } }
 @keyframes combo-hold { 50% { opacity: .48; } }
 @keyframes combo-reward { 50% { transform: translateY(-1px); filter: brightness(1.18); } }
