@@ -34,7 +34,7 @@ const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "连击"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
-  approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
+  approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
 };
 const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
@@ -76,7 +76,7 @@ if (previewMode) {
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : 0)).toISOString(),
     comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : 12_000)).toISOString(),
     comboBrokenAt: comboBroken || incompleteOutcome ? new Date(previewNow).toISOString() : null,
-    currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
+    currentActivity: cancelledComplete ? "Approval was not granted" : unverifiedComplete ? "Completed — verification recommended" : noChangeComplete ? "Turn complete" : previewPhase === "wait" ? "Waiting for your approval" : previewEvent === "prompt-submit" ? "Understanding request" : previewEvent === "edit-failure" ? "Repairing a failed edit" : previewPhase === "recover" ? "Repairing failed verification" : verifiedComplete ? "Completed with evidence" : "Codex activity preview"
   });
   if (previewOffline) setConnection(false, false);
   else {
@@ -85,6 +85,7 @@ if (previewMode) {
   }
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
+  if (previewEvent === "prompt-submit") setTimeout(() => react({ type: "activity-start", phase: "observe", toolGroup: "prompt", state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
   if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
@@ -209,6 +210,7 @@ function frame() {
 
 function statusCopy(next) {
   if (next.phase === "idle") return t("standby");
+  if (next.currentActivity === "Understanding request") return t("understanding");
   if (next.phase === "wait") return t("approval");
   if (next.completion === "cancelled") return t("approvalDenied");
   if (next.completion === "unverified") return t("verifyRecommended");
@@ -289,7 +291,7 @@ function renderPresentation(now = Date.now()) {
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
   elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);
-  elements.event.textContent = presented.idle ? t("ready") : statusCopy(presented);
+  elements.event.textContent = presented.idle ? t("ready") : presented.currentActivity === "Understanding request" ? t("understandingTitle") : statusCopy(presented);
   elements["status-copy"].textContent = statusCopy(presented);
 }
 

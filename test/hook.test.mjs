@@ -40,15 +40,24 @@ test("hook records Codex desktop activity and ignores CLI activity", async () =>
     await assert.rejects(readFile(path.join(dataDir, "events.ndjson"), "utf8"), { code: "ENOENT" });
 
     await runHook({
+      hook_event_name: "UserPromptSubmit",
+      session_id: "desktop-session",
+      turn_id: "turn-1",
+      transcript_path: desktopTranscript,
+      prompt: "private prompt content"
+    }, dataDir);
+    await runHook({
       hook_event_name: "PreToolUse",
       session_id: "desktop-session",
       transcript_path: desktopTranscript,
       tool_name: "Read"
     }, dataDir);
     const events = (await readFile(path.join(dataDir, "events.ndjson"), "utf8")).trim().split("\n").map(JSON.parse);
-    assert.equal(events.length, 1);
+    assert.equal(events.length, 2);
     assert.equal(events[0].sessionId, "desktop-session");
     assert.equal(events[0].sessionSource, "desktop");
+    assert.equal(events[0].toolGroup, "prompt");
+    assert.equal(JSON.stringify(events[0]).includes("private prompt content"), false);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

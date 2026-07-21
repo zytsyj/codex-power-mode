@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Entered Observe immediately on `UserPromptSubmit` while deliberately discarding prompt text.
 - Scoped lifecycle tracking to Codex desktop conversations so CLI and subagent activity cannot drive the HUD.
 - Added session-source diagnostics to state and service health output.
 - Moved the default manual runtime state to `~/.codex/power-mode` so stale demo history cannot be copied into local plugin installations.

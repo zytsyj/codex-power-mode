@@ -33,6 +33,7 @@ private struct PowerEvent: Decodable {
     let category: String?
     let success: Bool?
     let phase: String?
+    let toolGroup: String?
     let state: PowerState?
 }
 
@@ -383,7 +384,9 @@ private final class PowerModeView: NSView {
 
     private func describe(_ event: PowerEvent) -> String {
         switch event.type {
-        case "activity-start": return event.phase == "observe" ? preferences.text("READING CONTEXT", "正在读取上下文") : event.phase == "verify" ? preferences.text("BUILDING EVIDENCE", "正在建立验证证据") : preferences.text("STARTING TOOL", "正在执行工具")
+        case "activity-start":
+            if event.toolGroup == "prompt" { return preferences.text("UNDERSTANDING REQUEST", "正在理解需求") }
+            return event.phase == "observe" ? preferences.text("READING CONTEXT", "正在读取上下文") : event.phase == "verify" ? preferences.text("BUILDING EVIDENCE", "正在建立验证证据") : preferences.text("STARTING TOOL", "正在执行工具")
         case "permission-request": return preferences.text("WAITING FOR YOUR APPROVAL", "等待你的授权")
         case "edit": return preferences.text("CHANGE APPLIED", "修改已应用") + "  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
         case "edit-failure": return preferences.text("CHANGE COULD NOT BE APPLIED", "修改应用失败")
@@ -426,6 +429,7 @@ private final class PowerModeView: NSView {
 
     private func localizedActivity(idle: Bool = false) -> String {
         if idle { return preferences.text("Waiting for Codex activity", "等待 Codex 活动") }
+        if state.currentActivity == "Understanding request" { return preferences.text("Understanding your request", "正在理解你的需求") }
         if state.status == "needs-attention" { return preferences.text("Waiting for your approval", "等待你的授权") }
         if state.status == "failed" || state.phase == "recover" { return preferences.text("Repairing the latest failure", "正在修复最近的失败") }
         if state.completion == "verified" { return preferences.text("Latest changes are backed by evidence", "最新修改已有验证证据") }

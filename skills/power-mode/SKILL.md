@@ -63,6 +63,7 @@ Summarize phase, momentum, confidence, risk, edited lines, and verification evid
 
 ## Behavior
 
+- `UserPromptSubmit` immediately enters Observe with “Understanding your request”; prompt text is never persisted.
 - `PreToolUse` maps Codex activity into observe, act, and verify phases.
 - Permission requests enter a visible wait state that asks for user attention.
 - Each useful edit step adds the same momentum; large diffs raise risk instead of earning a larger reward.

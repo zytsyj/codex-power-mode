@@ -95,6 +95,19 @@ test("eventFromHook maps read tools to observe activity", () => {
   assert.equal(event.toolGroup, "search");
 });
 
+test("eventFromHook starts understanding on prompt submit without retaining prompt text", () => {
+  const event = eventFromHook({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "session-1",
+    turn_id: "turn-1",
+    prompt: "secret request text"
+  }, 1_000);
+  assert.equal(event.type, "activity-start");
+  assert.equal(event.phase, "observe");
+  assert.equal(event.toolGroup, "prompt");
+  assert.equal("prompt" in event, false);
+});
+
 test("eventFromHook recognizes verification before execution", () => {
   const event = eventFromHook({
     hook_event_name: "PreToolUse",

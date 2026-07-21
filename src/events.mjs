@@ -76,6 +76,9 @@ export function eventFromHook(input, now = Date.now()) {
   const toolName = input.tool_name ?? "";
   const command = toolText(input.tool_input);
 
+  if (input.hook_event_name === "UserPromptSubmit") {
+    return { ...base, type: "activity-start", phase: "observe", toolGroup: "prompt" };
+  }
   if (input.hook_event_name === "Stop") return { ...base, type: "turn-stop" };
   if (input.hook_event_name === "PermissionRequest") {
     return { ...base, type: "permission-request", toolGroup: EDIT_TOOLS.test(toolName) ? "change" : "command" };

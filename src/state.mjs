@@ -122,7 +122,10 @@ function riskLevel(value) {
 }
 
 function activityLabel(event) {
-  if (event.phase === "observe") return event.toolGroup === "search" ? "Searching the workspace" : "Reading context";
+  if (event.phase === "observe") {
+    if (event.toolGroup === "prompt") return "Understanding request";
+    return event.toolGroup === "search" ? "Searching the workspace" : "Reading context";
+  }
   if (event.phase === "verify") return `Running ${event.category || "verification"}`;
   if (event.phase === "act") return event.toolGroup === "command" ? "Executing a command" : "Preparing a change";
   return "Codex is working";

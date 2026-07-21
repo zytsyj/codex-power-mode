@@ -13,6 +13,16 @@ test("activity events represent Codex states without rewarding code volume", () 
   assert.equal(state.currentActivity, "Searching the workspace");
 });
 
+test("prompt submission immediately enters understanding", () => {
+  const state = reduceState(initialState, {
+    type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(1), sessionId: "s"
+  });
+  assert.equal(state.phase, "observe");
+  assert.equal(state.currentActivity, "Understanding request");
+  assert.equal(state.momentum, 1);
+  assert.equal(state.combo, 1);
+});
+
 test("rapid identical observe activity is coalesced without hiding phase changes", () => {
   const previous = {
     ...initialState,
