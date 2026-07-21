@@ -59,7 +59,7 @@ Run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" status
 ```
 
-Summarize phase, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`. If the service is running but `service.activity.realEventsReceived` stays at `0` after a tool call, explain that the Power Mode hooks still need to be reviewed and trusted in Codex.
+Summarize phase, energy level, Combo stage, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`. If the service is running but `service.activity.realEventsReceived` stays at `0` after a tool call, explain that the Power Mode hooks still need to be reviewed and trusted in Codex.
 
 ## Behavior
 
@@ -67,7 +67,9 @@ Summarize phase, momentum, confidence, risk, edited lines, and verification evid
 - `PreToolUse` maps Codex activity into observe, act, and verify phases.
 - Permission requests enter a visible wait state that asks for user attention.
 - Each useful edit step adds the same momentum; large diffs raise risk instead of earning a larger reward.
-- Successful tests, builds, lint, or type checks add confidence and evidence.
+- Energy has four visible working levels: Charge, Flow, Surge, and Overdrive.
+- Combo progresses through Build, Link, and Chain, then signals a critical break window when little time remains.
+- Successful tests, builds, lint, or type checks add confidence and evidence and briefly lock the Combo in a Boost reward window.
 - Failed verification enters recovery and lowers confidence.
 - A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.
 - A terminal result holds briefly, Combo drains and disconnects, then the HUD enters Idle while visible energy returns to zero. Historical best values remain available in the menu.

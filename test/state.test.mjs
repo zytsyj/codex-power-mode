@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboDisplayStatus, comboProgress, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboDisplayStatus, comboProgress, comboStage, energyLevel, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -75,6 +75,33 @@ test("successful verification creates evidence and confidence", () => {
   assert.equal(state.phase, "verify");
   assert.equal(state.confidence, 38);
   assert.deepEqual(state.evidence, ["test"]);
+  assert.equal(state.comboStatus, "reward");
+  assert.equal(comboStage(state, at(4)), "reward");
+  assert.equal(comboProgress(state, at(4)), 1);
+});
+
+test("energy levels communicate charging, flow, surge, and overdrive", () => {
+  assert.equal(energyLevel(0), "idle");
+  assert.equal(energyLevel(1), "charging");
+  assert.equal(energyLevel(25), "flow");
+  assert.equal(energyLevel(50), "surge");
+  assert.equal(energyLevel(75), "overdrive");
+});
+
+test("combo stages distinguish building, linked, chain, and critical timing", () => {
+  const base = {
+    ...initialState,
+    combo: 2,
+    comboStatus: "decaying",
+    comboLastAt: at(1),
+    comboHoldUntil: at(1),
+    comboExpiresAt: at(13)
+  };
+  assert.equal(comboStage(base, at(2)), "building");
+  assert.equal(comboStage({ ...base, combo: 4 }, at(2)), "linked");
+  assert.equal(comboStage({ ...base, combo: 7 }, at(2)), "chain");
+  assert.equal(comboStage({ ...base, combo: 7 }, at(11)), "critical");
+  assert.equal(comboStage({ ...base, combo: 7 }, at(13.5)), "lost");
 });
 
 test("turn completes as verified only after post-edit evidence", () => {

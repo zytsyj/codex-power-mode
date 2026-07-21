@@ -1006,16 +1006,34 @@ private final class PowerModeView: NSView {
 
         let momentum = presentation.momentum
         let progress = CGFloat(momentum) / 100
+        let energy = energyLevel(momentum)
+        let energyPulse = reducedMotion ? CGFloat(1) : 0.88 + 0.12 * sin(shakePhase * energy.rhythm)
         let arc = NSBezierPath()
         arc.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 31, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
-        arc.lineWidth = 2.4
+        arc.lineWidth = energy.lineWidth
         arc.lineCapStyle = .round
-        phaseColor.setStroke()
+        phaseColor.withAlphaComponent(energyPulse).setStroke()
         arc.stroke()
+
+        if energy.name == "surge" || energy.name == "overdrive" {
+            let reserve = NSBezierPath()
+            reserve.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 36.5, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
+            reserve.lineWidth = energy.name == "overdrive" ? 1.8 : 1.1
+            reserve.lineCapStyle = .round
+            phaseColor.withAlphaComponent((energy.name == "overdrive" ? 0.72 : 0.42) * energyPulse).setStroke()
+            reserve.stroke()
+        }
+
+        if energy.name == "overdrive" {
+            let chargedCore = NSBezierPath(ovalIn: CGRect(x: origin.x + 14, y: origin.y + 14, width: 54, height: 54))
+            phaseColor.withAlphaComponent(0.08 + 0.06 * energyPulse).setFill()
+            chargedCore.fill()
+        }
 
         let value = "\(momentum)"
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 21 : value.count > 1 ? 27 : 34), y: origin.y + 34), font: .systemFont(ofSize: 21, weight: .bold), color: .white)
-        drawText(preferences.text("POWER", "能量"), at: CGPoint(x: origin.x + (preferences.isChinese ? 33 : 29), y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
+        let energyLabel = localizedEnergyLevel(energy.name)
+        drawText(energyLabel, at: CGPoint(x: origin.x + energyLabelOffset(energyLabel), y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: phaseColor.withAlphaComponent(energy.name == "idle" ? 0.52 : 0.78), tracking: preferences.isChinese ? 0.3 : 0.65)
         if streamConnected != true {
             let connectionDot = NSBezierPath(ovalIn: CGRect(x: origin.x + 72, y: origin.y + 64, width: 6, height: 6))
             NSColor.systemOrange.setFill()
@@ -1297,27 +1315,79 @@ private final class PowerModeView: NSView {
         cross.stroke()
     }
 
-    private func comboSnapshot(now: Date = Date()) -> (count: Int, progress: CGFloat, active: Bool, lost: Bool) {
+    private func energyLevel(_ momentum: Int) -> (name: String, lineWidth: CGFloat, rhythm: CGFloat) {
+        if momentum <= 0 { return ("idle", 2.0, 0.02) }
+        if momentum < 25 { return ("charging", 2.2, 0.035) }
+        if momentum < 50 { return ("flow", 2.8, 0.055) }
+        if momentum < 75 { return ("surge", 3.4, 0.085) }
+        return ("overdrive", 4.1, 0.13)
+    }
+
+    private func localizedEnergyLevel(_ level: String) -> String {
+        switch level {
+        case "charging": return preferences.text("CHARGE", "蓄能")
+        case "flow": return preferences.text("FLOW", "流动")
+        case "surge": return preferences.text("SURGE", "高能")
+        case "overdrive": return preferences.text("OVERDRIVE", "过载")
+        default: return preferences.text("POWER", "能量")
+        }
+    }
+
+    private func energyLabelOffset(_ label: String) -> CGFloat {
+        if preferences.isChinese { return 33 }
+        switch label.count {
+        case 0...4: return 30
+        case 5...6: return 26
+        default: return 20
+        }
+    }
+
+    private func comboSnapshot(now: Date = Date()) -> (count: Int, progress: CGFloat, active: Bool, lost: Bool, stage: String) {
         let count = state.combo ?? 0
         guard count > 0, let expires = comboExpiresAt, now < expires else {
             let disconnectedAt = comboBrokenAt ?? comboExpiresAt
             let lost = disconnectedAt.map { now < $0.addingTimeInterval(3.2) } ?? false
-            return (0, 0, false, lost)
+            return (0, 0, false, lost, lost ? "lost" : "idle")
         }
-        guard let hold = comboHoldUntil, now > hold else { return (count, 1, true, false) }
+        guard let hold = comboHoldUntil, now > hold else {
+            let stage = state.comboStatus == "reward" || state.comboStatus == "complete" ? "reward" : comboCountStage(count)
+            return (count, 1, true, false, stage)
+        }
         let duration = expires.timeIntervalSince(hold)
         let remaining = expires.timeIntervalSince(now)
-        return (count, CGFloat(max(0, min(1, remaining / max(0.001, duration)))), true, false)
+        let progress = CGFloat(max(0, min(1, remaining / max(0.001, duration))))
+        let stage = progress <= 0.25 ? "critical" : comboCountStage(count)
+        return (count, progress, true, false, stage)
     }
 
-    private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool, lost: Bool), at origin: CGPoint, color: NSColor) {
+    private func comboCountStage(_ count: Int) -> String {
+        if count < 3 { return "building" }
+        if count < 6 { return "linked" }
+        return "chain"
+    }
+
+    private func localizedComboStage(_ stage: String) -> String {
+        switch stage {
+        case "building": return preferences.text("BUILD", "蓄连")
+        case "linked": return preferences.text("LINK", "续连")
+        case "chain": return preferences.text("CHAIN", "连锁")
+        case "critical": return preferences.text("BREAK", "将断")
+        case "reward": return preferences.text("BOOST", "奖励")
+        case "lost": return preferences.text("LOST", "断连")
+        default: return preferences.text("READY", "就绪")
+        }
+    }
+
+    private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool, lost: Bool, stage: String), at origin: CGPoint, color: NSColor) {
         guard combo.active || combo.lost else { return }
+        let stageColor: NSColor = combo.stage == "critical" || combo.stage == "lost" ? .systemRed : combo.stage == "reward" ? .systemGreen : color
+        let rhythm = reducedMotion ? CGFloat(1) : combo.stage == "critical" ? 0.52 + 0.48 * abs(sin(shakePhase * 0.22)) : combo.stage == "reward" ? 0.72 + 0.28 * abs(sin(shakePhase * 0.12)) : 1
         let capsuleRect = CGRect(x: origin.x + 5, y: origin.y - 23, width: 72, height: 21)
         let capsule = NSBezierPath(roundedRect: capsuleRect, xRadius: 8, yRadius: 8)
         NSColor(calibratedWhite: 0.025, alpha: 0.92).setFill()
         capsule.fill()
-        color.withAlphaComponent(0.3).setStroke()
-        capsule.lineWidth = 1
+        stageColor.withAlphaComponent(0.3 + 0.28 * rhythm).setStroke()
+        capsule.lineWidth = combo.stage == "reward" ? 1.5 : 1
         capsule.stroke()
 
         let trackRect = CGRect(x: origin.x + 11, y: origin.y - 17, width: 60, height: 5)
@@ -1327,11 +1397,19 @@ private final class PowerModeView: NSView {
         if combo.progress > 0 {
             let fillRect = CGRect(x: trackRect.minX, y: trackRect.minY, width: trackRect.width * combo.progress, height: trackRect.height)
             let fill = NSBezierPath(roundedRect: fillRect, xRadius: 2.5, yRadius: 2.5)
-            color.setFill()
+            stageColor.withAlphaComponent(rhythm).setFill()
             fill.fill()
         }
-        let copy = combo.lost ? preferences.text("LOST", "断连") : "\(combo.count)× " + preferences.text("COMBO", "连击")
-        drawText(copy, at: CGPoint(x: origin.x + (combo.lost ? 29 : 19), y: origin.y - 10), font: .monospacedSystemFont(ofSize: 6.4, weight: .bold), color: color.withAlphaComponent(0.96), tracking: preferences.isChinese ? 0.2 : 0.55)
+        let countCopy = combo.lost ? "—" : "\(combo.count)×"
+        let stageCopy = localizedComboStage(combo.stage)
+        drawText(countCopy, at: CGPoint(x: origin.x + 11, y: origin.y - 10), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.96), tracking: 0.2)
+        drawText(stageCopy, at: CGPoint(x: origin.x + (preferences.isChinese ? 54 : stageCopy.count > 5 ? 42 : 47), y: origin.y - 10), font: .monospacedSystemFont(ofSize: 5.8, weight: .bold), color: stageColor.withAlphaComponent(0.96), tracking: preferences.isChinese ? 0.1 : 0.35)
+
+        if combo.stage == "critical" {
+            stageColor.withAlphaComponent(rhythm).setFill()
+            NSBezierPath(roundedRect: CGRect(x: capsuleRect.minX - 2, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
+            NSBezierPath(roundedRect: CGRect(x: capsuleRect.maxX, y: capsuleRect.midY - 5, width: 2, height: 10), xRadius: 1, yRadius: 1).fill()
+        }
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {

@@ -37,6 +37,7 @@ export const initialState = Object.freeze({
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 export const COMBO_DECAY_MS = 12_000;
 export const COMBO_LOST_MS = 3_200;
+export const VERIFICATION_REWARD_HOLD_MS = 1_800;
 export const FINAL_STATE_HOLD_MS = 3_000;
 export const MOMENTUM_RETURN_MS = 4_000;
 export const ABANDONED_ACTIVITY_MS = 5 * 60_000;
@@ -48,14 +49,14 @@ function timestampAfter(timestamp, offsetMs) {
   return new Date((Number.isFinite(value) ? value : 0) + offsetMs).toISOString();
 }
 
-function advanceCombo(state, event, weight = 1, holdMs = 0, forceNew = false) {
+function advanceCombo(state, event, weight = 1, holdMs = 0, forceNew = false, status = null) {
   const eventAt = Date.parse(event.timestamp);
   const expiresAt = Date.parse(state.comboExpiresAt);
   const continues = !forceNew && state.combo > 0 && Number.isFinite(eventAt) &&
     Number.isFinite(expiresAt) && eventAt <= expiresAt;
   if (!continues && state.combo > 0) state.comboBreaks += 1;
   state.combo = (continues ? state.combo : 0) + weight;
-  state.comboStatus = holdMs > 0 ? "holding" : "decaying";
+  state.comboStatus = status ?? (holdMs > 0 ? "holding" : "decaying");
   state.comboLastAt = event.timestamp;
   state.comboHoldUntil = timestampAfter(event.timestamp, holdMs);
   state.comboExpiresAt = timestampAfter(event.timestamp, holdMs + COMBO_DECAY_MS);
@@ -89,6 +90,27 @@ export function comboDisplayStatus(state, now = Date.now()) {
   const naturalBreak = Date.parse(state.comboExpiresAt);
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   return Number.isFinite(current) && Number.isFinite(disconnectedAt) && current < disconnectedAt + COMBO_LOST_MS ? "broken" : "idle";
+}
+
+export function energyLevel(momentum = 0) {
+  const value = clamp(momentum);
+  if (value <= 0) return "idle";
+  if (value < 25) return "charging";
+  if (value < 50) return "flow";
+  if (value < 75) return "surge";
+  return "overdrive";
+}
+
+export function comboStage(state, now = Date.now()) {
+  const progress = comboProgress(state, now);
+  const status = comboDisplayStatus(state, now);
+  if (status === "broken") return "lost";
+  if (status === "idle") return "idle";
+  if (state.comboStatus === "reward" || state.comboStatus === "complete") return "reward";
+  if (progress <= 0.25) return "critical";
+  if ((state.combo ?? 0) < 3) return "building";
+  if ((state.combo ?? 0) < 6) return "linked";
+  return "chain";
 }
 
 export function presentationSnapshot(state, now = Date.now()) {
@@ -234,7 +256,7 @@ export function reduceState(previous = initialState, event) {
       state.confidence = clamp(state.confidence + verificationConfidence(event.category));
       state.risk = clamp(state.risk - 18);
       if (!state.evidence.includes(event.category)) state.evidence.push(event.category);
-      advanceCombo(state, event, 2, 0, startsNewTurn);
+      advanceCombo(state, event, 2, VERIFICATION_REWARD_HOLD_MS, startsNewTurn, "reward");
     } else {
       state.phase = "recover";
       state.status = "failed";
