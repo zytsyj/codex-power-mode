@@ -27,6 +27,8 @@ On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, indep
 
 Positioning mode keeps the full HUD inside the Codex window, snaps near edges, shows the active snap direction, and reports the saved region in the menu. Position presets include Smart, four corners, and center. Smart placement avoids the title bar and reserves space for common Codex side panels on wide windows; a manually dragged position always wins. Reset position exits positioning and returns to Smart placement.
 
+Saved and preset positions are constrained to the active display's visible area. Resolution, Dock, and monitor-layout changes trigger immediate repositioning, so a removed display cannot leave the HUD stranded off-screen.
+
 To stop the native overlay:
 
 ```bash

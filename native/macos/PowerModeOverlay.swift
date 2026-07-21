@@ -1,6 +1,32 @@
 import AppKit
 import Foundation
 
+private func resolvedHudPlacementBounds(viewBounds: CGRect, visibleBounds: CGRect?, safeMargin: CGFloat = 12) -> CGRect {
+    var available = viewBounds
+    if let visibleBounds {
+        let intersection = viewBounds.intersection(visibleBounds)
+        if !intersection.isNull, intersection.width >= 48, intersection.height >= 48 {
+            available = intersection
+        }
+    }
+    let inset = available.insetBy(dx: safeMargin, dy: safeMargin)
+    return inset.width > 0 && inset.height > 0 ? inset : available
+}
+
+private func runPlacementGeometrySelfTest() {
+    let view = CGRect(x: 0, y: 0, width: 900, height: 700)
+    precondition(resolvedHudPlacementBounds(viewBounds: view, visibleBounds: nil) == CGRect(x: 12, y: 12, width: 876, height: 676))
+    precondition(
+        resolvedHudPlacementBounds(viewBounds: view, visibleBounds: CGRect(x: -100, y: 0, width: 700, height: 650))
+            == CGRect(x: 12, y: 12, width: 576, height: 626)
+    )
+    precondition(
+        resolvedHudPlacementBounds(viewBounds: view, visibleBounds: CGRect(x: 880, y: 680, width: 40, height: 40))
+            == CGRect(x: 12, y: 12, width: 876, height: 676)
+    )
+    fputs("HUD placement geometry self-test passed\n", stdout)
+}
+
 private struct PowerState: Decodable {
     let sessionId: String?
     let phase: String?
@@ -368,12 +394,12 @@ private final class PowerModeView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let size = currentHudRect().size
         let origin = CGPoint(x: point.x - dragOffset.x, y: point.y - dragOffset.y)
-        let safeMargin: CGFloat = 12
         let snapDistance: CGFloat = 30
-        let minimumX = safeMargin + size.width / 2
-        let maximumX = max(minimumX, bounds.maxX - safeMargin - size.width / 2)
-        let minimumY = safeMargin + size.height / 2
-        let maximumY = max(minimumY, bounds.maxY - safeMargin - size.height / 2)
+        let placement = hudPlacementBounds()
+        let minimumX = placement.minX + size.width / 2
+        let maximumX = max(minimumX, placement.maxX - size.width / 2)
+        let minimumY = placement.minY + size.height / 2
+        let maximumY = max(minimumY, placement.maxY - size.height / 2)
         var centerX = min(maximumX, max(minimumX, origin.x + size.width / 2))
         var centerY = min(maximumY, max(minimumY, origin.y + size.height / 2))
         var horizontalSnap: String?
@@ -751,7 +777,11 @@ private final class PowerModeView: NSView {
 
     private func hudOrigin(size: CGSize) -> CGPoint {
         let preferredMargin: CGFloat = 36
-        let safeMargin: CGFloat = 12
+        let placement = hudPlacementBounds()
+        let minimumX = placement.minX
+        let maximumX = max(minimumX, placement.maxX - size.width)
+        let minimumY = placement.minY
+        let maximumY = max(minimumY, placement.maxY - size.height)
         let storedPosition = dragPosition ?? {
             guard let x = preferences.settings.positionX, let y = preferences.settings.positionY else { return nil }
             return CGPoint(x: x, y: y)
@@ -762,35 +792,45 @@ private final class PowerModeView: NSView {
                 y: bounds.height * storedPosition.y - size.height / 2
             )
             return CGPoint(
-                x: min(bounds.width - size.width - safeMargin, max(safeMargin, desired.x)),
-                y: min(bounds.height - size.height - safeMargin, max(safeMargin, desired.y))
+                x: min(maximumX, max(minimumX, desired.x)),
+                y: min(maximumY, max(minimumY, desired.y))
             )
         }
-        let left = min(preferredMargin, max(safeMargin, bounds.width - size.width - safeMargin))
-        let right = max(safeMargin, bounds.width - size.width - preferredMargin)
-        let bottom = min(preferredMargin, max(safeMargin, bounds.height - size.height - safeMargin))
-        let top = max(safeMargin, bounds.height - size.height - preferredMargin)
+        let left = min(minimumX + preferredMargin, maximumX)
+        let right = max(minimumX, maximumX - preferredMargin)
+        let bottom = min(minimumY + preferredMargin, maximumY)
+        let top = max(minimumY, maximumY - preferredMargin)
         switch edge {
         case "smart":
-            let topInset: CGFloat = bounds.height >= 640 ? 72 : preferredMargin
-            let sidePanelReserve: CGFloat = bounds.width >= 1_400
-                ? min(420, max(300, bounds.width * 0.22))
+            let topInset: CGFloat = placement.height >= 640 ? 72 : preferredMargin
+            let sidePanelReserve: CGFloat = placement.width >= 1_400
+                ? min(420, max(300, placement.width * 0.22))
                 : preferredMargin
             return CGPoint(
-                x: max(safeMargin, bounds.width - size.width - sidePanelReserve),
-                y: max(safeMargin, bounds.height - size.height - topInset)
+                x: max(minimumX, placement.maxX - size.width - sidePanelReserve),
+                y: max(minimumY, placement.maxY - size.height - topInset)
             )
         case "top-left": return CGPoint(x: left, y: top)
         case "bottom-left": return CGPoint(x: left, y: bottom)
         case "bottom-right": return CGPoint(x: right, y: bottom)
-        case "center": return CGPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+        case "center": return CGPoint(x: placement.midX - size.width / 2, y: placement.midY - size.height / 2)
         default: return CGPoint(x: right, y: top)
         }
     }
 
+    private func hudPlacementBounds() -> CGRect {
+        var visibleBounds: CGRect?
+        if let window, let screen = window.screen {
+            let visibleInWindow = window.convertFromScreen(screen.visibleFrame)
+            visibleBounds = convert(visibleInWindow, from: nil)
+        }
+        return resolvedHudPlacementBounds(viewBounds: bounds, visibleBounds: visibleBounds)
+    }
+
     private func effectiveHudScale(for baseSize: CGSize) -> CGFloat {
-        let safeWidth = max(1, bounds.width - 24)
-        let safeHeight = max(1, bounds.height - 24)
+        let placement = hudPlacementBounds()
+        let safeWidth = max(1, placement.width)
+        let safeHeight = max(1, placement.height)
         return min(hudScale, safeWidth / baseSize.width, safeHeight / baseSize.height)
     }
 
@@ -1981,6 +2021,11 @@ private final class CodexWindowTracker {
 
     func preferencesChanged() { refresh() }
 
+    func screenParametersChanged() {
+        lastFrame = .zero
+        refresh()
+    }
+
     private func refresh() {
         guard let panel else { return }
         let followsInactive = preferences.settings.followWhenInactive
@@ -2082,6 +2127,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         panel.contentView = powerView
         window = panel
         tracker = CodexWindowTracker(panel: panel, preferences: preferences)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
         preferences.onChange = { [weak self, weak powerView] in
             powerView?.preferencesChanged()
             self?.tracker?.preferencesChanged()
@@ -2102,8 +2153,15 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        NotificationCenter.default.removeObserver(self, name: NSApplication.didChangeScreenParametersNotification, object: nil)
         removeMouseMonitors()
         stream?.stop()
+    }
+
+    @objc private func screenParametersChanged() {
+        tracker?.screenParametersChanged()
+        window?.contentView?.needsDisplay = true
+        if positioning { updateMouseCapture() }
     }
 
     private func installStatusItem() {
@@ -2324,6 +2382,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 private struct PowerModeOverlayApp {
     @MainActor
     static func main() {
+        if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PLACEMENT_SELF_TEST"] == "1" {
+            runPlacementGeometrySelfTest()
+            return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

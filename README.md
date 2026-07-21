@@ -24,6 +24,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
 - Supports restrained `focus` and high-energy `arcade` effect presets.
 - Adds a lightweight macOS menu-bar control for language, effects, idle behavior, size, motion, and drag positioning.
+- Keeps saved and preset positions inside the active display's visible area and recovers them after resolution, Dock, or monitor-layout changes.
 
 ## Try it locally
 

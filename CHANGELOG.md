@@ -2,6 +2,8 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Kept dragged and preset HUD positions inside the active display's visible area after Dock, resolution, or monitor-layout changes.
+- Re-evaluated the Codex window and safe placement area immediately when macOS display parameters change, preventing removed monitors from stranding the HUD off-screen.
 - Added one-shot energy tier upgrades so Charge, Flow, Surge, and Overdrive crossovers have progressively stronger Focus and Arcade beats.
 - Gave Flow, Surge, and Overdrive distinct 4/8/12-node outer geometry, with a separate Overdrive ring that remains readable in Reduced Motion.
 - Split successful verification into confirmation, evidence-backed reward, and new-record feedback instead of giving every passing check the same climax.
