@@ -53,7 +53,7 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 
 `npm run status` reports service health, the native overlay PID and launch configuration, the current semantic state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
-The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Activity source** can protect the current app conversation from concurrent activity or follow the latest activity across all Codex app conversations. The menu shows the source currently in use plus a compact identifier for the session driving the HUD. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json`, survive overlay restarts, and pre-schema development settings are intentionally reset rather than migrated.
+The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Activity source** can protect the current app conversation from concurrent activity or follow the latest activity across all Codex app conversations. **Effect intensity** independently controls particle density and impact without changing the Focus/Arcade rhythm, and **Show Combo** can remove the Combo bar without spending high-frequency redraws on its hidden decay. The menu shows the source currently in use plus a compact identifier for the session driving the HUD. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json`, survive overlay restarts, and pre-schema development settings are intentionally reset rather than migrated.
 
 Optional environment variables:
 
@@ -61,6 +61,8 @@ Optional environment variables:
 - `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles, flashes, or spatial motion while preserving distinct static state markers.
 - `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
+- `CODEX_POWER_MODE_INTENSITY=low|normal|high`: tune effect density independently of the semantic preset.
+- `CODEX_POWER_MODE_SHOW_COMBO=0`: hide the Combo bar and its decay animation.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
 - `CODEX_POWER_MODE_IDLE`: `hide` (default), `orb`, or `always`.

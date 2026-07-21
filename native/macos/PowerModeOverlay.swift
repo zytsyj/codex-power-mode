@@ -57,6 +57,8 @@ private struct OverlaySettings: Codable, Equatable {
     var idleBehavior = "hide"
     var language = "auto"
     var activitySource: String? = "focused"
+    var effectIntensity: String?
+    var showCombo: Bool?
     var positionX: Double?
     var positionY: Double?
     var endpoint = "http://127.0.0.1:4737/api/stream"
@@ -92,6 +94,10 @@ private final class PowerModePreferences {
     func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
     func setLanguage(_ value: String) { mutate { $0.language = value } }
     func setActivitySource(_ value: String) { mutate { $0.activitySource = value == "global" ? "global" : "focused" } }
+    func setEffectIntensity(_ value: String) {
+        guard ["low", "normal", "high"].contains(value) else { return }
+        mutate { $0.effectIntensity = value }
+    }
     func setEdge(_ value: String) {
         let supported = ["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]
         guard supported.contains(value) else { return }
@@ -101,6 +107,7 @@ private final class PowerModePreferences {
     func toggleEnabled() { mutate { $0.enabled.toggle() } }
     func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
     func toggleFollowWhenInactive() { mutate { $0.followWhenInactive.toggle() } }
+    func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
     func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "smart" } }
 
@@ -198,6 +205,14 @@ private final class PowerModeView: NSView {
     var onPositioningFinished: (() -> Void)?
     private var reducedMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || preferences.settings.reducedMotion }
     private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
+    private var effectIntensity: CGFloat {
+        switch preferences.settings.effectIntensity ?? "normal" {
+        case "low": return 0.62
+        case "high": return 1.42
+        default: return 1
+        }
+    }
+    private var showsCombo: Bool { preferences.settings.showCombo ?? true }
     private var hudScale: CGFloat { CGFloat(preferences.settings.scale) }
     private var edge: String { preferences.settings.edge }
 
@@ -704,8 +719,10 @@ private final class PowerModeView: NSView {
         if presentation.phase == "recover" || presentation.status == "failed" { return true }
         if presentation.status == "working" { return true }
         if now < hudExpandedUntil { return true }
-        let combo = comboSnapshot(now: now)
-        if combo.active || combo.lost { return true }
+        if showsCombo {
+            let combo = comboSnapshot(now: now)
+            if combo.active || combo.lost { return true }
+        }
         return presentation.returning
     }
 
@@ -733,7 +750,8 @@ private final class PowerModeView: NSView {
 
     private func replayTyping(characters: Int, lines: Int, generation: Int) {
         let base = max(4, min(32, max(lines, characters / 22)))
-        let pulses = arcadeMode ? min(44, Int(Double(base) * 1.45)) : base
+        let presetPulses = arcadeMode ? min(44, Int(Double(base) * 1.45)) : base
+        let pulses = scaledEffectCount(presetPulses)
         for index in 0..<pulses {
             scheduleEffect(after: Double(index) * 0.028, generation: generation) { view in
                 view.typingPulse(index: index)
@@ -745,7 +763,7 @@ private final class PowerModeView: NSView {
         guard !reducedMotion else { return }
         let origin = reactorCenter()
         let color: NSColor = index.isMultiple(of: 4) ? .systemPurple : .systemCyan
-        for _ in 0..<Int.random(in: 4...8) {
+        for _ in 0..<scaledEffectCount(Int.random(in: 4...8)) {
             let life = CGFloat.random(in: 22...48)
             particles.append(Particle(
                 position: origin,
@@ -774,7 +792,7 @@ private final class PowerModeView: NSView {
     private func focusPulse(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
         let center = reactorCenter()
-        for _ in 0..<count {
+        for _ in 0..<scaledEffectCount(count) {
             let angle = CGFloat.random(in: 0...(2 * .pi))
             let distance = CGFloat.random(in: 52...210)
             let life = CGFloat.random(in: 40...62)
@@ -793,7 +811,7 @@ private final class PowerModeView: NSView {
     private func directionalSparks(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
         let origin = reactorCenter()
-        for _ in 0..<count {
+        for _ in 0..<scaledEffectCount(count) {
             let life = CGFloat.random(in: 24...52)
             particles.append(Particle(
                 position: origin,
@@ -810,7 +828,7 @@ private final class PowerModeView: NSView {
         guard !reducedMotion else { return }
         let target = reactorCenter()
         let source = codingOrigin()
-        for index in 0..<count {
+        for index in 0..<scaledEffectCount(count) {
             let lane = CGFloat(index % 4) - 1.5
             let life = CGFloat.random(in: 38...58)
             particles.append(Particle(
@@ -832,7 +850,7 @@ private final class PowerModeView: NSView {
     private func attentionGates(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
         let center = reactorCenter()
-        for index in 0..<count {
+        for index in 0..<scaledEffectCount(count) {
             let side: CGFloat = index.isMultiple(of: 2) ? -1 : 1
             let lane = CGFloat((index / 2) % 5) - 2
             let life = CGFloat.random(in: 30...46)
@@ -855,7 +873,7 @@ private final class PowerModeView: NSView {
     private func repairFragments(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
         let center = reactorCenter()
-        for index in 0..<count {
+        for index in 0..<scaledEffectCount(count) {
             let side: CGFloat = index.isMultiple(of: 2) ? -1 : 1
             let lane = CGFloat((index / 2) % 4) - 1.5
             let life = CGFloat.random(in: 38...58)
@@ -878,7 +896,7 @@ private final class PowerModeView: NSView {
     private func fragments(color: NSColor, count: Int) {
         guard !reducedMotion else { return }
         let origin = reactorCenter()
-        for _ in 0..<count {
+        for _ in 0..<scaledEffectCount(count) {
             let angle = CGFloat.random(in: 0...(2 * .pi))
             let speed = CGFloat.random(in: 2.5...8.5)
             let life = CGFloat.random(in: 28...58)
@@ -895,7 +913,7 @@ private final class PowerModeView: NSView {
     }
 
     private func deletionSparks(lines: Int) {
-        let count = min(90, max(12, lines * 6))
+        let count = scaledEffectCount(min(90, max(12, lines * 6)))
         let origin = reactorCenter()
         for _ in 0..<count {
             let life = CGFloat.random(in: 28...62)
@@ -918,17 +936,19 @@ private final class PowerModeView: NSView {
             radius: 8,
             life: life,
             maxLife: life,
-            width: 2.2 * power,
+            width: 2.2 * power * (0.88 + effectIntensity * 0.12),
             color: color
         ))
     }
 
     private func burst(color: NSColor, count: Int, power: CGFloat, directional: Bool = false) {
         let center = reactorCenter()
-        let scaledCount = arcadeMode ? Int(Double(count) * 1.55) : count
+        let presetCount = arcadeMode ? Int(Double(count) * 1.55) : count
+        let scaledCount = scaledEffectCount(presetCount)
+        let scaledPower = power * (0.88 + effectIntensity * 0.12)
         for _ in 0..<min(scaledCount, 280) {
             let angle = directional ? CGFloat.random(in: (.pi - 0.65)...(.pi + 0.65)) : CGFloat.random(in: 0...(2 * .pi))
-            let speed = CGFloat.random(in: 1.7...7.5) * power
+            let speed = CGFloat.random(in: 1.7...7.5) * scaledPower
             let life = CGFloat.random(in: 42...98)
             particles.append(Particle(
                 position: center,
@@ -941,11 +961,15 @@ private final class PowerModeView: NSView {
         }
     }
 
+    private func scaledEffectCount(_ count: Int) -> Int {
+        max(1, Int((CGFloat(count) * effectIntensity).rounded()))
+    }
+
     private func tick() {
         let now = Date()
-        let particleBudget = arcadeMode ? 560 : 280
-        let shockwaveBudget = arcadeMode ? 18 : 10
-        let scanBudget = arcadeMode ? 8 : 4
+        let particleBudget = scaledEffectCount(arcadeMode ? 560 : 280)
+        let shockwaveBudget = scaledEffectCount(arcadeMode ? 18 : 10)
+        let scanBudget = scaledEffectCount(arcadeMode ? 8 : 4)
         if particles.count > particleBudget { particles.removeFirst(particles.count - particleBudget) }
         if shockwaves.count > shockwaveBudget { shockwaves.removeFirst(shockwaves.count - shockwaveBudget) }
         if scanBeams.count > scanBudget { scanBeams.removeFirst(scanBeams.count - scanBudget) }
@@ -985,13 +1009,13 @@ private final class PowerModeView: NSView {
             needsDisplay = true
         }
         let comboTimelineEnd = (comboBrokenAt ?? comboExpiresAt ?? .distantPast).addingTimeInterval(3.2)
-        let comboIsAnimating = now < comboTimelineEnd
+        let comboIsAnimating = showsCombo && now < comboTimelineEnd
         if comboIsAnimating != comboWasAnimating {
             comboWasAnimating = comboIsAnimating
             needsDisplay = true
         }
         let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
-        let comboIsDecaying = (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
+        let comboIsDecaying = showsCombo && (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
         let presentation = presentationSnapshot(now: now)
         let targetAlpha: CGFloat = shouldShowHUD(now: now) ? 1 : 0
         let previousAlpha = hudAlpha
@@ -1176,7 +1200,9 @@ private final class PowerModeView: NSView {
             }
         }
         let combo = comboSnapshot()
-        drawCombo(combo, at: origin, color: combo.active ? phaseColor : combo.lost ? .systemRed : NSColor.white.withAlphaComponent(0.34))
+        if showsCombo {
+            drawCombo(combo, at: origin, color: combo.active ? phaseColor : combo.lost ? .systemRed : NSColor.white.withAlphaComponent(0.34))
+        }
         if expanded {
             let copyRect = CGRect(x: origin.x + 92, y: origin.y + 7, width: 230, height: 68)
             let copy = NSBezierPath(roundedRect: copyRect, xRadius: 14, yRadius: 14)
@@ -1200,7 +1226,7 @@ private final class PowerModeView: NSView {
 
             let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { localizedCategory($0) }.joined(separator: "+")) ✓" : preferences.text("NO EVIDENCE", "暂无证据")
             let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  " + preferences.text("RISK", "风险")
-            let comboCopy = combo.count > 0 ? "  ·  \(combo.count)× " + preferences.text("COMBO", "连击") : ""
+            let comboCopy = showsCombo && combo.count > 0 ? "  ·  \(combo.count)× " + preferences.text("COMBO", "连击") : ""
             drawText("\(evidence)  ·  \(preferences.text("CONF", "可信度")) \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: preferences.isChinese ? 0.15 : 0.45)
         }
         context.restoreGState()
@@ -1881,6 +1907,20 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             action: #selector(selectPreset)
         ))
         menu.addItem(submenu(
+            title: preferences.text("Effect intensity", "效果强度"),
+            choices: [
+                ("low", preferences.text("Low", "低")),
+                ("normal", preferences.text("Normal", "标准")),
+                ("high", preferences.text("High", "高"))
+            ],
+            selected: preferences.settings.effectIntensity ?? "normal",
+            action: #selector(selectEffectIntensity)
+        ))
+        let combo = NSMenuItem(title: preferences.text("Show Combo", "显示 Combo"), action: #selector(toggleCombo), keyEquivalent: "")
+        combo.target = self
+        combo.state = (preferences.settings.showCombo ?? true) ? .on : .off
+        menu.addItem(combo)
+        menu.addItem(submenu(
             title: preferences.text("Activity source", "动态来源"),
             choices: [
                 ("focused", preferences.text("Keep current conversation", "保持当前对话")),
@@ -1971,6 +2011,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 
     @objc private func toggleEnabled() { preferences?.toggleEnabled() }
     @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
+    @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
+    @objc private func toggleCombo() { preferences?.toggleCombo() }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
     @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }

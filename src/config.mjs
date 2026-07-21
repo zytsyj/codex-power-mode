@@ -2,6 +2,7 @@ const NATIVE_EDGES = new Set(["smart", "top-right", "top-left", "bottom-right", 
 const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global"]);
+const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
 const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -29,6 +30,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const activitySource = hasValue(environment, "CODEX_POWER_MODE_ACTIVITY_SOURCE")
     ? environment.CODEX_POWER_MODE_ACTIVITY_SOURCE
     : settings.activitySource;
+  const effectIntensity = hasValue(environment, "CODEX_POWER_MODE_INTENSITY")
+    ? environment.CODEX_POWER_MODE_INTENSITY
+    : settings.effectIntensity;
   const reducedMotion = hasValue(environment, "CODEX_POWER_MODE_REDUCED_MOTION")
     ? environment.CODEX_POWER_MODE_REDUCED_MOTION === "1"
     : settings.reducedMotion === true;
@@ -38,6 +42,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const enabled = hasValue(environment, "CODEX_POWER_MODE_ENABLED")
     ? environment.CODEX_POWER_MODE_ENABLED !== "0"
     : settings.enabled !== false;
+  const showCombo = hasValue(environment, "CODEX_POWER_MODE_SHOW_COMBO")
+    ? environment.CODEX_POWER_MODE_SHOW_COMBO !== "0"
+    : settings.showCombo !== false;
   return {
     schemaVersion: 1,
     preset: preset === "arcade" ? "arcade" : "focus",
@@ -49,6 +56,8 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     idleBehavior: IDLE_BEHAVIORS.has(idleBehavior) ? idleBehavior : "hide",
     language: LANGUAGES.has(language) ? language : "auto",
     activitySource: ACTIVITY_SOURCES.has(activitySource) ? activitySource : "focused",
+    effectIntensity: EFFECT_INTENSITIES.has(effectIntensity) ? effectIntensity : "normal",
+    showCombo,
     positionX: storedNumber(settings.positionX),
     positionY: storedNumber(settings.positionY)
   };

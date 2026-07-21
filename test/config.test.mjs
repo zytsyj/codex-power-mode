@@ -19,6 +19,8 @@ test("native config reports defaults used by the overlay", () => {
     idleBehavior: "hide",
     language: "auto",
     activitySource: "focused",
+    effectIntensity: "normal",
+    showCombo: true,
     positionX: null,
     positionY: null
   });
@@ -34,6 +36,8 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_IDLE: "always",
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
+    CODEX_POWER_MODE_INTENSITY: "high",
+    CODEX_POWER_MODE_SHOW_COMBO: "0",
     CODEX_POWER_MODE_ENABLED: "0"
   }), {
     schemaVersion: 1,
@@ -46,6 +50,8 @@ test("native config normalizes environment overrides", () => {
     idleBehavior: "always",
     language: "zh-CN",
     activitySource: "global",
+    effectIntensity: "high",
+    showCombo: false,
     positionX: null,
     positionY: null
   });
@@ -65,6 +71,8 @@ test("native config preserves settings unless an environment override is provide
     idleBehavior: "orb",
     language: "en",
     activitySource: "global",
+    effectIntensity: "low",
+    showCombo: false,
     positionX: 0.42,
     positionY: 0.66
   };
@@ -78,6 +86,22 @@ test("native config deliberately resets pre-schema development settings", () => 
   assert.equal(reset.preset, "focus");
   assert.equal(reset.idleBehavior, "hide");
   assert.equal(reset.scale, 1.15);
+});
+
+test("native config adds display defaults without resetting older schema-one settings", () => {
+  const upgraded = nativeConfigFromEnvironment({}, {
+    schemaVersion: 1,
+    preset: "arcade",
+    edge: "top-left",
+    scale: 1.3,
+    idleBehavior: "orb"
+  });
+  assert.equal(upgraded.preset, "arcade");
+  assert.equal(upgraded.edge, "top-left");
+  assert.equal(upgraded.scale, 1.3);
+  assert.equal(upgraded.idleBehavior, "orb");
+  assert.equal(upgraded.effectIntensity, "normal");
+  assert.equal(upgraded.showCombo, true);
 });
 
 test("service config keeps controllers and hooks on the configured port", () => {
