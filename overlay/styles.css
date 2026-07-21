@@ -286,7 +286,10 @@ body[data-phase="recover"] .reactor-wrap::after {
   inset: 15px 11px;
   background:
     linear-gradient(132deg, transparent 44%, rgba(var(--accent-rgb), .82) 45% 48%, transparent 49%),
-    linear-gradient(132deg, transparent 57%, rgba(var(--accent-rgb), .45) 58% 60%, transparent 61%);
+    linear-gradient(132deg, transparent 57%, rgba(var(--accent-rgb), .45) 58% 60%, transparent 61%),
+    linear-gradient(42deg, transparent 38%, rgba(255,220,228,.92) 40% 58%, transparent 60%) 15px 11px / 12px 7px no-repeat,
+    linear-gradient(42deg, transparent 38%, rgba(255,220,228,.72) 40% 58%, transparent 60%) 24px 25px / 12px 7px no-repeat,
+    linear-gradient(42deg, transparent 38%, rgba(255,220,228,.58) 40% 58%, transparent 60%) 32px 38px / 12px 7px no-repeat;
   opacity: .78;
   animation: recover-seam 1.35s steps(2, end) infinite alternate-reverse;
 }

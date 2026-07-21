@@ -351,6 +351,9 @@ private final class PowerModeView: NSView {
             }
             dangerAlpha = 0.42
             shake = 12
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { [weak self] in
+                self?.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: self?.arcadeMode == true ? 112 : 68)
+            }
         case "verification":
             let passed = event.success == true
             let color: NSColor = passed ? .systemGreen : .systemRed
@@ -362,6 +365,9 @@ private final class PowerModeView: NSView {
                 fragments(color: .systemRed, count: arcadeMode ? 120 : 72)
                 dangerAlpha = 0.38
                 shake = 10
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { [weak self] in
+                    self?.repairFragments(color: NSColor.systemPink.withAlphaComponent(0.82), count: self?.arcadeMode == true ? 96 : 58)
+                }
             }
         case "turn-stop" where event.state?.completion == "verified":
             shockwave(color: .systemGreen, power: 2.2)
@@ -630,6 +636,29 @@ private final class PowerModeView: NSView {
                 radius: CGFloat.random(in: 1.2...3.0),
                 color: color,
                 target: CGPoint(x: center.x + side * 38, y: center.y + lane * 7),
+                square: true
+            ))
+        }
+    }
+
+    private func repairFragments(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let center = reactorCenter()
+        for index in 0..<count {
+            let side: CGFloat = index.isMultiple(of: 2) ? -1 : 1
+            let lane = CGFloat((index / 2) % 4) - 1.5
+            let life = CGFloat.random(in: 38...58)
+            particles.append(Particle(
+                position: CGPoint(
+                    x: center.x + side * CGFloat.random(in: 44...190),
+                    y: center.y + lane * 18 + CGFloat.random(in: -5...5)
+                ),
+                velocity: .zero,
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.2...3.2),
+                color: color,
+                target: center,
                 square: true
             ))
         }
@@ -1045,6 +1074,18 @@ private final class PowerModeView: NSView {
         seam.lineWidth = 1.4
         seam.lineCapStyle = .square
         seam.stroke()
+
+        color.withAlphaComponent(0.72).setStroke()
+        for index in 0..<3 {
+            let x = origin.x + 25 + CGFloat(index) * 6 - oscillation * 0.5
+            let y = origin.y + 24 + CGFloat(index) * 8
+            let stitch = NSBezierPath()
+            stitch.move(to: CGPoint(x: x - 4, y: y + 2))
+            stitch.line(to: CGPoint(x: x + 4, y: y - 2))
+            stitch.lineWidth = 1.2
+            stitch.lineCapStyle = .square
+            stitch.stroke()
+        }
     }
 
     private func drawCompleteSignal(around origin: CGPoint) {

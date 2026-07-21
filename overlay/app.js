@@ -129,12 +129,16 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
     const evidenceLane = index % 4;
     const gateSide = index % 2 === 0 ? -1 : 1;
     const gateLane = Math.floor(index / 2) % 5 - 2;
+    const repairSide = index % 2 === 0 ? -1 : 1;
+    const repairLane = Math.floor(index / 2) % 4 - 1.5;
     const angle = mode === "left"
       ? Math.PI - .34 + Math.random() * .68
       : mode === "outward" || mode === "fragments"
       ? Math.PI - .62 + Math.random() * 1.24
       : Math.random() * Math.PI * 2;
-    const source = mode === "gate"
+    const source = mode === "repair"
+      ? { x: start.x + repairSide * (42 + Math.random() * 145), y: start.y + repairLane * 17 + (Math.random() - .5) * 10 }
+      : mode === "gate"
       ? { x: start.x + gateSide * (66 + Math.random() * 150), y: start.y + gateLane * 10 + (Math.random() - .5) * 3 }
       : mode === "evidence"
       ? { x: start.x - 78 - Math.random() * 190, y: start.y + (evidenceLane - 1.5) * 18 + (Math.random() - .5) * 6 }
@@ -146,14 +150,14 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
     const approachFrames = 24 + Math.random() * 12;
     particles.push({
       x, y,
-      vx: mode === "gate" ? (start.x + gateSide * 38 - x) / 18 : mode === "evidence" ? (start.x - x) / approachFrames : mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
-      vy: mode === "gate" ? (start.y + gateLane * 7 - y) / 18 : mode === "evidence" ? (start.y - y) / approachFrames : mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
+      vx: mode === "repair" ? (start.x - x) / (24 + Math.random() * 8) : mode === "gate" ? (start.x + gateSide * 38 - x) / 18 : mode === "evidence" ? (start.x - x) / approachFrames : mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
+      vy: mode === "repair" ? (start.y - y) / (24 + Math.random() * 8) : mode === "gate" ? (start.y + gateLane * 7 - y) / 18 : mode === "evidence" ? (start.y - y) / approachFrames : mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
       life: 34 + Math.random() * 44,
       maxLife: 78,
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
       color,
-      drag: mode === "inward" || mode === "evidence" ? 1.012 : mode === "gate" ? .995 : .985,
-      square: mode === "fragments" || mode === "left" || mode === "evidence" || mode === "gate"
+      drag: mode === "inward" || mode === "evidence" || mode === "repair" ? 1.012 : mode === "gate" ? .995 : .985,
+      square: mode === "fragments" || mode === "left" || mode === "evidence" || mode === "gate" || mode === "repair"
     });
   }
   scheduleEffectsFrame();
@@ -355,11 +359,13 @@ function react(event) {
   } else if (event.type === "edit-failure") {
     burst(color, 74, 1.15, "fragments", start); ring(color, .95, start);
     setTimeout(() => ring(color, .62, start), 180);
+    setTimeout(() => burst("#ffadc0", 54, .82, "repair", start), 300);
   } else if (event.type === "verification" && event.success) {
     burst(color, 62, momentumPower, "inward", start); ring(color, 1.25, start);
     setTimeout(() => burst(color, 38, .85, "radial", start), 280);
   } else if (event.type === "verification") {
     burst(color, 52, 1.05, "fragments", start); ring(color, .8, start);
+    setTimeout(() => burst("#ffadc0", 46, .76, "repair", start), 300);
   } else if (event.type === "turn-stop" && event.state?.completion === "cancelled") {
     ring(color, .78, start); setTimeout(() => ring(color, .52, start), 190);
   } else if (event.type === "turn-stop" && event.state?.completion === "unverified") {
