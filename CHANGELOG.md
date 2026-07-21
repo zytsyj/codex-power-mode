@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Gave prompt submission a converging focus effect while preserving the horizontal scan for file and context reads.
 - Added persistent completion silhouettes: a verified check, an unverified dashed warning, and a cancelled broken-ring cross.
 - Turned Recover into a two-stage fracture-and-reassembly effect with converging repair fragments and visible seam stitches.
 - Changed Wait from a smooth pulse into a double-beat gate alarm with paired amber attention streams.

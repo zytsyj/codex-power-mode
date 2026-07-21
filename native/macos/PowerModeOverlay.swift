@@ -317,7 +317,12 @@ private final class PowerModeView: NSView {
         switch event.type {
         case "activity-start":
             if event.phase == "observe" {
-                scan(color: .systemCyan)
+                if event.toolGroup == "prompt" {
+                    focusPulse(color: .systemCyan, count: arcadeMode ? 92 : 54)
+                    shockwave(color: .systemCyan, power: 0.38)
+                } else {
+                    scan(color: .systemCyan)
+                }
             } else if event.phase == "verify" {
                 charge(color: .systemGreen, count: arcadeMode ? 100 : 58)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
@@ -576,6 +581,25 @@ private final class PowerModeView: NSView {
         scanBeams.append(ScanBeam(origin: origin, length: -min(bounds.width * 0.72, origin.x - 48), life: life, maxLife: life, color: color))
         if arcadeMode && echo {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in self?.scan(color: color.withAlphaComponent(0.7), echo: false) }
+        }
+    }
+
+    private func focusPulse(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let center = reactorCenter()
+        for _ in 0..<count {
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let distance = CGFloat.random(in: 52...210)
+            let life = CGFloat.random(in: 40...62)
+            particles.append(Particle(
+                position: CGPoint(x: center.x + cos(angle) * distance, y: center.y + sin(angle) * distance),
+                velocity: .zero,
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.0...2.8),
+                color: color,
+                target: center
+            ))
         }
     }
 
