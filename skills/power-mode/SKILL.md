@@ -23,6 +23,8 @@ node "${PLUGIN_ROOT}/scripts/power-mode.mjs" start --open
 
 Tell the user the HUD is running at `http://127.0.0.1:4737`. The plugin hooks automatically capture supported Codex edits and verification commands after the user has reviewed and trusted them.
 
+On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, auto-hide behavior, English/Chinese, size, reduced motion, inactive-window visibility, and drag positioning. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior.
+
 To stop the native overlay:
 
 ```bash

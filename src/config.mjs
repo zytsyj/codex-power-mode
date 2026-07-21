@@ -1,4 +1,9 @@
 const NATIVE_EDGES = new Set(["top-right", "top-left", "bottom-right", "bottom-left", "center"]);
+const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
+const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
+
+const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
+const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 
 export function servicePortFromEnvironment(environment = {}) {
   const parsedPort = Number(environment.CODEX_POWER_MODE_PORT);
@@ -13,17 +18,33 @@ export function nativeStreamEndpointFromEnvironment(environment = {}) {
   return `${serviceEndpointFromEnvironment(environment)}/api/stream`;
 }
 
-export function nativeStreamEndpointFromConfiguration(configuration = {}) {
-  return configuration.endpoint || "http://127.0.0.1:4737/api/stream";
-}
-
-export function nativeConfigFromEnvironment(environment = {}) {
-  const parsedScale = Number.parseFloat(environment.CODEX_POWER_MODE_SCALE);
+export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
+  const settings = stored.schemaVersion === 1 ? stored : {};
+  const parsedScale = Number.parseFloat(hasValue(environment, "CODEX_POWER_MODE_SCALE") ? environment.CODEX_POWER_MODE_SCALE : settings.scale);
+  const preset = hasValue(environment, "CODEX_POWER_MODE_PRESET") ? environment.CODEX_POWER_MODE_PRESET : settings.preset;
+  const edge = hasValue(environment, "CODEX_POWER_MODE_EDGE") ? environment.CODEX_POWER_MODE_EDGE : settings.edge;
+  const idleBehavior = hasValue(environment, "CODEX_POWER_MODE_IDLE") ? environment.CODEX_POWER_MODE_IDLE : settings.idleBehavior;
+  const language = hasValue(environment, "CODEX_POWER_MODE_LANGUAGE") ? environment.CODEX_POWER_MODE_LANGUAGE : settings.language;
+  const reducedMotion = hasValue(environment, "CODEX_POWER_MODE_REDUCED_MOTION")
+    ? environment.CODEX_POWER_MODE_REDUCED_MOTION === "1"
+    : settings.reducedMotion === true;
+  const followWhenInactive = hasValue(environment, "CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE")
+    ? environment.CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE === "1"
+    : settings.followWhenInactive === true;
+  const enabled = hasValue(environment, "CODEX_POWER_MODE_ENABLED")
+    ? environment.CODEX_POWER_MODE_ENABLED !== "0"
+    : settings.enabled !== false;
   return {
-    preset: environment.CODEX_POWER_MODE_PRESET === "arcade" ? "arcade" : "focus",
-    edge: NATIVE_EDGES.has(environment.CODEX_POWER_MODE_EDGE) ? environment.CODEX_POWER_MODE_EDGE : "top-right",
+    schemaVersion: 1,
+    preset: preset === "arcade" ? "arcade" : "focus",
+    edge: NATIVE_EDGES.has(edge) ? edge : "top-right",
     scale: Number.isFinite(parsedScale) ? Math.min(1.6, Math.max(0.75, parsedScale)) : 1.15,
-    reducedMotion: environment.CODEX_POWER_MODE_REDUCED_MOTION === "1",
-    followWhenInactive: environment.CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE === "1"
+    reducedMotion,
+    followWhenInactive,
+    enabled,
+    idleBehavior: IDLE_BEHAVIORS.has(idleBehavior) ? idleBehavior : "hide",
+    language: LANGUAGES.has(language) ? language : "auto",
+    positionX: storedNumber(settings.positionX),
+    positionY: storedNumber(settings.positionY)
   };
 }

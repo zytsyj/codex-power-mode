@@ -42,9 +42,12 @@ main { position: fixed; inset: 0; pointer-events: none; }
   gap: 12px;
   width: 384px;
   filter: drop-shadow(0 16px 28px rgba(0,0,0,.42));
-  transition: width .5s cubic-bezier(.18,.82,.18,1), transform .3s ease;
+  opacity: 1;
+  visibility: visible;
+  transition: width .5s cubic-bezier(.18,.82,.18,1), transform .3s ease, opacity .32s ease, visibility 0s;
 }
 .power-system.collapsed { width: 82px; }
+.power-system.idle-hidden { opacity: 0; visibility: hidden; transform: translateY(-7px) scale(.96); transition: opacity .32s ease, transform .32s ease, visibility 0s .32s; }
 
 .reactor-wrap {
   position: relative;
@@ -113,14 +116,14 @@ main { position: fixed; inset: 0; pointer-events: none; }
 .combo-meter {
   position: absolute;
   left: -6px;
-  bottom: -12px;
+  bottom: -18px;
   width: 94px;
-  min-height: 16px;
+  min-height: 20px;
   display: grid;
   grid-template-columns: 23px 1fr 28px;
   align-items: center;
   gap: 4px;
-  padding: 3px 5px;
+  padding: 4px 5px;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 9px;
   color: rgba(235, 242, 255, .78);
@@ -132,7 +135,8 @@ main { position: fixed; inset: 0; pointer-events: none; }
   text-shadow: 0 1px 3px rgba(0,0,0,.8);
 }
 .combo-meter b { color: #fff; font-size: 9px; text-align: right; font-variant-numeric: tabular-nums; }
-.combo-meter > i { height: 4px; overflow: hidden; border-radius: 4px; background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+.combo-meter > i { height: 5px; overflow: hidden; border-radius: 5px; background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+body[data-combo-status="idle"] .combo-meter { opacity: 0; visibility: hidden; }
 .combo-meter > i span { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #f3fbff); box-shadow: 0 0 7px rgba(var(--accent-rgb), .65); transform: scaleX(0); transform-origin: left center; transition: transform .1s linear; }
 .combo-meter em { color: rgba(235,242,255,.46); font-style: normal; text-align: left; }
 body[data-combo-status="holding"] .combo-meter > i span,

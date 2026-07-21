@@ -34,6 +34,82 @@ private struct PowerEvent: Decodable {
     let state: PowerState?
 }
 
+private struct OverlaySettings: Codable, Equatable {
+    var schemaVersion = 1
+    var preset = "focus"
+    var edge = "top-right"
+    var scale = 1.15
+    var reducedMotion = false
+    var followWhenInactive = false
+    var enabled = true
+    var idleBehavior = "hide"
+    var language = "auto"
+    var positionX: Double?
+    var positionY: Double?
+    var endpoint = "http://127.0.0.1:4737/api/stream"
+}
+
+@MainActor
+private final class PowerModePreferences {
+    private(set) var settings: OverlaySettings
+    private let fileURL: URL?
+    var onChange: (() -> Void)?
+
+    init(environment: [String: String]) {
+        fileURL = environment["CODEX_POWER_MODE_CONFIG_PATH"].map { URL(fileURLWithPath: $0) }
+        if let fileURL,
+           let data = try? Data(contentsOf: fileURL),
+           let decoded = try? JSONDecoder().decode(OverlaySettings.self, from: data),
+           decoded.schemaVersion == 1 {
+            settings = decoded
+        } else {
+            settings = OverlaySettings(endpoint: environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream")
+        }
+    }
+
+    var isChinese: Bool {
+        if settings.language == "zh-CN" { return true }
+        if settings.language == "en" { return false }
+        return Locale.preferredLanguages.first?.lowercased().hasPrefix("zh") == true
+    }
+
+    func text(_ english: String, _ chinese: String) -> String { isChinese ? chinese : english }
+
+    func setPreset(_ value: String) { mutate { $0.preset = value } }
+    func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
+    func setLanguage(_ value: String) { mutate { $0.language = value } }
+    func setScale(_ value: Double) { mutate { $0.scale = min(1.6, max(0.75, value)) } }
+    func toggleEnabled() { mutate { $0.enabled.toggle() } }
+    func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
+    func toggleFollowWhenInactive() { mutate { $0.followWhenInactive.toggle() } }
+    func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
+    func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "top-right" } }
+
+    private func mutate(_ update: (inout OverlaySettings) -> Void) {
+        update(&settings)
+        save()
+        onChange?()
+    }
+
+    private func save() {
+        guard let fileURL else { return }
+        do {
+            let data = try JSONEncoder.pretty.encode(settings)
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            fputs("Codex Power Mode could not save settings: \(error)\n", stderr)
+        }
+    }
+}
+
+private extension JSONEncoder {
+    static var pretty: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+}
+
 private struct Particle {
     var position: CGPoint
     var velocity: CGVector
@@ -64,6 +140,7 @@ private struct ScanBeam {
 
 @MainActor
 private final class PowerModeView: NSView {
+    private let preferences: PowerModePreferences
     private var particles: [Particle] = []
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
@@ -82,18 +159,25 @@ private final class PowerModeView: NSView {
     private var comboBrokenAt: Date?
     private var comboWasAnimating = false
     private var streamConnected: Bool?
-    private let isoDateFormatter = ISO8601DateFormatter()
-    private let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || ProcessInfo.processInfo.environment["CODEX_POWER_MODE_REDUCED_MOTION"] == "1"
-    private let arcadeMode = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PRESET"] == "arcade"
-    private let hudScale: CGFloat = {
-        guard let raw = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SCALE"], let value = Double(raw) else { return 1.15 }
-        return CGFloat(min(1.6, max(0.75, value)))
+    private var hudAlpha: CGFloat = 0
+    private var positioning = false
+    private var dragOffset: CGPoint?
+    private var dragPosition: CGPoint?
+    private let isoDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
     }()
-    private let edge = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_EDGE"] ?? "top-right"
+    var onPositioningFinished: (() -> Void)?
+    private var reducedMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || preferences.settings.reducedMotion }
+    private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
+    private var hudScale: CGFloat { CGFloat(preferences.settings.scale) }
+    private var edge: String { preferences.settings.edge }
 
     override var isOpaque: Bool { false }
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, preferences: PowerModePreferences) {
+        self.preferences = preferences
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -115,10 +199,66 @@ private final class PowerModeView: NSView {
 
     deinit { timer?.invalidate() }
 
+    func preferencesChanged() {
+        scheduleTick(highFrequency: !reducedMotion)
+        needsDisplay = true
+    }
+
+    func beginPositioning() {
+        positioning = true
+        hudExpandedUntil = .distantFuture
+        hudAlpha = 1
+        needsDisplay = true
+    }
+
+    func cancelPositioning() {
+        positioning = false
+        dragOffset = nil
+        dragPosition = nil
+        hudExpandedUntil = Date().addingTimeInterval(1.2)
+        needsDisplay = true
+    }
+
+    func hudContains(windowPoint: CGPoint) -> Bool {
+        if dragOffset != nil { return true }
+        let local = convert(windowPoint, from: nil)
+        return currentHudRect().insetBy(dx: -8, dy: -14).contains(local)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard positioning else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let rect = currentHudRect()
+        guard rect.insetBy(dx: -8, dy: -14).contains(point) else { return }
+        dragOffset = CGPoint(x: point.x - rect.minX, y: point.y - rect.minY)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard positioning, let dragOffset else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let size = currentHudRect().size
+        let origin = CGPoint(x: point.x - dragOffset.x, y: point.y - dragOffset.y)
+        let centerX = min(bounds.maxX - size.width / 2, max(size.width / 2, origin.x + size.width / 2))
+        let centerY = min(bounds.maxY - size.height / 2, max(size.height / 2, origin.y + size.height / 2))
+        dragPosition = CGPoint(x: centerX / max(1, bounds.width), y: centerY / max(1, bounds.height))
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard positioning, dragOffset != nil else { return }
+        dragOffset = nil
+        if let dragPosition {
+            preferences.setPosition(x: Double(dragPosition.x), y: Double(dragPosition.y))
+            self.dragPosition = nil
+        }
+        cancelPositioning()
+        onPositioningFinished?()
+    }
+
     func setStreamConnected(_ connected: Bool) {
         guard streamConnected != connected else { return }
         streamConnected = connected
-        eventText = connected ? "EVENT STREAM ONLINE" : "RECONNECTING TO POWER SERVICE"
+        eventText = connected ? preferences.text("EVENT STREAM ONLINE", "事件流已连接") : preferences.text("RECONNECTING TO POWER SERVICE", "正在重新连接")
         hudExpandedUntil = Date().addingTimeInterval(connected ? 1.8 : 3.2)
         scheduleTick(highFrequency: !reducedMotion)
         needsDisplay = true
@@ -216,26 +356,74 @@ private final class PowerModeView: NSView {
 
     private func describe(_ event: PowerEvent) -> String {
         switch event.type {
-        case "activity-start": return event.phase == "observe" ? "READING CONTEXT" : event.phase == "verify" ? "BUILDING EVIDENCE" : "STARTING TOOL"
-        case "permission-request": return "WAITING FOR YOUR APPROVAL"
-        case "edit": return "CHANGE APPLIED  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
-        case "edit-failure": return "CHANGE COULD NOT BE APPLIED"
-        case "verification": return "\((event.category ?? "CHECK").uppercased()) \(event.success == true ? "PASSED" : "FAILED")"
+        case "activity-start": return event.phase == "observe" ? preferences.text("READING CONTEXT", "正在读取上下文") : event.phase == "verify" ? preferences.text("BUILDING EVIDENCE", "正在建立验证证据") : preferences.text("STARTING TOOL", "正在执行工具")
+        case "permission-request": return preferences.text("WAITING FOR YOUR APPROVAL", "等待你的授权")
+        case "edit": return preferences.text("CHANGE APPLIED", "修改已应用") + "  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
+        case "edit-failure": return preferences.text("CHANGE COULD NOT BE APPLIED", "修改应用失败")
+        case "verification": return "\(localizedCategory(event.category)) \(event.success == true ? preferences.text("PASSED", "通过") : preferences.text("FAILED", "失败"))"
         case "turn-stop":
             switch event.state?.completion {
-            case "verified": return "COMPLETED WITH EVIDENCE"
-            case "cancelled": return "APPROVAL WAS NOT GRANTED"
-            case "no-change": return "TURN COMPLETE — NO CODE CHANGES"
-            default: return "VERIFICATION RECOMMENDED"
+            case "verified": return preferences.text("COMPLETED WITH EVIDENCE", "已完成并通过验证")
+            case "cancelled": return preferences.text("APPROVAL WAS NOT GRANTED", "未获得授权")
+            case "no-change": return preferences.text("TURN COMPLETE — NO CODE CHANGES", "回合完成 — 无代码修改")
+            default: return preferences.text("VERIFICATION RECOMMENDED", "建议进行验证")
             }
-        case "connected": return "POWER MODE ONLINE"
+        case "connected": return preferences.text("POWER MODE ONLINE", "POWER MODE 已连接")
         default: return event.type.uppercased()
         }
+    }
+
+    private func localizedCategory(_ category: String?) -> String {
+        switch category {
+        case "test": return preferences.text("TEST", "测试")
+        case "build": return preferences.text("BUILD", "构建")
+        case "lint": return preferences.text("LINT", "检查")
+        default: return preferences.text("CHECK", "验证")
+        }
+    }
+
+    private func localizedPhase(_ phase: String) -> String {
+        if state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
+        if state.completion == "unverified" { return preferences.text("UNVERIFIED", "未验证") }
+        switch phase {
+        case "OBSERVE": return preferences.text("OBSERVE", "观察")
+        case "ACT": return preferences.text("ACT", "执行")
+        case "VERIFY": return preferences.text("VERIFY", "验证")
+        case "WAIT": return preferences.text("WAIT", "等待")
+        case "RECOVER": return preferences.text("RECOVER", "恢复")
+        case "COMPLETE": return preferences.text("COMPLETE", "完成")
+        default: return phase
+        }
+    }
+
+    private func localizedActivity() -> String {
+        if state.status == "needs-attention" { return preferences.text("Waiting for your approval", "等待你的授权") }
+        if state.status == "failed" || state.phase == "recover" { return preferences.text("Repairing the latest failure", "正在修复最近的失败") }
+        if state.completion == "verified" { return preferences.text("Latest changes are backed by evidence", "最新修改已有验证证据") }
+        if state.completion == "unverified" { return preferences.text("Verification is recommended", "建议进行验证") }
+        if state.phase == "verify" { return preferences.text("Building confidence in the change", "正在验证修改") }
+        if state.phase == "act" { return preferences.text("Applying a scoped change", "正在执行修改") }
+        if state.phase == "observe" { return preferences.text("Reading and understanding context", "正在读取并理解上下文") }
+        return preferences.text("Codex is working", "Codex 正在工作")
     }
 
     private func hudOrigin(size: CGSize) -> CGPoint {
         let preferredMargin: CGFloat = 36
         let safeMargin: CGFloat = 12
+        let storedPosition = dragPosition ?? {
+            guard let x = preferences.settings.positionX, let y = preferences.settings.positionY else { return nil }
+            return CGPoint(x: x, y: y)
+        }()
+        if let storedPosition {
+            let desired = CGPoint(
+                x: bounds.width * storedPosition.x - size.width / 2,
+                y: bounds.height * storedPosition.y - size.height / 2
+            )
+            return CGPoint(
+                x: min(bounds.width - size.width - safeMargin, max(safeMargin, desired.x)),
+                y: min(bounds.height - size.height - safeMargin, max(safeMargin, desired.y))
+            )
+        }
         let left = min(preferredMargin, max(safeMargin, bounds.width - size.width - safeMargin))
         let right = max(safeMargin, bounds.width - size.width - preferredMargin)
         let bottom = min(preferredMargin, max(safeMargin, bounds.height - size.height - safeMargin))
@@ -256,8 +444,27 @@ private final class PowerModeView: NSView {
     }
 
     private func hudBaseSize(expanded: Bool? = nil) -> CGSize {
-        let isExpanded = expanded ?? (Date() < hudExpandedUntil)
+        let isExpanded = expanded ?? (positioning || preferences.settings.idleBehavior == "always" || Date() < hudExpandedUntil)
         return isExpanded ? CGSize(width: 322, height: 82) : CGSize(width: 82, height: 82)
+    }
+
+    private func currentHudRect(now: Date = Date()) -> CGRect {
+        let expanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
+        let baseSize = hudBaseSize(expanded: expanded)
+        let scale = effectiveHudScale(for: baseSize)
+        let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
+        return CGRect(origin: hudOrigin(size: size), size: size)
+    }
+
+    private func shouldShowHUD(now: Date) -> Bool {
+        guard preferences.settings.enabled else { return false }
+        if positioning || streamConnected != true { return true }
+        if preferences.settings.idleBehavior != "hide" { return true }
+        if state.phase == "wait" || state.phase == "recover" || state.status == "needs-attention" || state.status == "failed" { return true }
+        if state.status == "working" { return true }
+        if now < hudExpandedUntil { return true }
+        let combo = comboSnapshot(now: now)
+        return combo.active || combo.lost
     }
 
     private func reactorCenter() -> CGPoint {
@@ -453,7 +660,7 @@ private final class PowerModeView: NSView {
         dangerAlpha = max(0, dangerAlpha - 0.009)
         shake = max(0, shake * 0.88 - 0.04)
         shakePhase += 1
-        let hudIsExpanded = now < hudExpandedUntil
+        let hudIsExpanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
         if hudIsExpanded != hudWasExpanded {
             hudWasExpanded = hudIsExpanded
             needsDisplay = true
@@ -466,8 +673,13 @@ private final class PowerModeView: NSView {
         }
         let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
         let comboIsDecaying = (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
-        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying)
-        if hasEffects || hudIsExpanded || comboIsAnimating { needsDisplay = true }
+        let targetAlpha: CGFloat = shouldShowHUD(now: now) ? 1 : 0
+        let previousAlpha = hudAlpha
+        let fadeStep: CGFloat = reducedMotion ? 1 : 0.12
+        hudAlpha += min(fadeStep, max(-fadeStep, targetAlpha - hudAlpha))
+        let hudIsFading = abs(hudAlpha - targetAlpha) > 0.001
+        let needsHighFrequency = !reducedMotion && (hasEffects || hudIsExpanded || comboIsDecaying || hudIsFading)
+        if hasEffects || hudIsExpanded || comboIsAnimating || previousAlpha != hudAlpha { needsDisplay = true }
         scheduleTick(highFrequency: needsHighFrequency)
     }
 
@@ -519,11 +731,11 @@ private final class PowerModeView: NSView {
             context.setLineWidth(10)
             context.stroke(inset)
         }
-        drawHUD()
+        if hudAlpha > 0.001 { drawHUD() }
     }
 
     private func drawHUD() {
-        let expanded = Date() < hudExpandedUntil
+        let expanded = positioning || preferences.settings.idleBehavior == "always" || Date() < hudExpandedUntil
         let baseSize = hudBaseSize(expanded: expanded)
         let scale = effectiveHudScale(for: baseSize)
         let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
@@ -535,9 +747,10 @@ private final class PowerModeView: NSView {
         let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
         let phase = (state.phase ?? "observe").uppercased()
         let phaseColor: NSColor = state.completion == "cancelled" ? .systemOrange : state.completion == "unverified" ? .systemYellow : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
-        let phaseLabel = state.completion == "cancelled" ? "CANCELLED" : state.completion == "unverified" ? "UNVERIFIED" : phase
+        let phaseLabel = localizedPhase(phase)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
+        context.setAlpha(hudAlpha)
         context.translateBy(x: screenOrigin.x, y: screenOrigin.y)
         context.scaleBy(x: scale, y: scale)
         let origin = CGPoint.zero
@@ -585,7 +798,7 @@ private final class PowerModeView: NSView {
 
         let value = "\(momentum)"
         drawText(value, at: CGPoint(x: origin.x + (value.count > 2 ? 21 : value.count > 1 ? 27 : 34), y: origin.y + 34), font: .systemFont(ofSize: 21, weight: .bold), color: .white)
-        drawText("POWER", at: CGPoint(x: origin.x + 29, y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
+        drawText(preferences.text("POWER", "能量"), at: CGPoint(x: origin.x + (preferences.isChinese ? 33 : 29), y: origin.y + 24), font: .monospacedSystemFont(ofSize: 5.5, weight: .bold), color: NSColor.white.withAlphaComponent(0.52), tracking: 0.9)
         if streamConnected != true {
             let connectionDot = NSBezierPath(ovalIn: CGRect(x: origin.x + 72, y: origin.y + 64, width: 6, height: 6))
             NSColor.systemOrange.setFill()
@@ -609,15 +822,15 @@ private final class PowerModeView: NSView {
 
             drawText("●  \(phaseLabel)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
             let isConnected = streamConnected == true
-            let connectionLabel = isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : "RECONNECTING"
-            drawText(connectionLabel, at: CGPoint(x: origin.x + (isConnected ? 273 : 238), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: 1.0)
+            let connectionLabel = positioning ? preferences.text("DRAG TO POSITION", "拖动调整位置") : isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : preferences.text("RECONNECTING", "重新连接中")
+            drawText(connectionLabel, at: CGPoint(x: origin.x + (positioning || !isConnected ? 226 : 273), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: positioning ? phaseColor : isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: preferences.isChinese ? 0.2 : 1.0)
             drawText(String(eventText.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
-            drawText(String((state.currentActivity ?? "Codex is working").prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
+            drawText(String(localizedActivity().prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
 
-            let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { $0.uppercased() }.joined(separator: "+")) ✓" : "NO EVIDENCE"
-            let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  \((state.riskLevel ?? "low").uppercased()) RISK"
-            let comboCopy = combo.count > 0 ? "  ·  \(combo.count)× COMBO" : ""
-            drawText("\(evidence)  ·  CONF \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: 0.45)
+            let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { localizedCategory($0) }.joined(separator: "+")) ✓" : preferences.text("NO EVIDENCE", "暂无证据")
+            let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  " + preferences.text("RISK", "风险")
+            let comboCopy = combo.count > 0 ? "  ·  \(combo.count)× " + preferences.text("COMBO", "连击") : ""
+            drawText("\(evidence)  ·  \(preferences.text("CONF", "可信度")) \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: preferences.isChinese ? 0.15 : 0.45)
         }
         context.restoreGState()
     }
@@ -774,17 +987,27 @@ private final class PowerModeView: NSView {
     }
 
     private func drawCombo(_ combo: (count: Int, progress: CGFloat, active: Bool, lost: Bool), at origin: CGPoint, color: NSColor) {
-        let trackRect = CGRect(x: origin.x + 13, y: origin.y + 2, width: 46, height: 3)
-        let track = NSBezierPath(roundedRect: trackRect, xRadius: 1.5, yRadius: 1.5)
-        NSColor.white.withAlphaComponent(0.12).setFill()
+        guard combo.active || combo.lost else { return }
+        let capsuleRect = CGRect(x: origin.x + 5, y: origin.y - 23, width: 72, height: 21)
+        let capsule = NSBezierPath(roundedRect: capsuleRect, xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.025, alpha: 0.92).setFill()
+        capsule.fill()
+        color.withAlphaComponent(0.3).setStroke()
+        capsule.lineWidth = 1
+        capsule.stroke()
+
+        let trackRect = CGRect(x: origin.x + 11, y: origin.y - 17, width: 60, height: 5)
+        let track = NSBezierPath(roundedRect: trackRect, xRadius: 2.5, yRadius: 2.5)
+        NSColor.white.withAlphaComponent(0.18).setFill()
         track.fill()
         if combo.progress > 0 {
             let fillRect = CGRect(x: trackRect.minX, y: trackRect.minY, width: trackRect.width * combo.progress, height: trackRect.height)
-            let fill = NSBezierPath(roundedRect: fillRect, xRadius: 1.5, yRadius: 1.5)
+            let fill = NSBezierPath(roundedRect: fillRect, xRadius: 2.5, yRadius: 2.5)
             color.setFill()
             fill.fill()
         }
-        drawText("\(combo.count)×", at: CGPoint(x: origin.x + 63, y: origin.y + 1), font: .monospacedSystemFont(ofSize: 5.8, weight: .bold), color: color.withAlphaComponent(0.9))
+        let copy = combo.lost ? preferences.text("LOST", "断连") : "\(combo.count)× " + preferences.text("COMBO", "连击")
+        drawText(copy, at: CGPoint(x: origin.x + (combo.lost ? 29 : 19), y: origin.y - 10), font: .monospacedSystemFont(ofSize: 6.4, weight: .bold), color: color.withAlphaComponent(0.96), tracking: preferences.isChinese ? 0.2 : 0.55)
     }
 
     private func drawText(_ text: String, at point: CGPoint, font: NSFont, color: NSColor, tracking: CGFloat = 0) {
@@ -881,13 +1104,14 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
 @MainActor
 private final class CodexWindowTracker {
     private weak var panel: NSPanel?
+    private let preferences: PowerModePreferences
     private var timer: Timer?
     private var lastFrame = CGRect.zero
     private let bundleIdentifier = "com.openai.codex"
-    private let followWhenInactive = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE"] == "1"
 
-    init(panel: NSPanel) {
+    init(panel: NSPanel, preferences: PowerModePreferences) {
         self.panel = panel
+        self.preferences = preferences
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
@@ -896,9 +1120,11 @@ private final class CodexWindowTracker {
 
     deinit { timer?.invalidate() }
 
+    func preferencesChanged() { refresh() }
+
     private func refresh() {
         guard let panel else { return }
-        guard followWhenInactive || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleIdentifier else {
+        guard preferences.settings.followWhenInactive || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleIdentifier else {
             panel.orderOut(nil)
             return
         }
@@ -940,14 +1166,21 @@ private final class CodexWindowTracker {
 }
 
 @MainActor
-private final class AppDelegate: NSObject, NSApplicationDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var window: NSPanel?
     private var stream: EventStream?
     private var tracker: CodexWindowTracker?
+    private var preferences: PowerModePreferences?
+    private var statusItem: NSStatusItem?
+    private var positioning = false
+    private var globalMouseMonitor: Any?
+    private var localMouseMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { NSApp.terminate(nil); return }
+        let preferences = PowerModePreferences(environment: environment)
+        self.preferences = preferences
 
         let panel = NSPanel(
             contentRect: CGRect(origin: screen.frame.origin, size: CGSize(width: 900, height: 700)),
@@ -963,9 +1196,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
-        panel.contentView = PowerModeView(frame: CGRect(origin: .zero, size: CGSize(width: 900, height: 700)))
+        panel.acceptsMouseMovedEvents = true
+        let powerView = PowerModeView(frame: CGRect(origin: .zero, size: CGSize(width: 900, height: 700)), preferences: preferences)
+        powerView.onPositioningFinished = { [weak self] in self?.setPositioning(false) }
+        panel.contentView = powerView
         window = panel
-        tracker = CodexWindowTracker(panel: panel)
+        tracker = CodexWindowTracker(panel: panel, preferences: preferences)
+        preferences.onChange = { [weak self, weak powerView] in
+            powerView?.preferencesChanged()
+            self?.tracker?.preferencesChanged()
+            self?.rebuildMenu()
+        }
+        installStatusItem()
 
         let endpoint = environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream"
         guard let url = URL(string: endpoint), let view = panel.contentView as? PowerModeView else { return }
@@ -976,7 +1218,158 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         stream = client
     }
 
-    func applicationWillTerminate(_ notification: Notification) { stream?.stop() }
+    func applicationWillTerminate(_ notification: Notification) {
+        removeMouseMonitors()
+        stream?.stop()
+    }
+
+    private func installStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(systemSymbolName: "bolt.circle.fill", accessibilityDescription: "Codex Power Mode")
+        let menu = NSMenu()
+        menu.delegate = self
+        item.menu = menu
+        statusItem = item
+        rebuildMenu()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) { rebuildMenu() }
+
+    private func rebuildMenu() {
+        guard let menu = statusItem?.menu, let preferences else { return }
+        menu.removeAllItems()
+        let title = NSMenuItem(title: "Codex Power Mode", action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+        menu.addItem(.separator())
+
+        let enabled = NSMenuItem(title: preferences.text("Enabled", "启用"), action: #selector(toggleEnabled), keyEquivalent: "")
+        enabled.target = self
+        enabled.state = preferences.settings.enabled ? .on : .off
+        menu.addItem(enabled)
+
+        menu.addItem(submenu(
+            title: preferences.text("Effect", "效果"),
+            choices: [("focus", "Focus"), ("arcade", "Arcade")],
+            selected: preferences.settings.preset,
+            action: #selector(selectPreset)
+        ))
+        menu.addItem(submenu(
+            title: preferences.text("When idle", "静止状态"),
+            choices: [
+                ("hide", preferences.text("Auto hide", "自动隐藏")),
+                ("orb", preferences.text("Keep orb", "保留小球")),
+                ("always", preferences.text("Always expanded", "始终展开"))
+            ],
+            selected: preferences.settings.idleBehavior,
+            action: #selector(selectIdleBehavior)
+        ))
+        menu.addItem(submenu(
+            title: preferences.text("Language", "语言"),
+            choices: [("auto", preferences.text("System", "跟随系统")), ("zh-CN", "中文"), ("en", "English")],
+            selected: preferences.settings.language,
+            action: #selector(selectLanguage)
+        ))
+        menu.addItem(submenu(
+            title: preferences.text("Size", "大小"),
+            choices: [("0.9", "90%"), ("1.0", "100%"), ("1.15", "115%"), ("1.3", "130%"), ("1.5", "150%")],
+            selected: String(preferences.settings.scale),
+            action: #selector(selectScale),
+            numericSelected: preferences.settings.scale
+        ))
+
+        menu.addItem(.separator())
+        let adjust = NSMenuItem(title: positioning ? preferences.text("Finish positioning", "完成位置调整") : preferences.text("Adjust position…", "调整位置…"), action: #selector(togglePositioning), keyEquivalent: "p")
+        adjust.keyEquivalentModifierMask = [.command, .option]
+        adjust.target = self
+        adjust.state = positioning ? .on : .off
+        menu.addItem(adjust)
+        let reset = NSMenuItem(title: preferences.text("Reset position", "重置位置"), action: #selector(resetPosition), keyEquivalent: "")
+        reset.target = self
+        menu.addItem(reset)
+
+        let reduced = NSMenuItem(title: preferences.text("Reduce motion", "减少动态效果"), action: #selector(toggleReducedMotion), keyEquivalent: "")
+        reduced.target = self
+        reduced.state = preferences.settings.reducedMotion ? .on : .off
+        menu.addItem(reduced)
+        let follow = NSMenuItem(title: preferences.text("Show when Codex is inactive", "Codex 非前台时显示"), action: #selector(toggleFollow), keyEquivalent: "")
+        follow.target = self
+        follow.state = preferences.settings.followWhenInactive ? .on : .off
+        menu.addItem(follow)
+
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: preferences.text("Quit Power Mode", "退出 Power Mode"), action: #selector(quitOverlay), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+    }
+
+    private func submenu(title: String, choices: [(String, String)], selected: String, action: Selector, numericSelected: Double? = nil) -> NSMenuItem {
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let menu = NSMenu(title: title)
+        for (value, label) in choices {
+            let item = NSMenuItem(title: label, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            if let numericSelected, let number = Double(value) {
+                item.state = abs(number - numericSelected) < 0.001 ? .on : .off
+            } else {
+                item.state = value == selected ? .on : .off
+            }
+            menu.addItem(item)
+        }
+        parent.submenu = menu
+        return parent
+    }
+
+    @objc private func toggleEnabled() { preferences?.toggleEnabled() }
+    @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
+    @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
+    @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }
+    @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
+    @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
+    @objc private func toggleFollow() { preferences?.toggleFollowWhenInactive() }
+    @objc private func resetPosition() { preferences?.resetPosition() }
+    @objc private func togglePositioning() { setPositioning(!positioning) }
+    @objc private func quitOverlay() { NSApp.terminate(nil) }
+
+    private func setPositioning(_ active: Bool) {
+        positioning = active
+        guard let panel = window, let view = panel.contentView as? PowerModeView else { return }
+        if active {
+            view.beginPositioning()
+            installMouseMonitors()
+            updateMouseCapture()
+        } else {
+            view.cancelPositioning()
+            removeMouseMonitors()
+            panel.ignoresMouseEvents = true
+        }
+        rebuildMenu()
+    }
+
+    private func installMouseMonitors() {
+        removeMouseMonitors()
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] _ in
+            Task { @MainActor in self?.updateMouseCapture() }
+        }
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            self?.updateMouseCapture()
+            return event
+        }
+    }
+
+    private func removeMouseMonitors() {
+        if let globalMouseMonitor { NSEvent.removeMonitor(globalMouseMonitor) }
+        if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
+        globalMouseMonitor = nil
+        localMouseMonitor = nil
+    }
+
+    private func updateMouseCapture() {
+        guard positioning, let panel = window, let view = panel.contentView as? PowerModeView else { return }
+        let windowPoint = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
+        panel.ignoresMouseEvents = !view.hudContains(windowPoint: windowPoint)
+    }
 }
 
 @main

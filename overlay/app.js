@@ -1,8 +1,11 @@
 const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
-const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "phase", "event", "status-copy", "confidence", "evidence", "risk-level", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
+const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "power-label", "phase", "event", "status-copy", "confidence", "evidence", "risk-level", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
 const parameters = new URLSearchParams(location.search);
+const requestedLanguage = parameters.get("lang") || "auto";
+const chinese = requestedLanguage === "zh-CN" || requestedLanguage === "auto" && navigator.language.toLowerCase().startsWith("zh");
+const idleBehavior = ["hide", "orb", "always"].includes(parameters.get("idle")) ? parameters.get("idle") : "hide";
 const reducedMotion = parameters.get("motion") === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches;
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
@@ -21,9 +24,22 @@ let state = {};
 let scale = devicePixelRatio || 1;
 let collapseTimer;
 let effectsFrame = null;
+let hudVisibleUntil = Date.now() + 1800;
+let connectionOnline = false;
+
+const copy = {
+  power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
+  observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"],
+  cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "连击"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
+  approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], observing: ["Reading and understanding context", "正在读取并理解上下文"],
+  confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
+};
+const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
 
 document.body.dataset.preset = preset;
 document.body.dataset.motion = reducedMotion ? "reduced" : "full";
+document.documentElement.lang = chinese ? "zh-CN" : "en";
+elements["power-label"].textContent = t("power");
 if (parameters.get("preview") === "light") document.body.dataset.preview = "light";
 
 const palette = {
@@ -62,7 +78,7 @@ if (previewMode) {
   if (previewOffline) setConnection(false, false);
   else {
     document.body.dataset.connection = "preview";
-    elements.connection.textContent = "PREVIEW";
+    elements.connection.textContent = t("preview");
   }
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
@@ -71,8 +87,9 @@ if (previewMode) {
 }
 
 function setConnection(connected, announce = true) {
+  connectionOnline = connected;
   document.body.dataset.connection = connected ? "online" : "offline";
-  elements.connection.textContent = connected ? "ONLINE" : "RECONNECTING";
+  elements.connection.textContent = connected ? t("online") : t("reconnecting");
   if (announce) expand(connected ? 1800 : 3200);
 }
 
@@ -95,7 +112,8 @@ function workOrigin() {
 function expand(duration = 2100) {
   clearTimeout(collapseTimer);
   elements.hud.classList.remove("collapsed");
-  if (duration > 0) collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
+  hudVisibleUntil = Math.max(hudVisibleUntil, Date.now() + Math.max(0, duration));
+  if (duration > 0 && idleBehavior !== "always") collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
 }
 
 function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin()) {
@@ -187,16 +205,16 @@ function frame() {
 }
 
 function statusCopy(next) {
-  if (next.phase === "wait") return "Your approval is needed";
-  if (next.completion === "cancelled") return "Approval was not granted";
-  if (next.completion === "unverified") return "Run verification before relying on these changes";
-  if (next.completion === "no-change") return "No code changes were made";
-  if (next.phase === "recover") return "Confidence dropped; repairing the latest change";
-  if (next.phase === "complete" && next.completion === "verified") return "Latest changes are backed by evidence";
-  if (next.phase === "complete") return "Verification is still recommended";
-  if (next.phase === "verify") return "Building confidence in the change";
-  if (next.phase === "act") return "Applying a scoped change";
-  return "Reading and understanding context";
+  if (next.phase === "wait") return t("approval");
+  if (next.completion === "cancelled") return t("approvalDenied");
+  if (next.completion === "unverified") return t("verifyRecommended");
+  if (next.completion === "no-change") return t("noChanges");
+  if (next.phase === "recover") return t("recovering");
+  if (next.phase === "complete" && next.completion === "verified") return t("verified");
+  if (next.phase === "complete") return t("verifyRecommended");
+  if (next.phase === "verify") return t("checking");
+  if (next.phase === "act") return t("acting");
+  return t("observing");
 }
 
 function comboProgressAt(next, now = Date.now()) {
@@ -217,11 +235,20 @@ function renderCombo(now = Date.now()) {
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const recentlyLost = Number.isFinite(disconnectedAt) && now < disconnectedAt + 3_200;
   const status = active ? (state.comboStatus ?? "decaying") : recentlyLost ? "broken" : "idle";
-  const labels = { holding: "HOLD", waiting: "WAIT", decaying: "LINK", complete: "DONE", broken: "LOST", idle: "READY" };
+  const labels = { holding: t("hold"), waiting: t("waiting"), decaying: t("link"), complete: t("done"), broken: t("lost"), idle: t("ready") };
   elements["combo-count"].textContent = `${active ? state.combo : 0}×`;
   elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;
   elements["combo-status"].textContent = labels[status] ?? "LINK";
   document.body.dataset.comboStatus = status;
+  updateIdleVisibility(now, active || recentlyLost);
+}
+
+function updateIdleVisibility(now = Date.now(), comboVisible = false) {
+  if (previewMode) return;
+  const urgent = state.phase === "wait" || state.phase === "recover" || state.status === "needs-attention" || state.status === "failed";
+  const working = state.status === "working";
+  const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || now < hudVisibleUntil;
+  elements.hud.classList.toggle("idle-hidden", !visible);
 }
 
 function render(next = state) {
@@ -233,13 +260,13 @@ function render(next = state) {
   document.body.dataset.completion = state.completion ?? "none";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
-  elements.phase.textContent = state.completion === "cancelled" ? "CANCELLED" : state.completion === "unverified" ? "UNVERIFIED" : phase.toUpperCase();
-  elements.event.textContent = state.currentActivity ?? "Codex Power ready";
+  elements.phase.textContent = state.completion === "cancelled" ? t("cancelled") : state.completion === "unverified" ? t("unverified") : t(phase);
+  elements.event.textContent = statusCopy(state);
   elements["status-copy"].textContent = statusCopy(state);
-  elements.confidence.textContent = `CONF ${state.confidence ?? 0}%`;
-  elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : "NO EVIDENCE";
+  elements.confidence.textContent = `${t("confidence")} ${state.confidence ?? 0}%`;
+  elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : t("noEvidence");
   const riskLevel = String(state.riskLevel ?? "low");
-  elements["risk-level"].textContent = `${riskLevel.toUpperCase()} RISK`;
+  elements["risk-level"].textContent = `${riskLevel.toUpperCase()} ${t("risk")}`;
   elements["risk-level"].dataset.level = riskLevel;
   renderCombo();
 }

@@ -17,8 +17,9 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay constrained to the Codex window.
 - Includes semantic demo and recent-event replay tools for visual tuning.
-- Auto-collapses to a small transparent Momentum orb between events.
+- Auto-hides after activity and Combo expire, while Wait, Recover, and reconnect states remain visible.
 - Supports restrained `focus` and high-energy `arcade` effect presets.
+- Adds a lightweight macOS menu-bar control for language, effects, idle behavior, size, motion, and drag positioning.
 
 ## Try it locally
 
@@ -49,6 +50,8 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 
 `npm run status` reports service health, the native overlay PID and launch configuration, the current semantic state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
+The macOS menu-bar bolt is the settings entry point. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. Settings are saved immediately in the versioned `overlay-config.json`; pre-schema development settings are intentionally reset rather than migrated.
+
 Optional environment variables:
 
 - `CODEX_POWER_MODE_EDGE`: `top-right` (default), `top-left`, `bottom-right`, `bottom-left`, or `center`.
@@ -57,6 +60,9 @@ Optional environment variables:
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
+- `CODEX_POWER_MODE_IDLE`: `hide` (default), `orb`, or `always`.
+- `CODEX_POWER_MODE_LANGUAGE`: `auto` (default), `zh-CN`, or `en`.
+- `CODEX_POWER_MODE_ENABLED=0`: disable drawing while keeping the local service available.
 - `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
 - `CODEX_POWER_MODE_PORT`: local event-service port used consistently by the server, hooks, browser HUD, and native overlay. Defaults to `4737`.
 - `CODEX_POWER_MODE_AUTO_NATIVE=0`: keep automatic session startup limited to the event service instead of launching the macOS overlay.
@@ -95,6 +101,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Permission waits preserve Combo for 15 seconds before draining, so approval latency is not treated as an instant failure.
 - Failed verification and unverified completion break Combo immediately.
 - An expired link, a new turn, or a new Codex session starts again at `1×`; Combo cannot increase forever across unrelated work.
+- Active Combo uses a dedicated high-contrast bar below the orb; the bar drains continuously and flashes `LOST` / `断连` after a break.
 
 ## Roadmap
 

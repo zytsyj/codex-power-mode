@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   nativeConfigFromEnvironment,
-  nativeStreamEndpointFromConfiguration,
   nativeStreamEndpointFromEnvironment,
   serviceEndpointFromEnvironment
 } from "../src/config.mjs";
@@ -129,7 +129,48 @@ async function buildNativeOverlay() {
     "-framework", "AppKit", "-framework", "Foundation",
     "-o", nativeBinary
   ], { cwd: root, encoding: "utf8" });
-  if (result.status !== 0) throw new Error(`Native overlay build failed:\n${result.stderr || result.stdout}`);
+  if (result.status === 0) return;
+
+  const firstError = result.stderr || result.stdout || "Unknown Swift compiler failure";
+  if (!/llbuild|code object is not signed|mapped file has no Team ID/i.test(firstError)) {
+    throw new Error(`Native overlay build failed:\n${firstError}`);
+  }
+
+  const compilerResult = spawnSync("xcrun", ["--find", "swiftc"], { encoding: "utf8" });
+  const sdkResult = spawnSync("xcrun", ["--show-sdk-path"], { encoding: "utf8" });
+  const compiler = compilerResult.stdout?.trim();
+  const sdk = sdkResult.stdout?.trim();
+  if (compilerResult.status !== 0 || sdkResult.status !== 0 || !compiler || !sdk) {
+    throw new Error(`Native overlay build failed:\n${firstError}`);
+  }
+
+  const swiftRoot = path.resolve(path.dirname(compiler), "..");
+  const llbuildSource = path.join(swiftRoot, "lib/swift/pm/llbuild/llbuild.framework");
+  const repairDir = await mkdtemp(path.join(tmpdir(), "codex-power-mode-swift-"));
+  const llbuildRepair = path.join(repairDir, "llbuild.framework");
+  try {
+    const copyResult = spawnSync("cp", ["-R", llbuildSource, llbuildRepair], { encoding: "utf8" });
+    if (copyResult.status !== 0) throw new Error(copyResult.stderr || copyResult.stdout);
+    const signResult = spawnSync("codesign", ["--force", "--deep", "--sign", "-", llbuildRepair], { encoding: "utf8" });
+    if (signResult.status !== 0) throw new Error(signResult.stderr || signResult.stdout);
+    const architecture = process.arch === "x64" ? "x86_64" : process.arch;
+    const repairedResult = spawnSync(compiler, [
+      "-sdk", sdk,
+      "-target", `${architecture}-apple-macosx13.0`,
+      "-swift-version", "5", "-parse-as-library", "-O", source,
+      "-framework", "AppKit", "-framework", "Foundation",
+      "-o", nativeBinary
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, DYLD_FRAMEWORK_PATH: repairDir, DYLD_FALLBACK_FRAMEWORK_PATH: repairDir }
+    });
+    if (repairedResult.status !== 0) throw new Error(repairedResult.stderr || repairedResult.stdout);
+  } catch (error) {
+    throw new Error(`Native overlay build failed:\n${firstError}\nAutomatic llbuild repair also failed:\n${error.message}`);
+  } finally {
+    await rm(repairDir, { recursive: true, force: true });
+  }
 }
 
 async function startNative() {
@@ -137,7 +178,11 @@ async function startNative() {
   const existing = await currentNativePid();
   const streamEndpoint = nativeStreamEndpointFromEnvironment(process.env);
   const currentConfiguration = await readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => ({}));
-  if (existing && nativeStreamEndpointFromConfiguration(currentConfiguration) === streamEndpoint) {
+  const nextConfiguration = {
+    ...nativeConfigFromEnvironment(process.env, currentConfiguration),
+    endpoint: streamEndpoint
+  };
+  if (existing && JSON.stringify(currentConfiguration) === JSON.stringify(nextConfiguration)) {
     process.stdout.write(`Native overlay already running (PID ${existing})\n`);
     return;
   }
@@ -148,20 +193,18 @@ async function startNative() {
     }
   }
   await buildNativeOverlay();
+  await writeFile(nativeConfigFile, `${JSON.stringify(nextConfiguration, null, 2)}\n`);
   const child = spawn(nativeBinary, [], {
     detached: true,
     stdio: "ignore",
     env: {
       ...process.env,
-      CODEX_POWER_MODE_URL: streamEndpoint
+      CODEX_POWER_MODE_URL: streamEndpoint,
+      CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
     }
   });
   child.unref();
   await writeFile(nativePidFile, `${child.pid}\n`);
-  await writeFile(nativeConfigFile, `${JSON.stringify({
-    ...nativeConfigFromEnvironment(process.env),
-    endpoint: streamEndpoint
-  }, null, 2)}\n`);
   process.stdout.write(`Native overlay started (PID ${child.pid})\n`);
 }
 
