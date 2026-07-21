@@ -18,6 +18,7 @@ private struct PowerState: Decodable {
     let currentActivity: String?
     let completion: String?
     let turnStoppedAt: String?
+    let lastActivityAt: String?
     let evidence: [String]?
     let addedLines: Int?
     let removedLines: Int?
@@ -151,7 +152,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -163,6 +164,7 @@ private final class PowerModeView: NSView {
     private var comboExpiresAt: Date?
     private var comboBrokenAt: Date?
     private var turnStoppedAt: Date?
+    private var lastActivityAt: Date?
     private var comboWasAnimating = false
     private var streamConnected: Bool?
     private var hudAlpha: CGFloat = 0
@@ -299,6 +301,7 @@ private final class PowerModeView: NSView {
             comboExpiresAt = nextState.comboExpiresAt.flatMap(isoDateFormatter.date(from:))
             comboBrokenAt = nextState.comboBrokenAt.flatMap(isoDateFormatter.date(from:))
             turnStoppedAt = nextState.turnStoppedAt.flatMap(isoDateFormatter.date(from:))
+            lastActivityAt = nextState.lastActivityAt.flatMap(isoDateFormatter.date(from:))
         }
         eventText = describe(event)
         if event.type == "connected" {
@@ -512,8 +515,10 @@ private final class PowerModeView: NSView {
         let phase = state.phase ?? "observe"
         let status = state.status ?? "ready"
         let momentum = min(100, max(0, state.momentum ?? 0))
-        guard let turnStoppedAt else { return (phase, status, momentum, false, false, false) }
-        let finalHoldEnd = turnStoppedAt.addingTimeInterval(3)
+        let canSettleAbandoned = ["observe", "act", "verify"].contains(phase) && status != "needs-attention" && status != "failed"
+        let effectiveStopAt = turnStoppedAt ?? (canSettleAbandoned ? lastActivityAt?.addingTimeInterval(5 * 60) : nil)
+        guard let effectiveStopAt else { return (phase, status, momentum, false, false, false) }
+        let finalHoldEnd = effectiveStopAt.addingTimeInterval(3)
         let disconnectedAt = comboBrokenAt ?? comboExpiresAt
         let comboEnd = disconnectedAt?.addingTimeInterval(3.2) ?? .distantPast
         let idleAt = max(finalHoldEnd, comboEnd)
@@ -527,11 +532,12 @@ private final class PowerModeView: NSView {
         if positioning || streamConnected != true { return true }
         if preferences.settings.idleBehavior != "hide" { return true }
         if state.phase == "wait" || state.phase == "recover" || state.status == "needs-attention" || state.status == "failed" { return true }
-        if state.status == "working" { return true }
+        let presentation = presentationSnapshot(now: now)
+        if presentation.status == "working" { return true }
         if now < hudExpandedUntil { return true }
         let combo = comboSnapshot(now: now)
         if combo.active || combo.lost { return true }
-        return turnStoppedAt != nil && !presentationSnapshot(now: now).settled
+        return presentation.returning
     }
 
     private func reactorCenter() -> CGPoint {

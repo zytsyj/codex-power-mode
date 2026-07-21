@@ -17,6 +17,7 @@ const intensity = preset === "arcade" ? 1.75 : 1;
 const finalStateHoldMs = 3_000;
 const comboLostMs = 3_200;
 const momentumReturnMs = 4_000;
+const abandonedActivityMs = 5 * 60_000;
 const effectBudget = preset === "arcade"
   ? { particles: 560, rings: 18, scans: 8 }
   : { particles: 280, rings: 10, scans: 4 };
@@ -244,15 +245,18 @@ function statusCopy(next) {
 }
 
 function presentationAt(next, now = Date.now()) {
-  const stoppedAt = Date.parse(next.turnStoppedAt);
+  const explicitStopAt = Date.parse(next.turnStoppedAt);
+  const lastActivityAt = Date.parse(next.lastActivityAt);
+  const canSettleAbandoned = ["observe", "act", "verify"].includes(next.phase) && next.status !== "needs-attention" && next.status !== "failed";
+  const stoppedAt = Number.isFinite(explicitStopAt) ? explicitStopAt : canSettleAbandoned && Number.isFinite(lastActivityAt) ? lastActivityAt + abandonedActivityMs : Number.NaN;
   const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
-  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false };
+  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false };
   const explicitBreak = Date.parse(next.comboBrokenAt);
   const naturalBreak = Date.parse(next.comboExpiresAt);
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const comboEnd = Number.isFinite(disconnectedAt) ? disconnectedAt + comboLostMs : 0;
   const idleAt = Math.max(stoppedAt + finalStateHoldMs, comboEnd);
-  if (now < idleAt) return { ...next, momentum, idle: false, settled: false };
+  if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true };
   const progress = Math.max(0, Math.min(1, (now - idleAt) / momentumReturnMs));
   return {
     ...next,
@@ -262,7 +266,8 @@ function presentationAt(next, now = Date.now()) {
     currentActivity: t("standby"),
     momentum: Math.round(momentum * (1 - progress)),
     idle: true,
-    settled: progress >= 1
+    settled: progress >= 1,
+    returning: progress < 1
   };
 }
 
@@ -296,7 +301,7 @@ function updateIdleVisibility(now = Date.now(), comboVisible = false, presented 
   if (previewMode) return;
   const urgent = presented.phase === "wait" || presented.phase === "recover" || presented.status === "needs-attention" || presented.status === "failed";
   const working = presented.status === "working";
-  const terminalReturning = Boolean(state.turnStoppedAt) && !presented.settled;
+  const terminalReturning = presented.returning;
   const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || terminalReturning || now < hudVisibleUntil;
   elements.hud.classList.toggle("idle-hidden", !visible);
 }

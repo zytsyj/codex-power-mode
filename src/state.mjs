@@ -39,6 +39,7 @@ export const COMBO_DECAY_MS = 12_000;
 export const COMBO_LOST_MS = 3_200;
 export const FINAL_STATE_HOLD_MS = 3_000;
 export const MOMENTUM_RETURN_MS = 4_000;
+export const ABANDONED_ACTIVITY_MS = 5 * 60_000;
 
 const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
 
@@ -92,17 +93,25 @@ export function comboDisplayStatus(state, now = Date.now()) {
 
 export function presentationSnapshot(state, now = Date.now()) {
   const current = typeof now === "number" ? now : Date.parse(now);
-  const stoppedAt = Date.parse(state.turnStoppedAt);
+  const explicitStopAt = Date.parse(state.turnStoppedAt);
+  const lastActivityAt = Date.parse(state.lastActivityAt);
+  const canSettleAbandoned = ["observe", "act", "verify"].includes(state.phase) &&
+    state.status !== "needs-attention" && state.status !== "failed";
+  const stoppedAt = Number.isFinite(explicitStopAt)
+    ? explicitStopAt
+    : canSettleAbandoned && Number.isFinite(lastActivityAt)
+      ? lastActivityAt + ABANDONED_ACTIVITY_MS
+      : Number.NaN;
   const momentum = clamp(state.momentum ?? 0);
   if (!Number.isFinite(current) || !Number.isFinite(stoppedAt)) {
-    return { ...state, momentum, idle: false, settled: false };
+    return { ...state, momentum, idle: false, settled: false, returning: false };
   }
   const explicitBreak = Date.parse(state.comboBrokenAt);
   const naturalBreak = Date.parse(state.comboExpiresAt);
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const comboSettledAt = Number.isFinite(disconnectedAt) ? disconnectedAt + COMBO_LOST_MS : 0;
   const idleAt = Math.max(stoppedAt + FINAL_STATE_HOLD_MS, comboSettledAt);
-  if (current < idleAt) return { ...state, momentum, idle: false, settled: false };
+  if (current < idleAt) return { ...state, momentum, idle: false, settled: false, returning: true };
 
   const progress = clamp((current - idleAt) / MOMENTUM_RETURN_MS, 0, 1);
   return {
@@ -113,7 +122,8 @@ export function presentationSnapshot(state, now = Date.now()) {
     currentActivity: "Waiting for Codex activity",
     momentum: Math.round(momentum * (1 - progress)),
     idle: true,
-    settled: progress >= 1
+    settled: progress >= 1,
+    returning: progress < 1
   };
 }
 

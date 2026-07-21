@@ -119,6 +119,19 @@ test("new work cancels the idle countdown", () => {
   assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
 });
 
+test("abandoned non-terminal activity settles without hiding attention states", () => {
+  const working = reduceState(initialState, {
+    type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(1), sessionId: "s"
+  });
+  assert.equal(presentationSnapshot(working, at(300)).phase, "observe");
+  assert.equal(presentationSnapshot(working, at(305)).phase, "idle");
+  assert.equal(presentationSnapshot(working, at(309)).momentum, 0);
+
+  const waiting = reduceState(working, { type: "permission-request", timestamp: at(2), sessionId: "s" });
+  assert.equal(presentationSnapshot(waiting, at(10_000)).phase, "wait");
+  assert.equal(presentationSnapshot(waiting, at(10_000)).idle, false);
+});
+
 test("unverified edits cannot claim an evidence-backed completion", () => {
   let state = reduceState(initialState, {
     type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, addedChars: 20
