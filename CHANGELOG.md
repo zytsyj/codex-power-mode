@@ -2,6 +2,7 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Changed Wait from a smooth pulse into a double-beat gate alarm with paired amber attention streams.
 - Reworked Verify into four evidence lanes converging on a square core with a four-corner lock silhouette.
 - Gave Act a directional three-chevron silhouette and leftward rectangular drive burst so it no longer reads like Observe or Verify.
 - Entered Observe immediately on `UserPromptSubmit` while deliberately discarding prompt text.

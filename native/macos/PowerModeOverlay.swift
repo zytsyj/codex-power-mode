@@ -327,9 +327,11 @@ private final class PowerModeView: NSView {
                 directionalSparks(color: .systemPurple, count: arcadeMode ? 48 : 26)
             }
         case "permission-request":
-            shockwave(color: .systemYellow, power: 1.0)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
-                self?.shockwave(color: .systemYellow, power: 0.8)
+            attentionGates(color: .systemYellow, count: arcadeMode ? 72 : 42)
+            shockwave(color: .systemYellow, power: 0.58)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { [weak self] in
+                self?.attentionGates(color: .systemYellow, count: self?.arcadeMode == true ? 48 : 28)
+                self?.shockwave(color: .systemYellow, power: 0.42)
             }
         case "edit":
             let added = event.addedLines ?? 0
@@ -605,6 +607,29 @@ private final class PowerModeView: NSView {
                 radius: CGFloat.random(in: 1.0...2.5),
                 color: color,
                 target: target,
+                square: true
+            ))
+        }
+    }
+
+    private func attentionGates(color: NSColor, count: Int) {
+        guard !reducedMotion else { return }
+        let center = reactorCenter()
+        for index in 0..<count {
+            let side: CGFloat = index.isMultiple(of: 2) ? -1 : 1
+            let lane = CGFloat((index / 2) % 5) - 2
+            let life = CGFloat.random(in: 30...46)
+            particles.append(Particle(
+                position: CGPoint(
+                    x: center.x + side * CGFloat.random(in: 68...210),
+                    y: center.y + lane * 11 + CGFloat.random(in: -2...2)
+                ),
+                velocity: .zero,
+                life: life,
+                maxLife: life,
+                radius: CGFloat.random(in: 1.2...3.0),
+                color: color,
+                target: CGPoint(x: center.x + side * 38, y: center.y + lane * 7),
                 square: true
             ))
         }
@@ -894,9 +919,12 @@ private final class PowerModeView: NSView {
     }
 
     private func drawWaitSignal(around origin: CGPoint, color: NSColor) {
-        let oscillation = reducedMotion ? 0 : sin(shakePhase * 0.095)
-        let pulse = 0.62 + (oscillation + 1) * 0.19
-        let reach = 4 + (oscillation + 1) * 2
+        let cycle = reducedMotion ? CGFloat(0) : shakePhase.truncatingRemainder(dividingBy: 72)
+        let firstBeat = max(0, 1 - abs(cycle - 8) / 6)
+        let secondBeat = max(0, 1 - abs(cycle - 22) / 5) * 0.72
+        let beat = min(1, firstBeat + secondBeat)
+        let pulse = reducedMotion ? CGFloat(0.82) : 0.48 + beat * 0.52
+        let reach = reducedMotion ? CGFloat(5) : 3 + beat * 7
         color.withAlphaComponent(pulse).setStroke()
         let gates = NSBezierPath()
         gates.move(to: CGPoint(x: origin.x - reach + 11, y: origin.y + 16))

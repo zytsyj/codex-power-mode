@@ -87,6 +87,7 @@ if (previewMode) {
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
   if (previewEvent === "prompt-submit") setTimeout(() => react({ type: "activity-start", phase: "observe", toolGroup: "prompt", state }), 0);
   if (previewEvent === "activity-start") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state }), 0);
+  if (previewEvent === "permission-request") setTimeout(() => react({ type: "permission-request", state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
   if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
 }
@@ -126,12 +127,16 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
   const count = Math.min(220, Math.round(amount * intensity));
   for (let index = 0; index < count; index += 1) {
     const evidenceLane = index % 4;
+    const gateSide = index % 2 === 0 ? -1 : 1;
+    const gateLane = Math.floor(index / 2) % 5 - 2;
     const angle = mode === "left"
       ? Math.PI - .34 + Math.random() * .68
       : mode === "outward" || mode === "fragments"
       ? Math.PI - .62 + Math.random() * 1.24
       : Math.random() * Math.PI * 2;
-    const source = mode === "evidence"
+    const source = mode === "gate"
+      ? { x: start.x + gateSide * (66 + Math.random() * 150), y: start.y + gateLane * 10 + (Math.random() - .5) * 3 }
+      : mode === "evidence"
       ? { x: start.x - 78 - Math.random() * 190, y: start.y + (evidenceLane - 1.5) * 18 + (Math.random() - .5) * 6 }
       : mode === "inward" ? workOrigin() : start;
     const distance = mode === "inward" ? 18 + Math.random() * 90 : 0;
@@ -141,14 +146,14 @@ function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin(
     const approachFrames = 24 + Math.random() * 12;
     particles.push({
       x, y,
-      vx: mode === "evidence" ? (start.x - x) / approachFrames : mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
-      vy: mode === "evidence" ? (start.y - y) / approachFrames : mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
+      vx: mode === "gate" ? (start.x + gateSide * 38 - x) / 18 : mode === "evidence" ? (start.x - x) / approachFrames : mode === "inward" ? (start.x - x) / (28 + Math.random() * 14) : Math.cos(angle) * speed,
+      vy: mode === "gate" ? (start.y + gateLane * 7 - y) / 18 : mode === "evidence" ? (start.y - y) / approachFrames : mode === "inward" ? (start.y - y) / (28 + Math.random() * 14) : Math.sin(angle) * speed,
       life: 34 + Math.random() * 44,
       maxLife: 78,
       size: .8 + Math.random() * (preset === "arcade" ? 3.2 : 2.1),
       color,
-      drag: mode === "inward" || mode === "evidence" ? 1.012 : .985,
-      square: mode === "fragments" || mode === "left" || mode === "evidence"
+      drag: mode === "inward" || mode === "evidence" ? 1.012 : mode === "gate" ? .995 : .985,
+      square: mode === "fragments" || mode === "left" || mode === "evidence" || mode === "gate"
     });
   }
   scheduleEffectsFrame();
@@ -343,7 +348,8 @@ function react(event) {
     burst(color, 26, .72, "left", start);
     if (preset === "arcade") setTimeout(() => burst(color, 20, .6, "left", start), 110);
   } else if (event.type === "permission-request") {
-    ring(color, .65, start); setTimeout(() => ring(color, .65, start), 320);
+    burst(color, 34, .82, "gate", start); ring(color, .48, start);
+    setTimeout(() => { burst(color, 24, .68, "gate", start); ring(color, .36, start); }, 260);
   } else if (event.type === "edit") {
     burst(color, 38, momentumPower, "outward", start); ring(color, momentumPower, start);
   } else if (event.type === "edit-failure") {
