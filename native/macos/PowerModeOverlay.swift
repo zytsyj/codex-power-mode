@@ -37,6 +37,12 @@ private struct PowerEvent: Decodable {
     let phase: String?
     let toolGroup: String?
     let state: PowerState?
+    let sessionTransition: SessionTransition?
+}
+
+private struct SessionTransition: Decodable {
+    let previousSessionId: String
+    let currentSessionId: String
 }
 
 private struct OverlaySettings: Codable, Equatable {
@@ -344,12 +350,28 @@ private final class PowerModeView: NSView {
         lastLiveEventAt = event.timestamp.flatMap(isoDateFormatter.date(from:)) ?? Date()
         effectGeneration &+= 1
         let generation = effectGeneration
+        let switchedSession = event.sessionTransition != nil
+        if switchedSession {
+            particles.removeAll(keepingCapacity: true)
+            shockwaves.removeAll(keepingCapacity: true)
+            scanBeams.removeAll(keepingCapacity: true)
+        }
         scheduleTick(highFrequency: !reducedMotion)
         let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
         flashAlpha = reducedMotion ? 0 : 0.24
 
         guard !reducedMotion else {
+            needsDisplay = true
+            return
+        }
+
+        if switchedSession {
+            shockwave(color: .systemCyan, power: 0.78)
+            charge(color: .systemCyan, count: arcadeMode ? 54 : 30)
+            scheduleEffect(after: 0.18, generation: generation) { view in
+                view.shockwave(color: .systemPurple, power: 0.62)
+            }
             needsDisplay = true
             return
         }
@@ -439,6 +461,7 @@ private final class PowerModeView: NSView {
     }
 
     private func describe(_ event: PowerEvent) -> String {
+        if event.sessionTransition != nil { return preferences.text("TASK SWITCHED", "任务已切换") }
         switch event.type {
         case "activity-start":
             if event.toolGroup == "prompt" { return preferences.text("UNDERSTANDING REQUEST", "正在理解需求") }

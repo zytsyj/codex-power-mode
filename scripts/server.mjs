@@ -93,12 +93,16 @@ const server = http.createServer(async (request, response) => {
   if (url.pathname === "/api/events" && request.method === "POST") {
     const event = await readBody(request);
     activity.record(event);
+    const previousSession = sessionArbiter.snapshot().activeSessionId;
     const decision = sessionArbiter.consider(event, { mode: await activitySource() });
+    const sessionTransition = decision.switched && previousSession && previousSession !== event.sessionId
+      ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
+      : null;
     if (decision.displayed) {
       if (event.state) await writeStateSnapshot(dataDir, event.state);
-      broadcast(event);
+      broadcast(sessionTransition ? { ...event, sessionTransition } : event);
     }
-    return sendJson(response, 202, { accepted: true, ...decision });
+    return sendJson(response, 202, { accepted: true, ...decision, sessionTransition });
   }
 
   const requested = url.pathname === "/" ? "index.html" : url.pathname.slice(1);

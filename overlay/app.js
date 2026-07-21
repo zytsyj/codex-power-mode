@@ -31,12 +31,14 @@ let effectsFrame = null;
 let hudVisibleUntil = Date.now() + 1800;
 let connectionOnline = false;
 let effectGeneration = 0;
+let sessionTransitionUntil = 0;
 
 const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "连击"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
+  taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
   confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"]
 };
 const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
@@ -89,6 +91,7 @@ if (previewMode) {
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
   if (previewEvent === "prompt-submit") setTimeout(() => react({ type: "activity-start", phase: "observe", toolGroup: "prompt", state }), 0);
   if (previewEvent === "activity-start") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state }), 0);
+  if (previewEvent === "session-switch") setTimeout(() => react({ type: "activity-start", phase: previewPhase, state, sessionTransition: { previousSessionId: "preview-a", currentSessionId: "preview-b" } }), 0);
   if (previewEvent === "permission-request") setTimeout(() => react({ type: "permission-request", state }), 0);
   if (previewEvent === "turn-stop" && cancelledComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
   if (previewEvent === "turn-stop" && unverifiedComplete) setTimeout(() => react({ type: "turn-stop", state }), 0);
@@ -319,6 +322,10 @@ function renderPresentation(now = Date.now()) {
   elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);
   elements.event.textContent = presented.idle ? t("ready") : presented.currentActivity === "Understanding request" ? t("understandingTitle") : statusCopy(presented);
   elements["status-copy"].textContent = statusCopy(presented);
+  if (now < sessionTransitionUntil) {
+    elements.event.textContent = t("taskSwitched");
+    elements["status-copy"].textContent = t("followingTask");
+  }
 }
 
 function render(next = state) {
@@ -348,6 +355,14 @@ function scheduleEffect(delay, generation, effect) {
 
 function react(event) {
   const generation = ++effectGeneration;
+  const switchedSession = Boolean(event.sessionTransition);
+  if (switchedSession) {
+    particles.length = 0;
+    rings.length = 0;
+    scans.length = 0;
+    context.clearRect(0, 0, innerWidth, innerHeight);
+    sessionTransitionUntil = Date.now() + 1800;
+  }
   render(event.state);
   const phase = event.state?.phase ?? event.phase ?? "observe";
   const color = event.state?.completion === "cancelled" ? "#ffad66" : event.state?.completion === "unverified" ? "#ffe07a" : palette[phase];
@@ -358,6 +373,13 @@ function react(event) {
   document.body.classList.remove("event-kick");
   void document.body.offsetWidth;
   document.body.classList.add("event-kick");
+
+  if (switchedSession) {
+    ring("#75dfff", .78, start);
+    burst("#75dfff", 24, .55, "inward", start);
+    scheduleEffect(180, generation, () => ring("#a886ff", .62, start));
+    return;
+  }
 
   if (event.type === "activity-start" && phase === "observe") {
     if (event.toolGroup === "prompt") {

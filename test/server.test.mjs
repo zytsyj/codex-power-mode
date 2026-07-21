@@ -147,7 +147,12 @@ test("event service records concurrent activity without replacing the active HUD
       timestamp: new Date(3_000).toISOString(),
       state: { sessionId: "conversation-b", sessionSource: "desktop", phase: "act", status: "working", momentum: 4 }
     });
-    assert.equal((await global.json()).displayed, true);
+    const globalDecision = await global.json();
+    assert.equal(globalDecision.displayed, true);
+    assert.deepEqual(globalDecision.sessionTransition, {
+      previousSessionId: "conversation-a",
+      currentSessionId: "conversation-b"
+    });
 
     const globalState = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
     const globalHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
