@@ -313,6 +313,55 @@ body[data-phase="complete"][data-completion="verified"] .reactor-wrap::after {
   filter: drop-shadow(0 0 6px rgba(114, 233, 191, .8));
   opacity: 1;
 }
+body[data-phase="complete"][data-completion="unverified"] .reactor-wrap::before {
+  inset: 1px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -20deg, var(--accent) 0 18deg, transparent 18deg 34deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .42));
+  opacity: .78;
+  animation: unverified-hold 1.8s ease-in-out infinite;
+}
+body[data-phase="complete"][data-completion="unverified"] .reactor-wrap::after {
+  content: "!";
+  right: 1px;
+  bottom: 7px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(28,22,8,.94);
+  border: 1px solid var(--accent);
+  color: #fff5c9;
+  font: 800 12px/1 ui-monospace, SFMono-Regular, monospace;
+  box-shadow: 0 0 9px rgba(var(--accent-rgb), .48);
+  opacity: 1;
+}
+body[data-phase="complete"][data-completion="cancelled"] .reactor-wrap::before {
+  inset: 1px;
+  border-radius: 50%;
+  background: conic-gradient(from 18deg, var(--accent) 0 72deg, transparent 72deg 116deg, var(--accent) 116deg 188deg, transparent 188deg 244deg, var(--accent) 244deg 316deg, transparent 316deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .46));
+  opacity: .82;
+}
+body[data-phase="complete"][data-completion="cancelled"] .reactor-wrap::after {
+  right: 1px;
+  bottom: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background:
+    linear-gradient(45deg, transparent 43%, #fff0df 44% 56%, transparent 57%),
+    linear-gradient(-45deg, transparent 43%, #fff0df 44% 56%, transparent 57%),
+    rgba(32,15,7,.94);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 9px rgba(var(--accent-rgb), .5);
+  opacity: 1;
+}
 body[data-status="needs-attention"] .reactor-wrap { animation: attention 1.35s ease-in-out infinite; }
 body[data-status="failed"] .reactor { animation: reactor-fault .16s linear 3; }
 body[data-status="failed"] .tick-ring { animation: fault-spin .7s steps(4) infinite; }
@@ -340,6 +389,7 @@ body.flash::after { content: ""; position: fixed; inset: 0; pointer-events: none
 @keyframes recover-fracture { to { transform: rotate(-16deg) scale(.94); opacity: .55; } }
 @keyframes recover-seam { to { transform: translate(2px, -1px); opacity: .42; } }
 @keyframes complete-halo { to { transform: rotate(360deg); } }
+@keyframes unverified-hold { 50% { opacity: .46; transform: scale(.96); } }
 @keyframes connection-retry { 50% { opacity: .28; transform: scale(.7); } }
 @keyframes combo-hold { 50% { opacity: .48; } }
 @keyframes reactor-fault { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
@@ -379,3 +429,4 @@ body[data-motion="reduced"][data-phase="wait"] .reactor-wrap::after { opacity: .
 body[data-motion="reduced"][data-phase="recover"] .reactor-wrap::before { opacity: .8; transform: rotate(-7deg); }
 body[data-motion="reduced"][data-phase="recover"] .reactor-wrap::after { opacity: .68; transform: none; }
 body[data-motion="reduced"][data-phase="complete"][data-completion="verified"] .reactor-wrap::before { transform: none; }
+body[data-motion="reduced"][data-phase="complete"][data-completion="unverified"] .reactor-wrap::before { opacity: .72; transform: none; }

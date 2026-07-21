@@ -915,7 +915,15 @@ private final class PowerModeView: NSView {
             NSColor.systemOrange.setFill()
             connectionDot.fill()
         }
-        if phase == "COMPLETE" && state.completion == "verified" { drawCompleteSignal(around: origin) }
+        if phase == "COMPLETE" {
+            if state.completion == "verified" {
+                drawCompleteSignal(around: origin)
+            } else if state.completion == "unverified" {
+                drawUnverifiedSignal(around: origin, color: phaseColor)
+            } else if state.completion == "cancelled" {
+                drawCancelledSignal(around: origin, color: phaseColor)
+            }
+        }
         let combo = comboSnapshot()
         drawCombo(combo, at: origin, color: combo.active ? phaseColor : combo.lost ? .systemRed : NSColor.white.withAlphaComponent(0.34))
         if expanded {
@@ -1111,6 +1119,52 @@ private final class PowerModeView: NSView {
         check.lineJoinStyle = .round
         NSColor(calibratedRed: 0.78, green: 1, blue: 0.9, alpha: 1).setStroke()
         check.stroke()
+    }
+
+    private func drawUnverifiedSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let ring = NSBezierPath(ovalIn: CGRect(x: center.x - 40, y: center.y - 40, width: 80, height: 80))
+        ring.setLineDash([7, 5], count: 2, phase: reducedMotion ? 0 : shakePhase * 0.12)
+        ring.lineWidth = 2
+        color.withAlphaComponent(0.72).setStroke()
+        ring.stroke()
+
+        let badge = NSBezierPath(ovalIn: CGRect(x: origin.x + 65, y: origin.y + 3, width: 17, height: 17))
+        NSColor(calibratedWhite: 0.04, alpha: 0.94).setFill()
+        badge.fill()
+        color.setStroke()
+        badge.lineWidth = 1
+        badge.stroke()
+        drawText("!", at: CGPoint(x: origin.x + 71, y: origin.y + 7), font: .monospacedSystemFont(ofSize: 10, weight: .bold), color: .white)
+    }
+
+    private func drawCancelledSignal(around origin: CGPoint, color: NSColor) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        color.withAlphaComponent(0.76).setStroke()
+        for angles in [(18.0, 91.0), (132.0, 211.0), (257.0, 326.0)] {
+            let segment = NSBezierPath()
+            segment.appendArc(withCenter: center, radius: 40, startAngle: CGFloat(angles.0), endAngle: CGFloat(angles.1))
+            segment.lineWidth = 2
+            segment.lineCapStyle = .square
+            segment.stroke()
+        }
+
+        let badgeRect = CGRect(x: origin.x + 65, y: origin.y + 3, width: 17, height: 17)
+        let badge = NSBezierPath(ovalIn: badgeRect)
+        NSColor(calibratedWhite: 0.04, alpha: 0.94).setFill()
+        badge.fill()
+        color.setStroke()
+        badge.lineWidth = 1
+        badge.stroke()
+        let cross = NSBezierPath()
+        cross.move(to: CGPoint(x: badgeRect.minX + 5, y: badgeRect.minY + 5))
+        cross.line(to: CGPoint(x: badgeRect.maxX - 5, y: badgeRect.maxY - 5))
+        cross.move(to: CGPoint(x: badgeRect.minX + 5, y: badgeRect.maxY - 5))
+        cross.line(to: CGPoint(x: badgeRect.maxX - 5, y: badgeRect.minY + 5))
+        cross.lineWidth = 1.7
+        cross.lineCapStyle = .round
+        NSColor.white.setStroke()
+        cross.stroke()
     }
 
     private func comboSnapshot(now: Date = Date()) -> (count: Int, progress: CGFloat, active: Bool, lost: Bool) {
