@@ -4225,13 +4225,19 @@ private final class TypingComboMonitor {
     private var count = 0
     private var lastHit = Date.distantPast
     private var cachedCaretElement: AXUIElement?
+    private var requestedManualAccessibility = false
     private let comboWindow: TimeInterval = 2.0
     private let codexBundleIdentifier = "com.openai.codex"
 
-    init(view: PowerModeView, preferences: PowerModePreferences) {
+    init(view: PowerModeView?, preferences: PowerModePreferences, startMonitoring: Bool = true) {
         self.view = view
         self.preferences = preferences
-        preferencesChanged(promptForPermission: true)
+        if startMonitoring { preferencesChanged(promptForPermission: true) }
+    }
+
+    static func accessibilityDiagnostic(preferences: PowerModePreferences) -> [String: Any] {
+        let monitor = TypingComboMonitor(view: nil, preferences: preferences, startMonitoring: false)
+        return monitor.accessibilityDiagnosticSnapshot()
     }
 
     var permissionGranted: Bool { AXIsProcessTrusted() }
@@ -4316,10 +4322,95 @@ private final class TypingComboMonitor {
         return true
     }
 
+    private func accessibilityDiagnosticSnapshot() -> [String: Any] {
+        var result: [String: Any] = [
+            "accessibilityTrusted": AXIsProcessTrusted(),
+            "frontmostBundle": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"
+        ]
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier == codexBundleIdentifier else {
+            result["caretElementFound"] = false
+            return result
+        }
+        let application = AXUIElementCreateApplication(app.processIdentifier)
+        prepareCodexAccessibilityTree(application)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.16))
+        if let element = caretElement(in: application) {
+            result["caretElementFound"] = true
+            var roleValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success,
+               let role = roleValue as? String { result["role"] = role }
+            let markerBounds = textMarkerCaretBounds(startingAt: element)
+            let selectedBounds = selectedTextCaretBounds(for: element)
+            result["markerBoundsUsable"] = markerBounds != nil
+            result["selectedBoundsUsable"] = selectedBounds != nil
+            if let bounds = markerBounds ?? selectedBounds {
+                let point = screenPoint(for: bounds)
+                result["method"] = markerBounds != nil ? "text-marker" : "selected-range"
+                result["boundsX"] = bounds.origin.x
+                result["boundsY"] = bounds.origin.y
+                result["boundsWidth"] = bounds.width
+                result["boundsHeight"] = bounds.height
+                result["screenX"] = point.x
+                result["screenY"] = point.y
+            }
+        } else {
+            result["caretElementFound"] = false
+        }
+        var windowValue: CFTypeRef?
+        if AXUIElementCopyAttributeValue(application, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
+           let focusedWindow = windowValue as! AXUIElement? {
+            var queue: [(AXUIElement, Int)] = [(focusedWindow, 0)]
+            var candidates: [[String: Any]] = []
+            var nodes: [[String: Any]] = []
+            var seen = Set<CFHashCode>()
+            var visited = 0
+            while !queue.isEmpty, visited < 900, candidates.count < 24 {
+                let (candidate, depth) = queue.removeFirst()
+                guard seen.insert(CFHash(candidate)).inserted else { continue }
+                visited += 1
+                let score = caretCapabilityScore(candidate)
+                var node: [String: Any] = ["depth": depth, "score": score]
+                var nodeRole: CFTypeRef?
+                if AXUIElementCopyAttributeValue(candidate, kAXRoleAttribute as CFString, &nodeRole) == .success,
+                   let role = nodeRole as? String { node["role"] = role }
+                var attributeNames: CFArray?
+                if AXUIElementCopyAttributeNames(candidate, &attributeNames) == .success,
+                   let names = attributeNames as? [String] {
+                    node["relations"] = names.filter {
+                        $0.localizedCaseInsensitiveContains("child") ||
+                        $0.localizedCaseInsensitiveContains("content") ||
+                        $0.localizedCaseInsensitiveContains("row")
+                    }
+                }
+                nodes.append(node)
+                if score > 0 {
+                    var item: [String: Any] = [
+                        "depth": depth,
+                        "score": score,
+                        "focused": elementIsFocused(candidate),
+                        "marker": textMarkerCaretBounds(startingAt: candidate) != nil,
+                        "range": selectedTextCaretBounds(for: candidate) != nil
+                    ]
+                    var candidateRole: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(candidate, kAXRoleAttribute as CFString, &candidateRole) == .success,
+                       let role = candidateRole as? String { item["role"] = role }
+                    candidates.append(item)
+                }
+                queue.append(contentsOf: accessibilityChildren(of: candidate).map { ($0, depth + 1) })
+            }
+            result["windowNodesVisited"] = visited
+            result["nodes"] = nodes
+            result["candidates"] = candidates
+        }
+        return result
+    }
+
     private func caretScreenPoint() -> CGPoint? {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.bundleIdentifier == codexBundleIdentifier else { return nil }
         let application = AXUIElementCreateApplication(app.processIdentifier)
+        prepareCodexAccessibilityTree(application)
         if let cachedCaretElement,
            let cachedBounds = caretBounds(startingAt: cachedCaretElement) {
             return screenPoint(for: cachedBounds)
@@ -4335,12 +4426,21 @@ private final class TypingComboMonitor {
         return screenPoint(for: bounds)
     }
 
+    private func prepareCodexAccessibilityTree(_ application: AXUIElement) {
+        guard !requestedManualAccessibility else { return }
+        requestedManualAccessibility = true
+        _ = AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        _ = AXUIElementSetAttributeValue(application, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+    }
+
     private func caretBounds(startingAt element: AXUIElement) -> CGRect? {
         textMarkerCaretBounds(startingAt: element) ?? selectedTextCaretBounds(for: element)
     }
 
     private func caretElement(in application: AXUIElement) -> AXUIElement? {
-        if let cachedCaretElement, elementSupportsPreciseCaretBounds(cachedCaretElement) {
+        if let cachedCaretElement,
+           elementSupportsPreciseCaretBounds(cachedCaretElement),
+           caretBounds(startingAt: cachedCaretElement) != nil {
             return cachedCaretElement
         }
         var focusedValue: CFTypeRef?
@@ -4355,45 +4455,62 @@ private final class TypingComboMonitor {
         var windowValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(application, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
               let focusedWindow = windowValue as! AXUIElement? else { return nil }
-        var queue = [focusedWindow]
-        var supportedCandidate: AXUIElement?
+        var queue: [(AXUIElement, Int)] = [(focusedWindow, 0)]
+        var supportedCandidate: (element: AXUIElement, score: Int)?
+        var seen = Set<CFHashCode>()
         var visited = 0
-        while !queue.isEmpty, visited < 600 {
-            let element = queue.removeFirst()
+        while !queue.isEmpty, visited < 1_400 {
+            let (element, depth) = queue.removeFirst()
+            guard seen.insert(CFHash(element)).inserted else { continue }
             visited += 1
-            if elementIsFocused(element) {
-                cachedCaretElement = element
-                return element
+            let score = caretCapabilityScore(element) + depth + (elementIsFocused(element) ? 40 : 0)
+            if score >= 100,
+               caretBounds(startingAt: element) != nil,
+               score > (supportedCandidate?.score ?? -1) {
+                supportedCandidate = (element, score)
             }
-            if supportedCandidate == nil, elementSupportsCaretBounds(element) {
-                supportedCandidate = element
-            }
-            var childrenValue: CFTypeRef?
-            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-               let children = childrenValue as? [AXUIElement] {
-                queue.append(contentsOf: children)
-            }
+            queue.append(contentsOf: accessibilityChildren(of: element).map { ($0, depth + 1) })
         }
-        cachedCaretElement = supportedCandidate
-        return supportedCandidate
+        cachedCaretElement = supportedCandidate?.element
+        return supportedCandidate?.element
     }
 
     private func descendantCaretElement(startingAt root: AXUIElement) -> AXUIElement? {
         var queue: [(AXUIElement, Int)] = [(root, 0)]
         var best: (element: AXUIElement, score: Int)?
+        var seen = Set<CFHashCode>()
         var visited = 0
-        while !queue.isEmpty, visited < 600 {
+        while !queue.isEmpty, visited < 1_400 {
             let (element, depth) = queue.removeFirst()
+            guard seen.insert(CFHash(element)).inserted else { continue }
             visited += 1
             let score = caretCapabilityScore(element) + depth
-            if score >= 100, score > (best?.score ?? -1) { best = (element, score) }
-            var childrenValue: CFTypeRef?
-            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-               let children = childrenValue as? [AXUIElement] {
-                queue.append(contentsOf: children.map { ($0, depth + 1) })
+            if score >= 100,
+               caretBounds(startingAt: element) != nil,
+               score > (best?.score ?? -1) {
+                best = (element, score)
             }
+            queue.append(contentsOf: accessibilityChildren(of: element).map { ($0, depth + 1) })
         }
         return best?.element
+    }
+
+    private func accessibilityChildren(of element: AXUIElement) -> [AXUIElement] {
+        let relations = [
+            kAXChildrenAttribute as String,
+            "AXChildrenInNavigationOrder",
+            "AXRows",
+            "AXContents",
+            "AXVisibleChildren"
+        ]
+        var result: [AXUIElement] = []
+        for relation in relations {
+            var value: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, relation as CFString, &value) == .success,
+                  let children = value as? [AXUIElement] else { continue }
+            result.append(contentsOf: children)
+        }
+        return result
     }
 
     private func caretCapabilityScore(_ element: AXUIElement) -> Int {
@@ -4440,19 +4557,55 @@ private final class TypingComboMonitor {
             var markerRange: CFTypeRef?
             if AXUIElementCopyAttributeValue(current, "AXSelectedTextMarkerRange" as CFString, &markerRange) == .success,
                let markerRange {
-                var boundsValue: CFTypeRef?
+                var endMarker: CFTypeRef?
                 if AXUIElementCopyParameterizedAttributeValue(
                     current,
-                    "AXBoundsForTextMarkerRange" as CFString,
+                    "AXEndTextMarkerForTextMarkerRange" as CFString,
                     markerRange,
-                    &boundsValue
+                    &endMarker
                 ) == .success,
-                let boundsValue,
-                CFGetTypeID(boundsValue) == AXValueGetTypeID() {
-                    var bounds = CGRect.zero
-                    if AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), isUsableCaretBounds(bounds) {
+                let endMarker {
+                    let collapsedMarkers = [endMarker, endMarker] as CFArray
+                    var collapsedRange: CFTypeRef?
+                    if AXUIElementCopyParameterizedAttributeValue(
+                        current,
+                        "AXTextMarkerRangeForUnorderedTextMarkers" as CFString,
+                        collapsedMarkers,
+                        &collapsedRange
+                    ) == .success,
+                    let collapsedRange,
+                    let bounds = textMarkerBounds(current, range: collapsedRange),
+                    isUsableCaretBounds(bounds) {
                         return bounds
                     }
+                    var previousMarker: CFTypeRef?
+                    if AXUIElementCopyParameterizedAttributeValue(
+                        current,
+                        "AXPreviousTextMarkerForTextMarker" as CFString,
+                        endMarker,
+                        &previousMarker
+                    ) == .success,
+                    let previousMarker {
+                        let precedingMarkers = [previousMarker, endMarker] as CFArray
+                        var precedingRange: CFTypeRef?
+                        if AXUIElementCopyParameterizedAttributeValue(
+                            current,
+                            "AXTextMarkerRangeForUnorderedTextMarkers" as CFString,
+                            precedingMarkers,
+                            &precedingRange
+                        ) == .success,
+                        let precedingRange,
+                        let bounds = textMarkerBounds(current, range: precedingRange),
+                        isUsableCaretBounds(bounds) {
+                            return bounds
+                        }
+                    }
+                }
+                // Some native controls already return a narrow caret rectangle
+                // and do not expose Chromium's text-marker endpoint helpers.
+                if let bounds = textMarkerBounds(current, range: markerRange),
+                   isUsableCaretBounds(bounds), bounds.width <= 12 {
+                    return bounds
                 }
             }
             var parentValue: CFTypeRef?
@@ -4461,6 +4614,21 @@ private final class TypingComboMonitor {
             candidate = parent
         }
         return nil
+    }
+
+    private func textMarkerBounds(_ element: AXUIElement, range: CFTypeRef) -> CGRect? {
+        var boundsValue: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            element,
+            "AXBoundsForTextMarkerRange" as CFString,
+            range,
+            &boundsValue
+        ) == .success,
+        let boundsValue,
+        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return nil }
+        var bounds = CGRect.zero
+        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds) else { return nil }
+        return bounds
     }
 
     private func selectedTextCaretBounds(for focused: AXUIElement) -> CGRect? {
@@ -4949,6 +5117,15 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 private struct PowerModeOverlayApp {
     @MainActor
     static func main() {
+        if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_ACCESSIBILITY_SELF_TEST"] == "1" {
+            let preferences = PowerModePreferences(environment: ProcessInfo.processInfo.environment)
+            let diagnostic = TypingComboMonitor.accessibilityDiagnostic(preferences: preferences)
+            if let data = try? JSONSerialization.data(withJSONObject: diagnostic, options: [.sortedKeys]),
+               let output = String(data: data, encoding: .utf8) {
+                fputs(output + "\n", stdout)
+            }
+            return
+        }
         if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PLACEMENT_SELF_TEST"] == "1" {
             runPlacementGeometrySelfTest()
             return

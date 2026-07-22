@@ -67,6 +67,9 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /precedingCharacter = CFRange/);
   assert.match(source, /"AXSelectedTextMarkerRange"/);
   assert.match(source, /"AXBoundsForTextMarkerRange"/);
+  assert.match(source, /"AXEndTextMarkerForTextMarkerRange"/);
+  assert.match(source, /"AXTextMarkerRangeForUnorderedTextMarkers"/);
+  assert.match(source, /"AXPreviousTextMarkerForTextMarker"/);
   assert.match(source, /kAXFocusedWindowAttribute/);
   assert.match(source, /elementSupportsCaretBounds/);
   assert.doesNotMatch(source, /fallbackComposerPoint/);
@@ -74,8 +77,11 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /private final class TypingFeedbackRenderer/);
   assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
   assert.match(source, /private func isUsableCaretBounds/);
+  assert.match(source, /CODEX_POWER_MODE_ACCESSIBILITY_SELF_TEST/);
   assert.match(source, /bounds\.width > 0 \|\| bounds\.height > 0/);
   assert.match(source, /cachedCaretElement = nil/);
+  assert.match(source, /"AXManualAccessibility"/);
+  assert.match(source, /"AXEnhancedUserInterface"/);
   assert.match(source, /private func caretBounds\(startingAt element: AXUIElement\)/);
   assert.match(source, /forKey: "caret-pulse"/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
