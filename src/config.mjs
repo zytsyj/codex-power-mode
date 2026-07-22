@@ -1,5 +1,5 @@
 const NATIVE_EDGES = new Set(["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]);
-const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
+const IDLE_BEHAVIORS = new Set(["hide", "orb"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
@@ -29,7 +29,8 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const parsedScale = Number.parseFloat(hasValue(environment, "CODEX_POWER_MODE_SCALE") ? environment.CODEX_POWER_MODE_SCALE : settings.scale);
   const preset = hasValue(environment, "CODEX_POWER_MODE_PRESET") ? environment.CODEX_POWER_MODE_PRESET : settings.preset;
   const edge = hasValue(environment, "CODEX_POWER_MODE_EDGE") ? environment.CODEX_POWER_MODE_EDGE : settings.edge;
-  const idleBehavior = hasValue(environment, "CODEX_POWER_MODE_IDLE") ? environment.CODEX_POWER_MODE_IDLE : settings.idleBehavior;
+  const requestedIdleBehavior = hasValue(environment, "CODEX_POWER_MODE_IDLE") ? environment.CODEX_POWER_MODE_IDLE : settings.idleBehavior;
+  const idleBehavior = requestedIdleBehavior === "always" ? "orb" : requestedIdleBehavior;
   const language = hasValue(environment, "CODEX_POWER_MODE_LANGUAGE") ? environment.CODEX_POWER_MODE_LANGUAGE : settings.language;
   const activitySource = hasValue(environment, "CODEX_POWER_MODE_ACTIVITY_SOURCE")
     ? environment.CODEX_POWER_MODE_ACTIVITY_SOURCE

@@ -20,7 +20,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 - Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
 - Includes semantic demo and recent-event replay tools for visual tuning.
 - Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy returns to zero.
-- Drops static Idle, orb, and always-expanded HUDs to a one-second heartbeat, and suspends the browser presentation timer entirely after auto-hide; new activity or connection changes wake it immediately.
+- Drops the static Idle orb to a one-second heartbeat, and suspends the browser presentation timer entirely after auto-hide; new activity or connection changes wake it immediately.
 - Keeps reduced-motion feedback semantic: events briefly show a fixed, phase-colored confirmation ring and compact glyph instead of particles, rotation, shaking, or full-screen flashes.
 - Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
 - Supports restrained `focus` and high-energy `arcade` effect presets.
@@ -70,7 +70,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_SHOW_COMBO=0`: hide the Combo bar and its decay animation.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
-- `CODEX_POWER_MODE_IDLE`: `hide` (default), `orb`, or `always`.
+- `CODEX_POWER_MODE_IDLE`: `hide` (default) or `orb`.
 - `CODEX_POWER_MODE_LANGUAGE`: `auto` (default), `zh-CN`, or `en`.
 - `CODEX_POWER_MODE_ACTIVITY_SOURCE`: `focused` (default) or `global`.
 - `CODEX_POWER_MODE_ENABLED=0`: disable drawing while keeping the local service available.

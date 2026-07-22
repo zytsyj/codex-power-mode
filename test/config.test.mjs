@@ -35,7 +35,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_REDUCED_MOTION: "1",
     CODEX_POWER_MODE_INACTIVE_BEHAVIOR: "follow",
     CODEX_POWER_MODE_AUTO_HIDE_DELAY: "6",
-    CODEX_POWER_MODE_IDLE: "always",
+    CODEX_POWER_MODE_IDLE: "orb",
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
     CODEX_POWER_MODE_INTENSITY: "high",
@@ -50,7 +50,7 @@ test("native config normalizes environment overrides", () => {
     inactiveBehavior: "follow",
     autoHideDelay: 6,
     enabled: false,
-    idleBehavior: "always",
+    idleBehavior: "orb",
     language: "zh-CN",
     activitySource: "global",
     effectIntensity: "high",
@@ -110,6 +110,11 @@ test("native config deliberately resets pre-schema development settings", () => 
   assert.equal(reset.preset, "focus");
   assert.equal(reset.idleBehavior, "hide");
   assert.equal(reset.scale, 1.15);
+});
+
+test("native config migrates the removed expanded HUD to the quiet orb", () => {
+  const upgraded = nativeConfigFromEnvironment({}, { schemaVersion: 1, idleBehavior: "always" });
+  assert.equal(upgraded.idleBehavior, "orb");
 });
 
 test("native config adds display defaults without resetting older schema-one settings", () => {

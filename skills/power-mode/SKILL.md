@@ -81,7 +81,7 @@ Read `hudDisplay` as the state currently visible after settling and decay, and `
 - Complete outcomes stay semantically distinct: verified celebrates, unverified cautions, cancelled interrupts, and no-change settles quietly.
 - Focus uses restrained single-beat state motion; Arcade uses faster multi-stage capture, drive, and verification rhythms rather than only adding particles.
 - Long Wait and Recover states automatically settle into slower, lower-amplitude motion while keeping their meaning visible.
-- Static Idle, orb, and always-expanded HUDs use a one-second heartbeat without redrawing identical frames. The browser presentation timer stops entirely after a settled auto-hide, while new activity, disconnects, and reconnects wake it immediately; active effects and Combo decay still render responsively.
+- The static Idle orb uses a one-second heartbeat without redrawing identical frames. The browser presentation timer stops entirely after a settled auto-hide, while new activity, disconnects, and reconnects wake it immediately; active effects and Combo decay still render responsively.
 - Reduced motion keeps fixed phase geometry and adds a short, non-animated confirmation ring and glyph for Observe, Act, Verify, Wait, Recover, and completion outcomes.
 - Recovery failures return to Idle after a short repair window when Codex emits no follow-up event; permission waits remain visible until the user acts.
 - A terminal result holds briefly, Combo drains and disconnects, then the HUD enters Idle while visible energy returns to zero. Historical best values remain available in the menu.

@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import QuartzCore
 
 private func resolvedHudPlacementBounds(viewBounds: CGRect, visibleBounds: CGRect?, safeMargin: CGFloat = 12) -> CGRect {
     var available = viewBounds
@@ -140,6 +141,7 @@ private final class PowerModePreferences {
         } else {
             settings = OverlaySettings(endpoint: environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream")
         }
+        if settings.idleBehavior == "always" { settings.idleBehavior = "orb" }
     }
 
     var isChinese: Bool {
@@ -232,8 +234,342 @@ private struct ScanBeam {
 }
 
 @MainActor
+private final class OrbLayerRenderer {
+    private let preferences: PowerModePreferences
+    private let container = CALayer()
+    private let halo = CALayer()
+    private let core = CALayer()
+    private let inner = CALayer()
+    private let ticks = CAShapeLayer()
+    private let energyTrack = CAShapeLayer()
+    private let energyRing = CAShapeLayer()
+    private let comboTrack = CAShapeLayer()
+    private let comboRing = CAShapeLayer()
+    private let semantic = CATextLayer()
+    private let value = CATextLayer()
+    private let activity = CATextLayer()
+    private let comboValue = CATextLayer()
+    private let connectionDot = CALayer()
+    private let emitter = CAEmitterLayer()
+    private var comboAnimationGeneration = 0
+    private var lastComboSignature = ""
+    private var phase = "idle"
+    private var reducedMotion = false
+    private var arcade = false
+    private var intensity: Float = 1
+
+    init(hostLayer: CALayer, preferences: PowerModePreferences) {
+        self.preferences = preferences
+        container.bounds = CGRect(x: 0, y: 0, width: 92, height: 92)
+        container.masksToBounds = false
+        hostLayer.addSublayer(container)
+
+        halo.frame = CGRect(x: 6, y: 6, width: 80, height: 80)
+        halo.cornerRadius = 40
+        halo.shadowRadius = 18
+        halo.shadowOpacity = 0.42
+        halo.shadowOffset = .zero
+        container.addSublayer(halo)
+
+        core.frame = CGRect(x: 12, y: 12, width: 68, height: 68)
+        core.cornerRadius = 34
+        core.backgroundColor = NSColor(calibratedWhite: 0.025, alpha: 0.94).cgColor
+        core.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        core.borderWidth = 1
+        container.addSublayer(core)
+
+        inner.frame = CGRect(x: 23, y: 23, width: 46, height: 46)
+        inner.cornerRadius = 23
+        inner.borderWidth = 1
+        container.addSublayer(inner)
+
+        configureRing(ticks, radius: 42, width: 1)
+        ticks.lineDashPattern = [1, 5]
+        ticks.opacity = 0.3
+        configureRing(comboTrack, radius: 41, width: 2.4)
+        comboTrack.strokeColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        configureRing(comboRing, radius: 41, width: 2.4)
+        comboRing.lineCap = .round
+        comboRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+        configureRing(energyTrack, radius: 30, width: 2.1)
+        energyTrack.strokeColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        configureRing(energyRing, radius: 30, width: 2.8)
+        energyRing.lineCap = .round
+        energyRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+
+        configureText(semantic, frame: CGRect(x: 34, y: 66, width: 24, height: 11), size: 8, weight: .bold)
+        configureText(comboValue, frame: CGRect(x: 25, y: 57, width: 42, height: 10), size: 6.5, weight: .bold)
+        configureText(value, frame: CGRect(x: 19, y: 34, width: 54, height: 25), size: 21, weight: .bold)
+        configureText(activity, frame: CGRect(x: 18, y: 22, width: 56, height: 11), size: 5.6, weight: .semibold)
+
+        connectionDot.frame = CGRect(x: 74, y: 68, width: 6, height: 6)
+        connectionDot.cornerRadius = 3
+        connectionDot.backgroundColor = NSColor.systemOrange.cgColor
+        connectionDot.opacity = 0
+        container.addSublayer(connectionDot)
+
+        emitter.frame = container.bounds
+        emitter.emitterPosition = CGPoint(x: 46, y: 46)
+        emitter.emitterShape = .point
+        emitter.renderMode = .additive
+        container.insertSublayer(emitter, below: core)
+        updatePreferences()
+    }
+
+    private func configureRing(_ layer: CAShapeLayer, radius: CGFloat, width: CGFloat) {
+        layer.frame = container.bounds
+        layer.path = CGPath(ellipseIn: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2), transform: nil)
+        layer.fillColor = NSColor.clear.cgColor
+        layer.strokeColor = NSColor.white.cgColor
+        layer.lineWidth = width
+        layer.strokeStart = 0
+        layer.strokeEnd = 1
+        container.addSublayer(layer)
+    }
+
+    private func configureText(_ layer: CATextLayer, frame: CGRect, size: CGFloat, weight: NSFont.Weight) {
+        layer.frame = frame
+        layer.alignmentMode = .center
+        layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        layer.font = NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+        layer.fontSize = size
+        layer.foregroundColor = NSColor.white.cgColor
+        layer.truncationMode = .end
+        container.addSublayer(layer)
+    }
+
+    func layout(in rect: CGRect) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        container.position = CGPoint(x: rect.midX, y: rect.midY)
+        let scale = min(rect.width / 92, rect.height / 92)
+        container.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+        CATransaction.commit()
+    }
+
+    func updatePreferences() {
+        arcade = preferences.settings.preset == "arcade"
+        reducedMotion = preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        intensity = preferences.settings.effectIntensity == "high" ? 1.35 : preferences.settings.effectIntensity == "low" ? 0.62 : 1
+    }
+
+    func setConnected(_ connected: Bool) {
+        connectionDot.opacity = connected ? 0 : 1
+    }
+
+    func setVisible(_ visible: Bool, animated: Bool = true) {
+        let target: Float = visible ? 1 : 0
+        guard container.opacity != target else { return }
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = container.presentation()?.opacity ?? container.opacity
+        animation.toValue = target
+        animation.duration = animated && !reducedMotion ? 0.24 : 0
+        container.opacity = target
+        container.add(animation, forKey: "visibility")
+    }
+
+    func apply(state: PowerState, presentation: (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool, settledAt: Date?), label: String, event: PowerEvent? = nil) {
+        updatePreferences()
+        let nextPhase = presentation.phase
+        let color = phaseColor(phase: nextPhase, state: state)
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(reducedMotion ? 0 : 0.36)
+        halo.backgroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.05 : 0.11).cgColor
+        halo.shadowColor = color.cgColor
+        inner.backgroundColor = color.withAlphaComponent(0.07).cgColor
+        inner.borderColor = color.withAlphaComponent(0.28).cgColor
+        ticks.strokeColor = color.withAlphaComponent(0.46).cgColor
+        energyRing.strokeColor = color.cgColor
+        energyRing.strokeEnd = CGFloat(max(0, min(100, presentation.momentum))) / 100
+        value.string = "\(presentation.momentum)"
+        activity.string = label
+        activity.foregroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.58 : 0.9).cgColor
+        semantic.string = phaseGlyph(nextPhase, completion: state.completion)
+        semantic.foregroundColor = color.cgColor
+        CATransaction.commit()
+        updateEnergyStyle(presentation.momentum, color: color)
+        updateCombo(state, color: color)
+        if phase != nextPhase {
+            phase = nextPhase
+            animateSemanticPhase(nextPhase)
+        }
+        if let event { emitFeedback(for: event, color: color) }
+    }
+
+    private func updateEnergyStyle(_ momentum: Int, color: NSColor) {
+        let width: CGFloat = momentum >= 75 ? 4.2 : momentum >= 50 ? 3.6 : momentum >= 25 ? 3.1 : 2.4
+        energyRing.lineWidth = width
+        energyRing.shadowColor = color.cgColor
+        energyRing.shadowOpacity = momentum >= 50 ? 0.75 : 0.42
+        energyRing.shadowRadius = momentum >= 75 ? 7 : 4
+    }
+
+    private func updateCombo(_ state: PowerState, color: NSColor) {
+        guard preferences.settings.showCombo == true, let count = state.combo, count > 0, let expires = parseDate(state.comboExpiresAt), expires > Date() else {
+            guard lastComboSignature != "idle" else { return }
+            lastComboSignature = "idle"
+            comboRing.removeAllAnimations()
+            comboRing.strokeEnd = 0
+            comboTrack.opacity = 0
+            comboValue.string = ""
+            return
+        }
+        let signature = "\(count)|\(state.comboStatus ?? "")|\(state.comboHoldUntil ?? "")|\(state.comboExpiresAt ?? "")"
+        guard signature != lastComboSignature else { return }
+        lastComboSignature = signature
+        comboAnimationGeneration &+= 1
+        let generation = comboAnimationGeneration
+        comboTrack.opacity = 1
+        comboValue.string = "\(count)×"
+        let stageColor: NSColor = state.comboStatus == "reward" || state.comboStatus == "complete" ? .systemGreen : color
+        comboRing.strokeColor = stageColor.cgColor
+        comboRing.shadowColor = stageColor.cgColor
+        comboRing.shadowOpacity = 0.72
+        comboRing.shadowRadius = 4
+        comboRing.removeAllAnimations()
+        comboRing.strokeEnd = 0
+        let hold = parseDate(state.comboHoldUntil) ?? Date()
+        let now = Date()
+        let delay = max(0, hold.timeIntervalSince(now))
+        let totalDuration = max(0.1, expires.timeIntervalSince(hold))
+        let remainingDuration = max(0.1, expires.timeIntervalSince(now))
+        let currentProgress = now < hold ? 1 : max(0, min(1, expires.timeIntervalSince(now) / totalDuration))
+        let animation = CABasicAnimation(keyPath: "strokeEnd")
+        animation.fromValue = currentProgress
+        animation.toValue = 0
+        animation.beginTime = comboRing.convertTime(CACurrentMediaTime(), from: nil) + delay
+        animation.duration = now < hold ? totalDuration : remainingDuration
+        animation.fillMode = .both
+        animation.isRemovedOnCompletion = false
+        comboRing.add(animation, forKey: "combo-decay-\(generation)")
+    }
+
+    private func animateSemanticPhase(_ phase: String) {
+        semantic.removeAllAnimations()
+        guard !reducedMotion else { return }
+        let animation: CAAnimation
+        switch phase {
+        case "observe":
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.byValue = Double.pi * 2
+            spin.duration = arcade ? 1.15 : 2.2
+            spin.repeatCount = .infinity
+            animation = spin
+        case "act":
+            let drive = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            drive.values = [-2, 4, 0]
+            drive.keyTimes = [0, 0.62, 1]
+            drive.duration = arcade ? 0.48 : 0.82
+            drive.repeatCount = .infinity
+            animation = drive
+        case "verify":
+            let lock = CAKeyframeAnimation(keyPath: "transform.scale")
+            lock.values = [0.72, 1.18, 1]
+            lock.keyTimes = [0, 0.68, 1]
+            lock.duration = arcade ? 0.72 : 1.05
+            lock.repeatCount = .infinity
+            animation = lock
+        case "wait":
+            let pulse = CAKeyframeAnimation(keyPath: "opacity")
+            pulse.values = [0.35, 1, 0.35, 1, 0.35]
+            pulse.keyTimes = [0, 0.15, 0.32, 0.5, 1]
+            pulse.duration = arcade ? 1.05 : 1.7
+            pulse.repeatCount = .infinity
+            animation = pulse
+        case "recover":
+            let repair = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            repair.values = [-0.18, 0.13, -0.08, 0]
+            repair.duration = arcade ? 0.42 : 0.72
+            repair.repeatCount = .infinity
+            animation = repair
+        default:
+            let settle = CABasicAnimation(keyPath: "transform.scale")
+            settle.fromValue = 1.26
+            settle.toValue = 1
+            settle.duration = arcade ? 0.48 : 0.72
+            animation = settle
+        }
+        semantic.add(animation, forKey: "semantic-phase")
+    }
+
+    private func emitFeedback(for event: PowerEvent, color: NSColor) {
+        guard !reducedMotion, event.type != "connected" else { return }
+        let cell = CAEmitterCell()
+        cell.name = "spark"
+        cell.contents = particleImage()
+        cell.color = color.cgColor
+        cell.birthRate = (event.type == "turn-stop" ? 150 : 60) * intensity * (arcade ? 1.45 : 1)
+        cell.lifetime = arcade ? 0.78 : 0.58
+        cell.lifetimeRange = 0.18
+        cell.velocity = event.phase == "act" ? 92 : 58
+        cell.velocityRange = 38
+        cell.emissionRange = event.phase == "act" ? .pi / 3 : .pi * 2
+        cell.emissionLongitude = event.phase == "act" ? .pi : 0
+        cell.scale = 0.075
+        cell.scaleRange = 0.035
+        cell.alphaSpeed = -1.25
+        emitter.emitterCells = [cell]
+        emitter.setValue(cell.birthRate, forKeyPath: "emitterCells.spark.birthRate")
+        DispatchQueue.main.asyncAfter(deadline: .now() + (arcade ? 0.18 : 0.11)) { [weak emitter] in
+            emitter?.setValue(0, forKeyPath: "emitterCells.spark.birthRate")
+        }
+        let impact = CABasicAnimation(keyPath: "transform.scale")
+        impact.fromValue = event.type == "turn-stop" ? 0.9 : 0.96
+        impact.toValue = 1
+        impact.duration = arcade ? 0.32 : 0.46
+        container.add(impact, forKey: "event-impact")
+    }
+
+    private func particleImage() -> CGImage? {
+        let size = 8
+        guard let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.setFillColor(NSColor.white.cgColor)
+        context.fillEllipse(in: CGRect(x: 1, y: 1, width: 6, height: 6))
+        return context.makeImage()
+    }
+
+    private func parseDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value)
+    }
+
+    private func phaseGlyph(_ phase: String, completion: String?) -> String {
+        if completion == "verified" { return "✓" }
+        if completion == "unverified" { return "!" }
+        if completion == "cancelled" { return "×" }
+        switch phase {
+        case "observe": return "◎"
+        case "act": return "▶"
+        case "verify": return "◆"
+        case "wait": return "Ⅱ"
+        case "recover": return "↻"
+        case "complete": return "✓"
+        default: return "·"
+        }
+    }
+
+    private func phaseColor(phase: String, state: PowerState) -> NSColor {
+        if state.completion == "cancelled" { return .systemOrange }
+        if state.completion == "unverified" { return .systemYellow }
+        switch phase {
+        case "act": return .systemPurple
+        case "verify": return .systemGreen
+        case "wait": return .systemYellow
+        case "recover": return .systemRed
+        case "complete": return state.completion == "verified" ? .systemGreen : .systemCyan
+        case "idle": return NSColor(calibratedWhite: 0.68, alpha: 1)
+        default: return .systemCyan
+        }
+    }
+}
+
+@MainActor
 private final class PowerModeView: NSView {
     private let preferences: PowerModePreferences
+    private var orbRenderer: OrbLayerRenderer!
+    private let usesCompositorRenderer = true
     private var particles: [Particle] = []
     private var shockwaves: [Shockwave] = []
     private var scanBeams: [ScanBeam] = []
@@ -266,6 +602,7 @@ private final class PowerModeView: NSView {
     private var lastLiveEventType: String?
     private var lastLiveEventSource: String?
     private var hudAlpha: CGFloat = 0
+    private var lastVisualBounds = CGRect.null
     private var effectGeneration = 0
     private var positioning = false
     private var positioningHint = ""
@@ -297,11 +634,18 @@ private final class PowerModeView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
-        scheduleTick(highFrequency: false)
+        if let layer {
+            orbRenderer = OrbLayerRenderer(hostLayer: layer, preferences: preferences)
+            orbRenderer.layout(in: currentHudRect())
+            orbRenderer.apply(state: state, presentation: presentationSnapshot(), label: localizedOrbActivity())
+            orbRenderer.setVisible(false, animated: false)
+        }
+        scheduleTick(highFrequency: false, dormant: true)
     }
 
     private func scheduleTick(highFrequency: Bool, dormant: Bool = false) {
-        let interval: TimeInterval = highFrequency ? 1.0 / 60.0 : dormant ? 1.0 : 0.25
+        let activeFramesPerSecond: Double = arcadeMode ? (effectIntensity > 1.2 ? 30 : 45) : 60
+        let interval: TimeInterval = highFrequency ? 1.0 / activeFramesPerSecond : dormant ? 1.0 : 0.25
         guard timer == nil || abs(timerInterval - interval) > 0.0001 else { return }
         timer?.invalidate()
         timerInterval = interval
@@ -316,8 +660,73 @@ private final class PowerModeView: NSView {
     deinit { timer?.invalidate() }
 
     func preferencesChanged() {
-        scheduleTick(highFrequency: !reducedMotion)
-        needsDisplay = true
+        orbRenderer.updatePreferences()
+        refreshCompositor()
+        scheduleTick(highFrequency: false, dormant: true)
+        if !usesCompositorRenderer { invalidateVisuals() }
+    }
+
+    override func layout() {
+        super.layout()
+        orbRenderer?.layout(in: currentHudRect())
+    }
+
+    private func refreshCompositor(event: PowerEvent? = nil, now: Date = Date()) {
+        guard usesCompositorRenderer, orbRenderer != nil else { return }
+        let presentation = presentationSnapshot(now: now)
+        orbRenderer.layout(in: currentHudRect(now: now))
+        orbRenderer.setConnected(streamConnected == true)
+        orbRenderer.apply(state: state, presentation: presentation, label: localizedOrbActivity(presentation), event: event)
+        orbRenderer.setVisible(shouldShowHUD(now: now))
+    }
+
+    private func feedbackBounds() -> CGRect {
+        let center = reactorCenter()
+        let radius = 108 * min(1.4, max(0.8, hudScale))
+        return CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+    }
+
+    private func visualBounds(now: Date = Date()) -> CGRect {
+        var result = currentHudRect(now: now).insetBy(dx: -18, dy: -18)
+        for particle in particles {
+            let radius = particle.radius + 4
+            result = result.union(CGRect(
+                x: particle.position.x - radius,
+                y: particle.position.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            ))
+        }
+        for wave in shockwaves {
+            let radius = wave.radius + wave.width + 4
+            result = result.union(CGRect(
+                x: wave.center.x - radius,
+                y: wave.center.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            ))
+        }
+        for beam in scanBeams {
+            let progress = 1 - beam.life / beam.maxLife
+            let head = beam.origin.x + beam.length * progress
+            let trail = beam.length < 0 ? head + 120 : head - 120
+            result = result.union(CGRect(
+                x: min(head, trail) - 4,
+                y: beam.origin.y - 20,
+                width: abs(head - trail) + 8,
+                height: 40
+            ))
+        }
+        if flashAlpha > 0 || dangerAlpha > 0 { result = result.union(feedbackBounds()) }
+        return result.intersection(bounds)
+    }
+
+    private func invalidateVisuals(now: Date = Date()) {
+        let current = visualBounds(now: now)
+        let combined = lastVisualBounds.isNull ? current : lastVisualBounds.union(current)
+        let damage = combined.insetBy(dx: -6, dy: -6).intersection(bounds)
+        if !damage.isNull && !damage.isEmpty { setNeedsDisplay(damage) }
+        lastVisualBounds = current
     }
 
     func historySummary() -> String {
@@ -429,7 +838,8 @@ private final class PowerModeView: NSView {
         positioningHint = preferences.text("DRAG HUD · EDGES SNAP", "拖动小球 · 靠边吸附")
         hudExpandedUntil = .distantFuture
         hudAlpha = 1
-        needsDisplay = true
+        refreshCompositor()
+        if !usesCompositorRenderer { invalidateVisuals() }
     }
 
     func cancelPositioning() {
@@ -438,7 +848,8 @@ private final class PowerModeView: NSView {
         dragOffset = nil
         dragPosition = nil
         hudExpandedUntil = Date().addingTimeInterval(1.2)
-        needsDisplay = true
+        refreshCompositor()
+        if !usesCompositorRenderer { invalidateVisuals() }
     }
 
     func hudContains(windowPoint: CGPoint) -> Bool {
@@ -489,7 +900,8 @@ private final class PowerModeView: NSView {
             ? preferences.text("DRAG HUD · EDGES SNAP", "拖动小球 · 靠边吸附")
             : preferences.text("SNAP ", "吸附 ") + snappedEdges.joined(separator: preferences.isChinese ? " · " : " ")
         dragPosition = CGPoint(x: centerX / max(1, bounds.width), y: centerY / max(1, bounds.height))
-        needsDisplay = true
+        refreshCompositor()
+        if !usesCompositorRenderer { invalidateVisuals() }
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -508,8 +920,9 @@ private final class PowerModeView: NSView {
         streamConnected = connected
         eventText = connected ? preferences.text("EVENT STREAM ONLINE", "事件流已连接") : preferences.text("RECONNECTING TO POWER SERVICE", "正在重新连接")
         hudExpandedUntil = Date().addingTimeInterval(connected ? 1.8 : 3.2)
-        scheduleTick(highFrequency: !reducedMotion)
-        needsDisplay = true
+        refreshCompositor()
+        scheduleTick(highFrequency: false, dormant: true)
+        if !usesCompositorRenderer { invalidateVisuals() }
     }
 
     func handle(_ event: PowerEvent) {
@@ -537,7 +950,8 @@ private final class PowerModeView: NSView {
         } ?? false
         eventText = describe(event)
         if event.type == "connected" {
-            needsDisplay = true
+            refreshCompositor(event: event)
+            if !usesCompositorRenderer { invalidateVisuals() }
             return
         }
         if event.preview != true {
@@ -556,6 +970,11 @@ private final class PowerModeView: NSView {
         scheduleTick(highFrequency: !reducedMotion)
         let duration: TimeInterval = event.type == "permission-request" || event.type == "edit-failure" || (event.type == "verification" && event.success != true) ? 8 : event.type == "turn-stop" ? 3.2 : 2.2
         hudExpandedUntil = Date().addingTimeInterval(duration)
+        if usesCompositorRenderer {
+            refreshCompositor(event: event)
+            scheduleTick(highFrequency: false, dormant: true)
+            return
+        }
         let completion = event.state?.completion
         if reducedMotion {
             flashAlpha = 0
@@ -574,7 +993,7 @@ private final class PowerModeView: NSView {
         guard !reducedMotion else {
             reducedFeedbackKind = reducedFeedbackKind(for: event)
             reducedFeedbackUntil = Date().addingTimeInterval(event.type == "permission-request" || event.type == "edit-failure" ? 2.4 : 1.35)
-            needsDisplay = true
+            invalidateVisuals()
             return
         }
 
@@ -584,7 +1003,7 @@ private final class PowerModeView: NSView {
             scheduleEffect(after: 0.18, generation: generation) { view in
                 view.shockwave(color: .systemPurple, power: 0.62)
             }
-            needsDisplay = true
+            invalidateVisuals()
             return
         }
 
@@ -731,7 +1150,7 @@ private final class PowerModeView: NSView {
             shockwave(color: .systemCyan, power: arcadeMode ? 0.72 : 0.38)
         }
         if let energyUpgrade { playEnergyUpgrade(energyUpgrade, generation: generation) }
-        needsDisplay = true
+        invalidateVisuals()
     }
 
     private func playEnergyUpgrade(_ level: String, generation: Int) {
@@ -845,6 +1264,31 @@ private final class PowerModeView: NSView {
         return preferences.text("Codex is working", "Codex 正在工作")
     }
 
+    private func localizedOrbActivity(_ presentation: (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool, settledAt: Date?)? = nil) -> String {
+        let snapshot = presentation ?? presentationSnapshot()
+        if positioning { return preferences.text("DRAG", "拖动") }
+        if streamConnected == false { return preferences.text("RECONNECT", "重连中") }
+        if snapshot.idle || snapshot.phase == "idle" { return preferences.text("IDLE", "待机") }
+        if state.status == "needs-attention" || snapshot.phase == "wait" { return preferences.text("APPROVAL", "等待授权") }
+        if state.status == "failed" || snapshot.phase == "recover" { return preferences.text("RECOVER", "修复中") }
+        if state.completion == "verified" { return preferences.text("VERIFIED", "已验证") }
+        if state.completion == "unverified" { return preferences.text("CHECK", "待验证") }
+        if state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
+        if state.completion == "no-change" { return preferences.text("DONE", "已完成") }
+        if state.currentActivity == "Understanding request" { return preferences.text("THINKING", "理解需求") }
+        let activity = (state.currentActivity ?? "").lowercased()
+        switch snapshot.phase {
+        case "observe": return activity.contains("search") ? preferences.text("SEARCH", "搜索") : preferences.text("READING", "读取上下文")
+        case "act": return activity.contains("command") ? preferences.text("COMMAND", "执行命令") : preferences.text("CHANGE", "修改中")
+        case "verify":
+            if activity.contains("test") { return preferences.text("TESTING", "测试中") }
+            if activity.contains("build") { return preferences.text("BUILDING", "构建中") }
+            return preferences.text("VERIFY", "验证中")
+        case "complete": return preferences.text("COMPLETE", "已完成")
+        default: return preferences.text("WORKING", "工作中")
+        }
+    }
+
     private func hudOrigin(size: CGSize) -> CGPoint {
         let preferredMargin: CGFloat = 36
         let placement = hudPlacementBounds()
@@ -904,14 +1348,10 @@ private final class PowerModeView: NSView {
         return min(hudScale, safeWidth / baseSize.width, safeHeight / baseSize.height)
     }
 
-    private func hudBaseSize(expanded: Bool? = nil) -> CGSize {
-        let isExpanded = expanded ?? (positioning || preferences.settings.idleBehavior == "always" || Date() < hudExpandedUntil)
-        return isExpanded ? CGSize(width: 322, height: 82) : CGSize(width: 82, height: 82)
-    }
+    private func hudBaseSize(expanded: Bool? = nil) -> CGSize { CGSize(width: 92, height: 92) }
 
     private func currentHudRect(now: Date = Date()) -> CGRect {
-        let expanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
-        let baseSize = hudBaseSize(expanded: expanded)
+        let baseSize = hudBaseSize()
         let scale = effectiveHudScale(for: baseSize)
         let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
         return CGRect(origin: hudOrigin(size: size), size: size)
@@ -963,13 +1403,14 @@ private final class PowerModeView: NSView {
         let scale = effectiveHudScale(for: baseSize)
         let scaledSize = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
         let origin = hudOrigin(size: scaledSize)
-        return CGPoint(x: origin.x + 41 * scale, y: origin.y + 41 * scale)
+        return CGPoint(x: origin.x + 46 * scale, y: origin.y + 46 * scale)
     }
 
     private func codingOrigin() -> CGPoint {
-        CGPoint(
-            x: bounds.width * CGFloat.random(in: 0.28...0.76),
-            y: bounds.height * CGFloat.random(in: 0.24...0.72)
+        let center = reactorCenter()
+        return CGPoint(
+            x: min(bounds.maxX - 24, max(bounds.minX + 24, center.x + CGFloat.random(in: -240...140))),
+            y: min(bounds.maxY - 24, max(bounds.minY + 24, center.y + CGFloat.random(in: -105...105)))
         )
     }
 
@@ -1006,14 +1447,14 @@ private final class PowerModeView: NSView {
                 color: color
             ))
         }
-        needsDisplay = true
+        invalidateVisuals()
     }
 
     private func scan(color: NSColor, echo: Bool = true, generation: Int) {
         guard !reducedMotion else { return }
         let origin = reactorCenter()
         let life: CGFloat = 58
-        scanBeams.append(ScanBeam(origin: origin, length: -min(bounds.width * 0.72, origin.x - 48), life: life, maxLife: life, color: color))
+        scanBeams.append(ScanBeam(origin: origin, length: -min(280, max(60, origin.x - 48)), life: life, maxLife: life, color: color))
         if arcadeMode && echo {
             scheduleEffect(after: 0.16, generation: generation) { view in
                 view.scan(color: color.withAlphaComponent(0.7), echo: false, generation: generation)
@@ -1199,6 +1640,12 @@ private final class PowerModeView: NSView {
 
     private func tick() {
         let now = Date()
+        if usesCompositorRenderer {
+            refreshCompositor(now: now)
+            scheduleTick(highFrequency: false, dormant: true)
+            return
+        }
+        let frameStep = max(0.5, min(2.5, CGFloat(timerInterval * 60)))
         let particleBudget = scaledEffectCount(arcadeMode ? 560 : 280)
         let shockwaveBudget = scaledEffectCount(arcadeMode ? 18 : 10)
         let scanBudget = scaledEffectCount(arcadeMode ? 8 : 4)
@@ -1211,40 +1658,35 @@ private final class PowerModeView: NSView {
                     particles[index].velocity.dx = (target.x - particles[index].position.x) * 0.075
                     particles[index].velocity.dy = (target.y - particles[index].position.y) * 0.075
                 } else {
-                    particles[index].velocity.dy -= 0.065
-                    particles[index].velocity.dx *= 0.992
+                    particles[index].velocity.dy = (particles[index].velocity.dy - 0.065 * frameStep) * pow(0.982, frameStep)
+                    particles[index].velocity.dx *= pow(0.975, frameStep)
                 }
-                particles[index].position.x += particles[index].velocity.dx
-                particles[index].position.y += particles[index].velocity.dy
-                particles[index].life -= 1
+                particles[index].position.x += particles[index].velocity.dx * frameStep
+                particles[index].position.y += particles[index].velocity.dy * frameStep
+                particles[index].life -= frameStep
             }
             particles.removeAll { $0.life <= 0 }
         }
         if !scanBeams.isEmpty {
-            for index in scanBeams.indices { scanBeams[index].life -= 1 }
+            for index in scanBeams.indices { scanBeams[index].life -= frameStep }
             scanBeams.removeAll { $0.life <= 0 }
         }
         if !shockwaves.isEmpty {
             for index in shockwaves.indices {
-                shockwaves[index].radius += 5.4
-                shockwaves[index].life -= 1
+                shockwaves[index].radius += 5.4 * frameStep
+                shockwaves[index].life -= frameStep
             }
             shockwaves.removeAll { $0.life <= 0 }
         }
-        flashAlpha = max(0, flashAlpha - 0.012)
-        dangerAlpha = max(0, dangerAlpha - 0.009)
-        shake = max(0, shake * 0.88 - 0.04)
-        shakePhase += 1
-        let hudIsExpanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
-        if hudIsExpanded != hudWasExpanded {
-            hudWasExpanded = hudIsExpanded
-            needsDisplay = true
-        }
+        flashAlpha = max(0, flashAlpha - 0.012 * frameStep)
+        dangerAlpha = max(0, dangerAlpha - 0.009 * frameStep)
+        shake = max(0, shake * pow(0.88, frameStep) - 0.04 * frameStep)
+        shakePhase += frameStep
         let comboTimelineEnd = (comboBrokenAt ?? comboExpiresAt ?? .distantPast).addingTimeInterval(3.2)
         let comboIsAnimating = showsCombo && now < comboTimelineEnd
         if comboIsAnimating != comboWasAnimating {
             comboWasAnimating = comboIsAnimating
-            needsDisplay = true
+            invalidateVisuals(now: now)
         }
         let currentComboStage = showsCombo ? comboSnapshot(now: now).stage : "idle"
         if let previousComboStage = lastComboStage,
@@ -1260,14 +1702,14 @@ private final class PowerModeView: NSView {
         let reducedFeedbackActive = reducedMotion && now < (reducedFeedbackUntil ?? .distantPast)
         if reducedFeedbackActive != reducedFeedbackWasActive {
             reducedFeedbackWasActive = reducedFeedbackActive
-            needsDisplay = true
+            invalidateVisuals(now: now)
         }
         let hasEffects = !particles.isEmpty || !shockwaves.isEmpty || !scanBeams.isEmpty || flashAlpha > 0 || dangerAlpha > 0 || shake > 0
         let comboIsDecaying = showsCombo && (comboHoldUntil.map { now >= $0 } ?? true) && now < (comboExpiresAt ?? .distantPast)
         let presentation = presentationSnapshot(now: now)
         let targetAlpha: CGFloat = shouldShowHUD(now: now) ? 1 : 0
         let previousAlpha = hudAlpha
-        let fadeStep: CGFloat = reducedMotion ? 1 : 0.12
+        let fadeStep: CGFloat = reducedMotion ? 1 : 0.12 * frameStep
         hudAlpha += min(fadeStep, max(-fadeStep, targetAlpha - hudAlpha))
         let hudIsFading = abs(hudAlpha - targetAlpha) > 0.001
         let semanticIsAnimating = !reducedMotion
@@ -1278,7 +1720,7 @@ private final class PowerModeView: NSView {
         let needsHighFrequency = !reducedMotion
             && (hasEffects || positioning || comboIsDecaying || presentation.returning || hudIsFading)
         if hasEffects || positioning || comboIsAnimating || semanticIsAnimating || presentation.returning || previousAlpha != hudAlpha {
-            needsDisplay = true
+            invalidateVisuals(now: now)
         }
         // Visible Idle/orb/always-expanded HUDs still poll connection state, but do not
         // wake four times per second or redraw an identical frame.
@@ -1294,15 +1736,17 @@ private final class PowerModeView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        if usesCompositorRenderer { return }
         guard let context = NSGraphicsContext.current?.cgContext else { return }
-        context.clear(bounds)
+        context.clear(dirtyRect)
 
         context.setBlendMode(.screen)
         for beam in scanBeams {
             let progress = 1 - beam.life / beam.maxLife
             let head = beam.origin.x + beam.length * progress
             let alpha = sin(progress * .pi) * 0.7
-            context.setStrokeColor(beam.color.withAlphaComponent(alpha).cgColor)
+            context.setAlpha(alpha)
+            context.setStrokeColor(beam.color.cgColor)
             context.setLineWidth(1.5)
             let trail = beam.length < 0 ? head + 120 : head - 120
             context.move(to: CGPoint(x: trail, y: beam.origin.y))
@@ -1314,7 +1758,8 @@ private final class PowerModeView: NSView {
         }
         for wave in shockwaves {
             let progress = wave.life / wave.maxLife
-            context.setStrokeColor(wave.color.withAlphaComponent(progress * 0.8).cgColor)
+            context.setAlpha(progress * 0.8)
+            context.setStrokeColor(wave.color.cgColor)
             context.setLineWidth(wave.width * progress)
             context.strokeEllipse(in: CGRect(
                 x: wave.center.x - wave.radius,
@@ -1324,21 +1769,23 @@ private final class PowerModeView: NSView {
             ))
         }
         for particle in particles {
-            context.setFillColor(particle.color.withAlphaComponent(min(1, particle.life / min(24, particle.maxLife))).cgColor)
+            context.setAlpha(min(1, particle.life / min(24, particle.maxLife)))
+            context.setFillColor(particle.color.cgColor)
             let rect = CGRect(x: particle.position.x - particle.radius, y: particle.position.y - particle.radius, width: particle.radius * 2, height: particle.radius * 2)
             if particle.square { context.fill(rect) } else { context.fillEllipse(in: rect) }
         }
+        context.setAlpha(1)
         context.setBlendMode(.normal)
 
         if flashAlpha > 0 {
             context.setFillColor(NSColor.white.withAlphaComponent(flashAlpha).cgColor)
-            context.fill(bounds)
+            context.fillEllipse(in: feedbackBounds())
         }
         if dangerAlpha > 0 {
-            let inset = bounds.insetBy(dx: 2, dy: 2)
+            let inset = feedbackBounds().insetBy(dx: 5, dy: 5)
             context.setStrokeColor(NSColor.systemRed.withAlphaComponent(dangerAlpha).cgColor)
-            context.setLineWidth(10)
-            context.stroke(inset)
+            context.setLineWidth(6)
+            context.strokeEllipse(in: inset)
         }
         if hudAlpha > 0.001 { drawHUD() }
     }
@@ -1346,8 +1793,7 @@ private final class PowerModeView: NSView {
     private func drawHUD() {
         let now = Date()
         let presentation = presentationSnapshot(now: now)
-        let expanded = positioning || preferences.settings.idleBehavior == "always" || now < hudExpandedUntil
-        let baseSize = hudBaseSize(expanded: expanded)
+        let baseSize = hudBaseSize()
         let scale = effectiveHudScale(for: baseSize)
         let size = CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
         let baseOrigin = hudOrigin(size: size)
@@ -1358,7 +1804,6 @@ private final class PowerModeView: NSView {
         let screenOrigin = CGPoint(x: baseOrigin.x + offset.x, y: baseOrigin.y + offset.y)
         let phase = presentation.phase.uppercased()
         let phaseColor: NSColor = phase == "IDLE" ? NSColor(calibratedWhite: 0.7, alpha: 1) : state.completion == "cancelled" ? .systemOrange : state.completion == "unverified" ? .systemYellow : phase == "RECOVER" ? .systemRed : phase == "VERIFY" || (phase == "COMPLETE" && state.completion == "verified") ? .systemGreen : phase == "WAIT" ? .systemYellow : phase == "ACT" ? .systemPurple : .systemCyan
-        let phaseLabel = localizedPhase(phase)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         context.setAlpha(hudAlpha)
@@ -1485,32 +1930,6 @@ private final class PowerModeView: NSView {
         let combo = comboSnapshot()
         if showsCombo {
             drawCombo(combo, at: origin, color: combo.active ? phaseColor : combo.lost ? .systemRed : NSColor.white.withAlphaComponent(0.34))
-        }
-        if expanded {
-            let copyRect = CGRect(x: origin.x + 92, y: origin.y + 7, width: 230, height: 68)
-            let copy = NSBezierPath(roundedRect: copyRect, xRadius: 14, yRadius: 14)
-            NSColor(calibratedWhite: 0.022, alpha: 0.90).setFill()
-            copy.fill()
-            NSColor.white.withAlphaComponent(0.10).setStroke()
-            copy.lineWidth = 1
-            copy.stroke()
-
-            let accentLine = NSBezierPath(roundedRect: CGRect(x: origin.x + 92, y: origin.y + 20, width: 2, height: 42), xRadius: 1, yRadius: 1)
-            phaseColor.setFill()
-            accentLine.fill()
-
-            drawText("●  \(phaseLabel)", at: CGPoint(x: origin.x + 108, y: origin.y + 58), font: .monospacedSystemFont(ofSize: 7.5, weight: .bold), color: phaseColor, tracking: 1.1)
-            let isConnected = streamConnected == true
-            let connectionLabel = positioning ? positioningHint : isConnected ? (arcadeMode ? "ARCADE" : "FOCUS") : preferences.text("RECONNECTING", "重新连接中")
-            drawText(connectionLabel, at: CGPoint(x: origin.x + (positioning || !isConnected ? 226 : 273), y: origin.y + 58), font: .monospacedSystemFont(ofSize: 6.5, weight: .bold), color: positioning ? phaseColor : isConnected ? NSColor.white.withAlphaComponent(0.34) : NSColor.systemOrange, tracking: preferences.isChinese ? 0.2 : 1.0)
-            let presentedEvent = presentation.idle ? preferences.text("POWER MODE READY", "POWER MODE 待机") : eventText
-            drawText(String(presentedEvent.prefix(31)), at: CGPoint(x: origin.x + 108, y: origin.y + 38), font: .systemFont(ofSize: 13, weight: .semibold), color: .white)
-            drawText(String(localizedActivity(idle: presentation.idle).prefix(39)), at: CGPoint(x: origin.x + 108, y: origin.y + 23), font: .systemFont(ofSize: 8.5, weight: .medium), color: NSColor.white.withAlphaComponent(0.55))
-
-            let evidence = state.evidence?.isEmpty == false ? "\(state.evidence!.map { localizedCategory($0) }.joined(separator: "+")) ✓" : preferences.text("NO EVIDENCE", "暂无证据")
-            let risk = (state.riskLevel ?? "low").lowercased() == "low" ? "" : "  ·  " + preferences.text("RISK", "风险")
-            let comboCopy = showsCombo && combo.count > 0 ? "  ·  \(combo.count)× " + preferences.text("COMBO", "连击") : ""
-            drawText("\(evidence)  ·  \(preferences.text("CONF", "可信度")) \(state.confidence ?? 0)%\(risk)\(comboCopy)", at: CGPoint(x: origin.x + 108, y: origin.y + 10), font: .monospacedSystemFont(ofSize: 6.8, weight: .semibold), color: phaseColor.withAlphaComponent(0.78), tracking: preferences.isChinese ? 0.15 : 0.45)
         }
         context.restoreGState()
     }
@@ -2372,8 +2791,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             title: preferences.text("When idle", "静止状态"),
             choices: [
                 ("hide", preferences.text("Auto hide", "自动隐藏")),
-                ("orb", preferences.text("Keep orb", "保留小球")),
-                ("always", preferences.text("Always expanded", "始终展开"))
+                ("orb", preferences.text("Keep orb", "保留小球"))
             ],
             selected: preferences.settings.idleBehavior,
             action: #selector(selectIdleBehavior)

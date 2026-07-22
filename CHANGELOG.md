@@ -1,7 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Replaced the live HUD's timer-driven drawing path with a Core Animation layer renderer so semantic motion, fades, energy, Combo decay, and event particles are composited by macOS.
+- Reduced the floating UI to one draggable orb: concise activity text now sits inside the core, Combo is the outer lifetime ring, and the expanded confidence/evidence card is gone.
+- Removed the development-only “Always expanded” idle mode; existing settings migrate to “Keep orb”.
+
 ## 0.8.0 - 2026-07-22
 
+- Limited native Arcade redraws to the HUD and active effect damage region, and localized flash/recovery feedback around the orb instead of repainting the full Codex window at 60 Hz.
 - Added per-installation authentication for hooks, diagnostics, previews, and the native event stream, with a private `0600` token that remains outside the plugin package.
 - Isolated the browser HUD behind a same-origin bootstrap and a process-scoped stream-only token, removed permissive SSE cross-origin access, and rejected foreign browser origins.
 - Added strict lifecycle event validation and safe `400`/`413` responses so malformed JSON, oversized requests, sensitive fields, and invalid state signals cannot crash or poison the service.

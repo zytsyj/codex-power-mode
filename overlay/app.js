@@ -3,11 +3,11 @@ import { refreshDelayForState } from "./refresh-cadence.mjs";
 const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
-const elements = Object.fromEntries(["hud", "connection", "momentum", "momentum-meter", "power-label", "phase", "event", "status-copy", "confidence", "evidence", "risk-level", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
+const elements = Object.fromEntries(["hud", "momentum", "momentum-meter", "power-label", "combo-meter", "combo-count", "combo-bar", "combo-status"].map((id) => [id, element(id)]));
 const parameters = new URLSearchParams(location.search);
 const requestedLanguage = parameters.get("lang") || "auto";
 const chinese = requestedLanguage === "zh-CN" || requestedLanguage === "auto" && navigator.language.toLowerCase().startsWith("zh");
-const idleBehavior = ["hide", "orb", "always"].includes(parameters.get("idle")) ? parameters.get("idle") : "hide";
+const idleBehavior = ["hide", "orb"].includes(parameters.get("idle")) ? parameters.get("idle") : "hide";
 const autoHideDelayMs = Math.max(0, Math.min(6_000, Number(parameters.get("hideDelay") ?? 2_000) || 0));
 const reducedMotion = parameters.get("motion") === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches;
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
@@ -55,7 +55,7 @@ const copy = {
   building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], confirmed: ["CHECK", "确认"], record: ["RECORD", "纪录"], relinked: ["RELINK", "重连"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
-  confidence: ["CONF", "可信度"], noEvidence: ["NO EVIDENCE", "暂无证据"], risk: ["RISK", "风险"], newBest: ["NEW PERSONAL BEST", "刷新个人纪录"]
+  newBest: ["NEW PERSONAL BEST", "刷新个人纪录"]
 };
 const t = (key) => copy[key]?.[chinese ? 1 : 0] ?? key;
 
@@ -109,7 +109,6 @@ if (previewMode) {
   if (previewOffline) setConnection(false, false);
   else {
     document.body.dataset.connection = "preview";
-    elements.connection.textContent = t("preview");
   }
   expand(0);
   if (previewEvent === "edit-failure") setTimeout(() => react({ type: "edit-failure", state }), 0);
@@ -124,7 +123,6 @@ if (previewMode) {
 function setConnection(connected, announce = true) {
   connectionOnline = connected;
   document.body.dataset.connection = connected ? "online" : "offline";
-  elements.connection.textContent = connected ? t("online") : t("reconnecting");
   if (announce) expand(connected ? 1800 : 3200);
   requestPresentationTick();
 }
@@ -149,7 +147,7 @@ function expand(duration = 2100) {
   clearTimeout(collapseTimer);
   elements.hud.classList.remove("collapsed");
   hudVisibleUntil = Math.max(hudVisibleUntil, Date.now() + Math.max(0, duration));
-  if (duration > 0 && idleBehavior !== "always") collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
+  if (duration > 0) collapseTimer = setTimeout(() => elements.hud.classList.add("collapsed"), duration);
 }
 
 function burst(color, amount, power = 1, mode = "radial", start = reactorOrigin()) {
@@ -382,6 +380,7 @@ function renderCombo(now = Date.now()) {
   const stage = comboStageAt(state, progress, status, now);
   elements["combo-count"].textContent = active ? `${state.combo}×` : recentlyLost ? "—" : "0×";
   elements["combo-bar"].style.transform = `scaleX(${progress.toFixed(3)})`;
+  elements["combo-meter"].style.setProperty("--combo-progress", `${(progress * 360).toFixed(1)}deg`);
   elements["combo-status"].textContent = t(stage);
   document.body.dataset.comboStatus = status;
   document.body.dataset.comboStage = stage;
@@ -438,25 +437,26 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
   elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
-  elements["power-label"].textContent = energyLevel === "idle" ? t("power") : t(energyLevel);
-  elements.phase.textContent = presented.completion === "cancelled" ? t("cancelled") : presented.completion === "unverified" ? t("unverified") : t(phase);
-  elements.event.textContent = presented.idle ? t("ready") : presented.currentActivity === "Understanding request" ? t("understandingTitle") : statusCopy(presented);
-  elements["status-copy"].textContent = statusCopy(presented);
-  if (presented.verificationReward === "record" && !presented.idle) elements.event.textContent = t("newBest");
-  if (now < sessionTransitionUntil) {
-    elements.event.textContent = t("taskSwitched");
-    elements["status-copy"].textContent = t("followingTask");
-  }
+  elements["power-label"].textContent = orbActivityCopy(presented);
+}
+
+function orbActivityCopy(presented) {
+  if (!connectionOnline && !previewMode) return chinese ? "重连中" : "RECONNECT";
+  if (presented.idle || presented.phase === "idle") return t("idle");
+  if (presented.status === "needs-attention" || presented.phase === "wait") return chinese ? "等待授权" : "APPROVAL";
+  if (presented.status === "failed" || presented.phase === "recover") return chinese ? "修复中" : "RECOVER";
+  if (presented.completion === "verified") return chinese ? "已验证" : "VERIFIED";
+  if (presented.completion === "unverified") return chinese ? "待验证" : "CHECK";
+  if (presented.currentActivity === "Understanding request") return chinese ? "理解需求" : "THINKING";
+  if (presented.phase === "observe") return chinese ? "读取上下文" : "READING";
+  if (presented.phase === "act") return chinese ? "修改中" : "CHANGE";
+  if (presented.phase === "verify") return chinese ? "验证中" : "VERIFY";
+  return chinese ? "工作中" : "WORKING";
 }
 
 function render(next = state) {
   state = { ...state, ...next };
   renderPresentation();
-  elements.confidence.textContent = `${t("confidence")} ${state.confidence ?? 0}%`;
-  elements.evidence.textContent = state.evidence?.length ? `${state.evidence.join("+").toUpperCase()} ✓` : t("noEvidence");
-  const riskLevel = String(state.riskLevel ?? "low");
-  elements["risk-level"].textContent = `${riskLevel.toUpperCase()} ${t("risk")}`;
-  elements["risk-level"].dataset.level = riskLevel;
   renderCombo();
   requestPresentationTick();
 }

@@ -244,6 +244,45 @@ body[data-connection="offline"] .connection::before { animation: connection-retr
 .evidence { color: rgba(var(--accent-rgb), .86); }
 .risk[data-level="low"] { display: none; }
 
+/* Orb-only presentation: activity stays legible inside the core and Combo becomes the outer lifetime ring. */
+.power-system,
+.power-system.collapsed,
+body[data-preview-state="true"] .power-system { width: 92px; }
+.reactor-wrap { flex-basis: 92px; width: 92px; height: 92px; }
+.telemetry { display: none !important; }
+.reactor-core span { max-width: 42px; overflow: hidden; text-overflow: ellipsis; letter-spacing: .05em; white-space: nowrap; }
+.combo-meter {
+  --combo-progress: 0deg;
+  inset: 1px;
+  width: 90px;
+  min-height: 90px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  -webkit-mask: none;
+  mask: none;
+  pointer-events: none;
+}
+.combo-meter::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 50%;
+  opacity: 1;
+  background: conic-gradient(from -90deg, var(--accent) var(--combo-progress), rgba(255,255,255,.07) 0);
+  -webkit-mask: radial-gradient(circle, transparent 68%, #000 70% 73%, transparent 75%);
+  mask: radial-gradient(circle, transparent 68%, #000 70% 73%, transparent 75%);
+}
+.combo-meter b { position: absolute; left: 31px; top: 16px; width: 28px; text-align: center; }
+.combo-meter > i,
+.combo-meter em { display: none; }
+body[data-combo-status="broken"] .combo-meter { background: transparent; }
+body[data-combo-status="broken"] .combo-meter::before { background: conic-gradient(from -90deg, #ff5477 0 22deg, transparent 22deg 44deg, #ff5477 44deg 66deg, transparent 66deg); }
+
 body[data-phase="act"] { --accent: #a987ff; --accent-rgb: 169, 135, 255; }
 body[data-phase="verify"] { --accent: #5ee2ae; --accent-rgb: 94, 226, 174; }
 body[data-phase="wait"] { --accent: #ffc567; --accent-rgb: 255, 197, 103; }
