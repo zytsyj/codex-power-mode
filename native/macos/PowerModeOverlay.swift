@@ -13,6 +13,21 @@ private func resolvedHudPlacementBounds(viewBounds: CGRect, visibleBounds: CGRec
     return inset.width > 0 && inset.height > 0 ? inset : available
 }
 
+private enum TrackedWindowTarget: Equatable {
+    case hidden
+    case codex
+    case frontmost
+}
+
+private func trackedWindowTarget(codexIsFrontmost: Bool, inactiveBehavior: String) -> TrackedWindowTarget {
+    if codexIsFrontmost { return .codex }
+    switch inactiveBehavior {
+    case "stay": return .codex
+    case "follow": return .frontmost
+    default: return .hidden
+    }
+}
+
 private func runPlacementGeometrySelfTest() {
     let view = CGRect(x: 0, y: 0, width: 900, height: 700)
     precondition(resolvedHudPlacementBounds(viewBounds: view, visibleBounds: nil) == CGRect(x: 12, y: 12, width: 876, height: 676))
@@ -24,7 +39,11 @@ private func runPlacementGeometrySelfTest() {
         resolvedHudPlacementBounds(viewBounds: view, visibleBounds: CGRect(x: 880, y: 680, width: 40, height: 40))
             == CGRect(x: 12, y: 12, width: 876, height: 676)
     )
-    fputs("HUD placement geometry self-test passed\n", stdout)
+    precondition(trackedWindowTarget(codexIsFrontmost: true, inactiveBehavior: "hide") == .codex)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "hide") == .hidden)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "stay") == .codex)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .frontmost)
+    fputs("HUD placement and inactive behavior self-test passed\n", stdout)
 }
 
 private struct PowerState: Decodable {
@@ -80,7 +99,7 @@ private struct OverlaySettings: Codable, Equatable {
     var edge = "smart"
     var scale = 1.15
     var reducedMotion = false
-    var followWhenInactive = false
+    var inactiveBehavior = "hide"
     var enabled = true
     var idleBehavior = "hide"
     var language = "auto"
@@ -134,7 +153,10 @@ private final class PowerModePreferences {
     func setScale(_ value: Double) { mutate { $0.scale = min(1.6, max(0.75, value)) } }
     func toggleEnabled() { mutate { $0.enabled.toggle() } }
     func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
-    func toggleFollowWhenInactive() { mutate { $0.followWhenInactive.toggle() } }
+    func setInactiveBehavior(_ value: String) {
+        guard ["hide", "stay", "follow"].contains(value) else { return }
+        mutate { $0.inactiveBehavior = value }
+    }
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
     func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "smart" } }
@@ -2006,6 +2028,7 @@ private final class CodexWindowTracker {
     private let preferences: PowerModePreferences
     private var timer: Timer?
     private var lastFrame = CGRect.zero
+    private var lastCodexFrame: CGRect?
     private let bundleIdentifier = "com.openai.codex"
 
     init(panel: NSPanel, preferences: PowerModePreferences) {
@@ -2028,14 +2051,22 @@ private final class CodexWindowTracker {
 
     private func refresh() {
         guard let panel else { return }
-        let followsInactive = preferences.settings.followWhenInactive
+        let inactiveBehavior = preferences.settings.inactiveBehavior
         let codexIsFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleIdentifier
-        panel.level = followsInactive ? .statusBar : .floating
-        guard followsInactive || codexIsFrontmost else {
+        let windowTarget = trackedWindowTarget(codexIsFrontmost: codexIsFrontmost, inactiveBehavior: inactiveBehavior)
+        panel.level = inactiveBehavior == "hide" ? .floating : .statusBar
+        guard windowTarget != .hidden else {
             panel.orderOut(nil)
             return
         }
-        let targetFrame = codexIsFrontmost ? codexWindowFrame() : frontmostWindowFrame()
+        let currentCodexFrame = codexWindowFrame()
+        if codexIsFrontmost, let currentCodexFrame { lastCodexFrame = currentCodexFrame }
+        let targetFrame: CGRect?
+        if windowTarget == .codex {
+            targetFrame = currentCodexFrame ?? lastCodexFrame
+        } else {
+            targetFrame = frontmostWindowFrame()
+        }
         guard let frame = targetFrame, frame.width > 400, frame.height > 300 else {
             panel.orderOut(nil)
             return
@@ -2045,7 +2076,7 @@ private final class CodexWindowTracker {
             panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
             lastFrame = frame
         }
-        if followsInactive && !codexIsFrontmost {
+        if inactiveBehavior != "hide" && !codexIsFrontmost {
             NSApp.unhideWithoutActivation()
             panel.orderFrontRegardless()
         } else if !panel.isVisible {
@@ -2291,10 +2322,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         reduced.target = self
         reduced.state = preferences.settings.reducedMotion ? .on : .off
         menu.addItem(reduced)
-        let follow = NSMenuItem(title: preferences.text("Show when Codex is inactive", "Codex 非前台时显示"), action: #selector(toggleFollow), keyEquivalent: "")
-        follow.target = self
-        follow.state = preferences.settings.followWhenInactive ? .on : .off
-        menu.addItem(follow)
+        menu.addItem(submenu(
+            title: preferences.text("When Codex is inactive", "Codex 非前台时"),
+            choices: [
+                ("hide", preferences.text("Hide outside Codex", "离开 Codex 时隐藏")),
+                ("stay", preferences.text("Stay over the Codex window", "保持在 Codex 窗口位置")),
+                ("follow", preferences.text("Follow the active app", "跟随当前应用"))
+            ],
+            selected: preferences.settings.inactiveBehavior,
+            action: #selector(selectInactiveBehavior)
+        ))
 
         menu.addItem(.separator())
         let quit = NSMenuItem(title: preferences.text("Quit Power Mode", "退出 Power Mode"), action: #selector(quitOverlay), keyEquivalent: "q")
@@ -2330,7 +2367,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
     @objc private func selectEdge(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEdge(value) } }
     @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
-    @objc private func toggleFollow() { preferences?.toggleFollowWhenInactive() }
+    @objc private func selectInactiveBehavior(_ sender: NSMenuItem) {
+        if let value = sender.representedObject as? String { preferences?.setInactiveBehavior(value) }
+    }
     @objc private func resetPosition() {
         if positioning { setPositioning(false) }
         preferences?.resetPosition()

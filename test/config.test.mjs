@@ -14,7 +14,7 @@ test("native config reports defaults used by the overlay", () => {
     edge: "smart",
     scale: 1.15,
     reducedMotion: false,
-    followWhenInactive: false,
+    inactiveBehavior: "hide",
     enabled: true,
     idleBehavior: "hide",
     language: "auto",
@@ -32,7 +32,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_EDGE: "bottom-left",
     CODEX_POWER_MODE_SCALE: "9",
     CODEX_POWER_MODE_REDUCED_MOTION: "1",
-    CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE: "1",
+    CODEX_POWER_MODE_INACTIVE_BEHAVIOR: "follow",
     CODEX_POWER_MODE_IDLE: "always",
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
@@ -45,7 +45,7 @@ test("native config normalizes environment overrides", () => {
     edge: "bottom-left",
     scale: 1.6,
     reducedMotion: true,
-    followWhenInactive: true,
+    inactiveBehavior: "follow",
     enabled: false,
     idleBehavior: "always",
     language: "zh-CN",
@@ -66,7 +66,7 @@ test("native config preserves settings unless an environment override is provide
     edge: "bottom-right",
     scale: 1.3,
     reducedMotion: true,
-    followWhenInactive: true,
+    inactiveBehavior: "stay",
     enabled: false,
     idleBehavior: "orb",
     language: "en",
@@ -78,6 +78,14 @@ test("native config preserves settings unless an environment override is provide
   };
   assert.deepEqual(nativeConfigFromEnvironment({}, stored), stored);
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_PRESET: "focus" }, stored).preset, "focus");
+});
+
+test("native config migrates the old inactive-window toggle into an explicit policy", () => {
+  const visible = nativeConfigFromEnvironment({}, { schemaVersion: 1, followWhenInactive: true });
+  const hidden = nativeConfigFromEnvironment({}, { schemaVersion: 1, followWhenInactive: false });
+  assert.equal(visible.inactiveBehavior, "stay");
+  assert.equal(hidden.inactiveBehavior, "hide");
+  assert.equal(Object.hasOwn(visible, "followWhenInactive"), false);
 });
 
 test("native config deliberately resets pre-schema development settings", () => {
@@ -102,6 +110,7 @@ test("native config adds display defaults without resetting older schema-one set
   assert.equal(upgraded.idleBehavior, "orb");
   assert.equal(upgraded.effectIntensity, "normal");
   assert.equal(upgraded.showCombo, true);
+  assert.equal(upgraded.inactiveBehavior, "hide");
 });
 
 test("service config keeps controllers and hooks on the configured port", () => {

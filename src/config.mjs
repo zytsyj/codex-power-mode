@@ -3,6 +3,7 @@ const IDLE_BEHAVIORS = new Set(["hide", "orb", "always"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
+const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
 const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -36,9 +37,12 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const reducedMotion = hasValue(environment, "CODEX_POWER_MODE_REDUCED_MOTION")
     ? environment.CODEX_POWER_MODE_REDUCED_MOTION === "1"
     : settings.reducedMotion === true;
-  const followWhenInactive = hasValue(environment, "CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE")
-    ? environment.CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE === "1"
-    : settings.followWhenInactive === true;
+  const storedInactiveBehavior = INACTIVE_BEHAVIORS.has(settings.inactiveBehavior)
+    ? settings.inactiveBehavior
+    : settings.followWhenInactive === true ? "stay" : "hide";
+  const inactiveBehavior = hasValue(environment, "CODEX_POWER_MODE_INACTIVE_BEHAVIOR")
+    ? environment.CODEX_POWER_MODE_INACTIVE_BEHAVIOR
+    : storedInactiveBehavior;
   const enabled = hasValue(environment, "CODEX_POWER_MODE_ENABLED")
     ? environment.CODEX_POWER_MODE_ENABLED !== "0"
     : settings.enabled !== false;
@@ -51,7 +55,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     edge: NATIVE_EDGES.has(edge) ? edge : "smart",
     scale: Number.isFinite(parsedScale) ? Math.min(1.6, Math.max(0.75, parsedScale)) : 1.15,
     reducedMotion,
-    followWhenInactive,
+    inactiveBehavior: INACTIVE_BEHAVIORS.has(inactiveBehavior) ? inactiveBehavior : "hide",
     enabled,
     idleBehavior: IDLE_BEHAVIORS.has(idleBehavior) ? idleBehavior : "hide",
     language: LANGUAGES.has(language) ? language : "auto",

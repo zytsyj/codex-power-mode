@@ -2,6 +2,8 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Replaced the ambiguous inactive-Codex visibility toggle with explicit Hide, Stay over Codex, and Follow active app policies in English and Chinese.
+- Migrated the previous enabled setting to Stay over Codex, then removed the legacy boolean from newly saved configuration.
 - Kept dragged and preset HUD positions inside the active display's visible area after Dock, resolution, or monitor-layout changes.
 - Re-evaluated the Codex window and safe placement area immediately when macOS display parameters change, preventing removed monitors from stranding the HUD off-screen.
 - Added one-shot energy tier upgrades so Charge, Flow, Surge, and Overdrive crossovers have progressively stronger Focus and Arcade beats.
