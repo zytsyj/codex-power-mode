@@ -539,7 +539,7 @@ private final class OrbLayerRenderer {
         beatRing.opacity = 0
         beatRing.lineCap = .round
 
-        configureText(semantic, frame: CGRect(x: 38, y: 69, width: 16, height: 12), size: 8, weight: .semibold)
+        configureText(semantic, frame: CGRect(x: 36, y: 68, width: 20, height: 14), size: 9.5, weight: .bold)
         configureText(comboValue, frame: CGRect(x: 28, y: 59, width: 36, height: 11), size: 7.5, weight: .bold)
         configureText(typingValue, frame: CGRect(x: 14, y: 75, width: 64, height: 10), size: 6.4, weight: .bold)
         typingValue.opacity = 0
@@ -639,7 +639,8 @@ private final class OrbLayerRenderer {
         energyRing.strokeEnd = energyStageProgress(presentation.momentum)
         value.string = "\(presentation.momentum)"
         activity.string = label
-        activity.foregroundColor = NSColor.white.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.78).cgColor
+        let activityColor = color.blended(withFraction: 0.48, of: .white) ?? .white
+        activity.foregroundColor = activityColor.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.96).cgColor
         semantic.string = phaseGlyph(nextPhase, completion: state.completion)
         semantic.foregroundColor = color.cgColor
         CATransaction.commit()
@@ -652,7 +653,8 @@ private final class OrbLayerRenderer {
         lastEnergyTier = nextEnergyTier
         lastEnergyValue = presentation.momentum
         updateCombo(state, color: color, event: event)
-        if phase != nextPhase || completionStyle != state.completion {
+        let semanticPhaseChanged = phase != nextPhase || completionStyle != state.completion
+        if semanticPhaseChanged {
             phase = nextPhase
             completionStyle = state.completion
             updateCoreSignature(nextPhase, completion: state.completion, color: color)
@@ -667,6 +669,9 @@ private final class OrbLayerRenderer {
             animateCoreEvent(nextPhase)
             playSemanticChoreography(phase: nextPhase, color: color)
             emitFeedback(for: event, phase: nextPhase, color: color)
+        }
+        if semanticPhaseChanged {
+            animateSemanticReveal(phase: nextPhase, tier: nextEnergyTier)
         }
     }
 
@@ -1340,25 +1345,72 @@ private final class OrbLayerRenderer {
         CATransaction.setDisableActions(true)
         signature.strokeColor = color.withAlphaComponent(active ? 0.98 : 0.28).cgColor
         signature.lineWidth = phase == "complete"
-            ? (arcade ? 2.3 : 1.95)
-            : (arcade ? 2.05 : 1.7)
+            ? (arcade ? 2.65 : 2.2)
+            : (arcade ? 2.35 : 1.95)
         signature.shadowColor = color.cgColor
         signature.shadowOpacity = active ? (highEnergy ? 1 : arcade ? 0.72 : 0.48) : 0.1
         signature.shadowRadius = highEnergy ? (peakEnergy ? 7 : 5.5) : arcade ? 4.5 : 2.8
         signatureBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.74 : 0.5).cgColor
-        signatureBackdrop.lineWidth = signature.lineWidth + (highEnergy ? 3.2 : 2.2)
+        signatureBackdrop.lineWidth = signature.lineWidth + (highEnergy ? 3.6 : 2.5)
         signatureBackdrop.opacity = active ? 1 : 0.2
         phaseRail.strokeColor = color.cgColor
-        phaseRail.lineWidth = phase == "wait" || phase == "recover" ? (highEnergy ? 2.25 : 1.8) : (highEnergy ? 1.8 : 1.45)
+        phaseRail.lineWidth = phase == "wait" || phase == "recover" ? (highEnergy ? 2.55 : 2.05) : (highEnergy ? 2.1 : 1.7)
         phaseRail.shadowOpacity = active ? (highEnergy ? 0.95 : arcade ? 0.72 : 0.46) : 0
         phaseRail.shadowRadius = highEnergy ? 5.5 : arcade ? 4 : 2.4
         phaseRailBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.68 : 0.42).cgColor
-        phaseRailBackdrop.lineWidth = phaseRail.lineWidth + (highEnergy ? 2.8 : 2)
+        phaseRailBackdrop.lineWidth = phaseRail.lineWidth + (highEnergy ? 3.1 : 2.3)
         phaseRailBackdrop.opacity = active ? 0.9 : 0
         semantic.shadowColor = NSColor.black.cgColor
         semantic.shadowOpacity = active ? (highEnergy ? 0.95 : 0.62) : 0
         semantic.shadowRadius = highEnergy ? 3.5 : 2
         CATransaction.commit()
+    }
+
+    private func animateSemanticReveal(phase: String, tier: Int) {
+        guard !reducedMotion, phase != "idle" else { return }
+        let duration: CFTimeInterval = (arcade ? 0.82 : 1.02) + (tier >= 5 ? 0.12 : 0)
+        for (index, layer) in [tierAura, stageShell, tierNodes, energyRing].enumerated() {
+            let base = layer.presentation()?.opacity ?? layer.opacity
+            let duck = CAKeyframeAnimation(keyPath: "opacity")
+            duck.values = [base, base, base * 0.38, base * 0.38, base * 0.76, base]
+            duck.keyTimes = [0, 0.12, 0.24, 0.48, 0.72, 1]
+            duck.duration = duration
+            duck.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + Double(index) * 0.012
+            duck.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(duck, forKey: "semantic-energy-duck")
+        }
+        let revealScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        revealScale.values = [0.7, 0.7, arcade ? 1.3 : 1.22, 0.96, 1.06, 1]
+        revealScale.keyTimes = [0, 0.14, 0.4, 0.62, 0.8, 1]
+        let revealOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        revealOpacity.values = [0, 0.18, 1, 1, 0.92, 1]
+        revealOpacity.keyTimes = [0, 0.12, 0.34, 0.58, 0.78, 1]
+        let reveal = CAAnimationGroup()
+        reveal.animations = [revealScale, revealOpacity]
+        reveal.duration = duration
+        reveal.timingFunction = CAMediaTimingFunction(controlPoints: 0.18, 0.82, 0.18, 1)
+        signature.add(reveal, forKey: "semantic-reveal")
+        signatureBackdrop.add(reveal, forKey: "semantic-backdrop-reveal")
+
+        let railDraw = CAKeyframeAnimation(keyPath: "strokeEnd")
+        railDraw.values = [0, 0, 0.42, 1, 1]
+        railDraw.keyTimes = [0, 0.16, 0.36, 0.62, 1]
+        let railPulse = CAKeyframeAnimation(keyPath: "transform.scale")
+        railPulse.values = [0.88, 0.88, 1.16, 0.98, 1]
+        railPulse.keyTimes = [0, 0.16, 0.44, 0.7, 1]
+        let railReveal = CAAnimationGroup()
+        railReveal.animations = [railDraw, railPulse]
+        railReveal.duration = duration
+        railReveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        phaseRail.add(railReveal, forKey: "semantic-rail-reveal")
+        phaseRailBackdrop.add(railReveal, forKey: "semantic-rail-backdrop-reveal")
+
+        let glyphReveal = CAKeyframeAnimation(keyPath: "transform.scale")
+        glyphReveal.values = [0.5, 0.5, arcade ? 1.55 : 1.38, 0.92, 1]
+        glyphReveal.keyTimes = [0, 0.18, 0.44, 0.72, 1]
+        glyphReveal.duration = duration
+        glyphReveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        semantic.add(glyphReveal, forKey: "semantic-glyph-reveal")
     }
 
     private func coreSignaturePath(_ phase: String, completion: String? = nil) -> CGPath {

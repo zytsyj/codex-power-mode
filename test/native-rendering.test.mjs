@@ -137,8 +137,13 @@ test("semantic phase grammar stays independent from energy progress and completi
   assert.match(source, /private let comboEffects = CALayer\(\)/);
   assert.match(source, /semanticEffects\.sublayers\?\.forEach \{ \$0\.removeFromSuperlayer\(\) \}/);
   assert.match(source, /private func updateSemanticContrast\(phase: String, tier: Int, color: NSColor\)/);
-  assert.match(source, /signatureBackdrop\.lineWidth = signature\.lineWidth \+ \(highEnergy \? 3\.2 : 2\.2\)/);
-  assert.match(source, /phaseRailBackdrop\.lineWidth = phaseRail\.lineWidth \+ \(highEnergy \? 2\.8 : 2\)/);
+  assert.match(source, /signatureBackdrop\.lineWidth = signature\.lineWidth \+ \(highEnergy \? 3\.6 : 2\.5\)/);
+  assert.match(source, /phaseRailBackdrop\.lineWidth = phaseRail\.lineWidth \+ \(highEnergy \? 3\.1 : 2\.3\)/);
+  assert.match(source, /private func animateSemanticReveal\(phase: String, tier: Int\)/);
+  assert.match(source, /forKey: "semantic-energy-duck"/);
+  assert.match(source, /forKey: "semantic-reveal"/);
+  assert.match(source, /forKey: "semantic-rail-reveal"/);
+  assert.match(source, /forKey: "semantic-glyph-reveal"/);
   assert.match(source, /configureRing\(energyRing, radius: 35\.5/);
   assert.match(source, /configureRing\(phaseRail, radius: 32\.2/);
   assert.match(source, /phaseRail\.lineDashPattern = phase == "observe" \? \[3, 5\]/);
