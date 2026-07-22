@@ -88,8 +88,13 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /let particleCount = neon/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
   assert.match(source, /stageShell\.path = CGPath\(ellipseIn:/);
+  assert.match(source, /private let comboShell = CAShapeLayer\(\)/);
+  assert.match(source, /private let lifetimeFill = CAGradientLayer\(\)/);
+  assert.match(source, /private func typingPalette\(for count: Int\)/);
+  assert.match(source, /typing-combo-shell-hit/);
   assert.match(source, /forKey: "typing-lifetime"/);
-  assert.match(source, /CAKeyframeAnimation\(keyPath: "backgroundColor"\)/);
+  assert.match(source, /CAKeyframeAnimation\(keyPath: "colors"\)/);
+  assert.match(source, /typing-\\\(variant\.name\)-\\\(theme\)-\\\(comboSample\.label\)\.png/);
   assert.match(source, /forKey: "typing-collapse"/);
   assert.match(source, /forKey: "typing-converge"/);
   assert.match(source, /forKey: "typing-energy-stream"/);

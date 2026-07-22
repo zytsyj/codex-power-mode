@@ -189,6 +189,18 @@ private func runEnergyRenderQA(directory: String) {
                 typing.emitCursorEffect(at: CGPoint(x: 90, y: 90), count: cursorSample.count)
                 writeFrame(host: host, filename: "cursor-\(variant.name)-\(theme)-\(cursorSample.label).png")
             }
+            for comboSample in [(count: 4, label: "cyan"), (count: 12, label: "violet"), (count: 24, label: "pink"), (count: 48, label: "gold")] {
+                let preferences = PowerModePreferences(environment: [:])
+                preferences.setPreset(variant.preset)
+                if variant.reduced { preferences.toggleReducedMotion() }
+                let host = CALayer()
+                host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+                host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+                let typing = TypingFeedbackRenderer(hostLayer: host, preferences: preferences)
+                typing.layout(in: host.bounds, beside: CGRect(x: 112, y: 58, width: 60, height: 60))
+                typing.update(count: comboSample.count, progress: 0.72)
+                writeFrame(host: host, filename: "typing-\(variant.name)-\(theme)-\(comboSample.label).png")
+            }
         }
     }
     fputs("Rendered native Energy and semantic QA frames to \(directory)\n", stdout)
@@ -2050,10 +2062,12 @@ private final class OrbLayerRenderer {
 private final class TypingFeedbackRenderer {
     private let preferences: PowerModePreferences
     private let root = CALayer()
+    private let comboShell = CAShapeLayer()
     private let comboGlow = CATextLayer()
     private let comboValue = CATextLayer()
     private let lifetimeTrack = CALayer()
-    private let lifetimeFill = CALayer()
+    private let lifetimeFill = CAGradientLayer()
+    private let lifetimeCap = CALayer()
     private let effects = CALayer()
     private var comboAnchor = CGPoint.zero
     private let lifetimeDuration: TimeInterval = 2
@@ -2063,6 +2077,14 @@ private final class TypingFeedbackRenderer {
         root.masksToBounds = false
         effects.masksToBounds = false
         root.addSublayer(effects)
+        comboShell.bounds = CGRect(x: 0, y: 0, width: 104, height: 54)
+        comboShell.path = CGPath(ellipseIn: comboShell.bounds.insetBy(dx: 3, dy: 7), transform: nil)
+        comboShell.fillColor = NSColor.clear.cgColor
+        comboShell.lineWidth = 1.4
+        comboShell.lineCap = .round
+        comboShell.lineDashPattern = [10, 5]
+        comboShell.opacity = 0
+        root.addSublayer(comboShell)
         for label in [comboGlow, comboValue] {
             label.bounds = CGRect(x: 0, y: 0, width: 124, height: 62)
             label.alignmentMode = .center
@@ -2080,19 +2102,33 @@ private final class TypingFeedbackRenderer {
         comboValue.shadowColor = NSColor.systemCyan.cgColor
         comboValue.shadowOpacity = 0.9
         comboValue.shadowRadius = 5
-        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 80, height: 3)
-        lifetimeTrack.cornerRadius = 1.5
-        lifetimeTrack.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 92, height: 6)
+        lifetimeTrack.cornerRadius = 3
+        lifetimeTrack.backgroundColor = NSColor(calibratedWhite: 0.02, alpha: 0.76).cgColor
+        lifetimeTrack.borderColor = NSColor.white.withAlphaComponent(0.16).cgColor
+        lifetimeTrack.borderWidth = 0.8
+        lifetimeTrack.shadowColor = NSColor.black.cgColor
+        lifetimeTrack.shadowOpacity = 0.5
+        lifetimeTrack.shadowRadius = 4
         root.addSublayer(lifetimeTrack)
         lifetimeFill.bounds = lifetimeTrack.bounds
         lifetimeFill.anchorPoint = CGPoint(x: 0, y: 0.5)
-        lifetimeFill.position = CGPoint(x: -40, y: 1.5)
-        lifetimeFill.cornerRadius = 1.5
-        lifetimeFill.backgroundColor = NSColor.systemCyan.cgColor
+        lifetimeFill.position = CGPoint(x: -46, y: 3)
+        lifetimeFill.cornerRadius = 3
+        lifetimeFill.startPoint = CGPoint(x: 0, y: 0.5)
+        lifetimeFill.endPoint = CGPoint(x: 1, y: 0.5)
         lifetimeFill.shadowColor = NSColor.systemCyan.cgColor
         lifetimeFill.shadowOpacity = 0.9
-        lifetimeFill.shadowRadius = 4
+        lifetimeFill.shadowRadius = 6
         lifetimeTrack.addSublayer(lifetimeFill)
+        lifetimeCap.bounds = CGRect(x: 0, y: 0, width: 7, height: 7)
+        lifetimeCap.position = CGPoint(x: 88.5, y: 3)
+        lifetimeCap.cornerRadius = 3.5
+        lifetimeCap.backgroundColor = NSColor.white.cgColor
+        lifetimeCap.shadowColor = NSColor.white.cgColor
+        lifetimeCap.shadowOpacity = 1
+        lifetimeCap.shadowRadius = 5
+        lifetimeFill.addSublayer(lifetimeCap)
         setVisible(false)
         hostLayer.addSublayer(root)
     }
@@ -2108,25 +2144,74 @@ private final class TypingFeedbackRenderer {
         )
         comboGlow.position = comboAnchor
         comboValue.position = comboAnchor
+        comboShell.position = comboAnchor
         lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 27)
     }
 
     func update(count: Int, progress: CGFloat, pulse: Bool = false) {
         guard count > 0, progress > 0 else { setVisible(false); return }
+        let palette = typingPalette(for: count)
         let label = "×\(count)"
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         comboGlow.string = label
+        comboGlow.foregroundColor = palette.primary.withAlphaComponent(0.34).cgColor
+        comboGlow.shadowColor = palette.secondary.cgColor
         comboValue.string = label
+        comboValue.foregroundColor = palette.primary.cgColor
+        comboValue.shadowColor = palette.secondary.cgColor
+        comboShell.strokeColor = palette.secondary.withAlphaComponent(0.72).cgColor
+        comboShell.shadowColor = palette.primary.cgColor
+        comboShell.shadowOpacity = preferences.settings.preset == "arcade" ? 0.9 : 0.62
+        comboShell.shadowRadius = preferences.settings.preset == "arcade" ? 10 : 7
+        lifetimeTrack.borderColor = palette.primary.withAlphaComponent(0.34).cgColor
+        lifetimeFill.colors = [palette.secondary.cgColor, palette.primary.cgColor, NSColor.white.cgColor]
+        lifetimeFill.shadowColor = palette.primary.cgColor
+        lifetimeCap.backgroundColor = palette.primary.cgColor
+        lifetimeCap.shadowColor = palette.secondary.cgColor
+        CATransaction.commit()
         setVisible(true)
-        animateLifetime(progress: progress, refill: pulse)
+        animateLifetime(progress: progress, refill: pulse, palette: palette)
         guard pulse, !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
         let hit = CAKeyframeAnimation(keyPath: "transform.scale")
-        hit.values = count % 10 == 0 ? [1, 1.38, 0.9, 1.08, 1] : [1, 1.14, 0.96, 1]
-        hit.duration = count % 10 == 0 ? 0.38 : 0.16
+        hit.values = count % 10 == 0 ? [1, 1.42, 0.91, 1.08, 1] : [1, 1.18, 0.96, 1]
+        hit.duration = count % 10 == 0 ? 0.4 : 0.18
         comboValue.add(hit, forKey: "typing-combo-hit")
         comboGlow.add(hit, forKey: "typing-combo-glow-hit")
+        comboShell.add(hit, forKey: "typing-combo-shell-hit")
     }
 
-    private func animateLifetime(progress: CGFloat, refill: Bool) {
+    private func typingPalette(for count: Int) -> (primary: NSColor, secondary: NSColor) {
+        switch count {
+        case 40...:
+            return (
+                NSColor(calibratedRed: 1, green: 0.82, blue: 0.28, alpha: 1),
+                NSColor(calibratedRed: 1, green: 0.28, blue: 0.58, alpha: 1)
+            )
+        case 20..<40:
+            return (
+                NSColor(calibratedRed: 1, green: 0.34, blue: 0.76, alpha: 1),
+                NSColor(calibratedRed: 0.64, green: 0.32, blue: 1, alpha: 1)
+            )
+        case 10..<20:
+            return (
+                NSColor(calibratedRed: 0.72, green: 0.48, blue: 1, alpha: 1),
+                NSColor(calibratedRed: 0.22, green: 0.82, blue: 1, alpha: 1)
+            )
+        case 5..<10:
+            return (
+                NSColor(calibratedRed: 0.26, green: 0.94, blue: 0.76, alpha: 1),
+                NSColor(calibratedRed: 0.18, green: 0.72, blue: 1, alpha: 1)
+            )
+        default:
+            return (
+                NSColor(calibratedRed: 0.28, green: 0.86, blue: 1, alpha: 1),
+                NSColor(calibratedRed: 0.30, green: 0.58, blue: 1, alpha: 1)
+            )
+        }
+    }
+
+    private func animateLifetime(progress: CGFloat, refill: Bool, palette: (primary: NSColor, secondary: NSColor)) {
         if !refill, lifetimeFill.animation(forKey: "typing-lifetime") != nil { return }
         let presentedScale: CGFloat
         if let presentation = lifetimeFill.presentation() {
@@ -2138,17 +2223,17 @@ private final class TypingFeedbackRenderer {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         lifetimeFill.transform = CATransform3DMakeScale(0.001, 1, 1)
-        lifetimeFill.backgroundColor = NSColor.systemRed.cgColor
+        lifetimeFill.colors = [NSColor.systemOrange.cgColor, NSColor.systemRed.cgColor, NSColor.white.cgColor]
         CATransaction.commit()
         let scale = CAKeyframeAnimation(keyPath: "transform.scale.x")
         scale.values = refill ? [current, 1, 1, 0.001] : [progress, 0.001]
         scale.keyTimes = refill ? [0, 0.07, 0.12, 1] : [0, 1]
-        let color = CAKeyframeAnimation(keyPath: "backgroundColor")
+        let color = CAKeyframeAnimation(keyPath: "colors")
         color.values = [
-            NSColor.systemCyan.cgColor,
-            NSColor.systemCyan.cgColor,
-            NSColor.systemOrange.cgColor,
-            NSColor.systemRed.cgColor
+            [palette.secondary.cgColor, palette.primary.cgColor, NSColor.white.cgColor],
+            [palette.secondary.cgColor, palette.primary.cgColor, NSColor.white.cgColor],
+            [palette.primary.cgColor, NSColor.systemOrange.cgColor, NSColor.white.cgColor],
+            [NSColor.systemOrange.cgColor, NSColor.systemRed.cgColor, NSColor.white.cgColor]
         ]
         color.keyTimes = [0, 0.62, 0.84, 1]
         let group = CAAnimationGroup()
@@ -2276,8 +2361,8 @@ private final class TypingFeedbackRenderer {
     func inject(to target: CGPoint, count: Int) {
         guard count > 0 else { return }
         let source = comboAnchor
-        let color = NSColor.systemCyan
-        for layer in [comboGlow, comboValue, lifetimeTrack] {
+        let color = typingPalette(for: count).primary
+        for layer in [comboShell, comboGlow, comboValue, lifetimeTrack] {
             let collapse = CAAnimationGroup()
             let scale = CAKeyframeAnimation(keyPath: "transform.scale")
             scale.values = [1, 1.18, 0.12]
@@ -2354,6 +2439,7 @@ private final class TypingFeedbackRenderer {
 
     private func setVisible(_ visible: Bool) {
         let opacity: Float = visible ? 1 : 0
+        comboShell.opacity = opacity
         comboGlow.opacity = opacity
         comboValue.opacity = opacity
         lifetimeTrack.opacity = opacity
