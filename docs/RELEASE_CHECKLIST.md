@@ -1,0 +1,33 @@
+# Public release checklist
+
+The repository must remain private until the owner explicitly authorizes publication.
+
+## Blocking decisions
+
+- [ ] Choose and approve an open-source license; the project is currently `UNLICENSED` and all rights are reserved.
+- [ ] Choose a private security-reporting channel suitable for the public repository.
+- [ ] Approve the public repository visibility change and first release version.
+
+## Product acceptance
+
+- [ ] Complete a stable personal-use period with no unresolved high-severity defects.
+- [ ] Confirm Focus, Global, and Mix with concurrent desktop tasks.
+- [ ] Confirm Typing Combo, cursor effects, real prompt submission injection, decay, and disconnect behavior.
+- [ ] Confirm light/dark, Focus/Arcade, and Reduce Motion rendering.
+- [ ] Confirm idle hide/orb, dragging, display changes, and inactive-app policies.
+
+## Engineering acceptance
+
+- [ ] Run `npm run check`, plugin validation, skill validation, and macOS Swift compilation.
+- [ ] Run `npm run doctor` after a fresh install and an upgrade.
+- [ ] Verify start/stop, settings reset, data purge, and plugin removal instructions on a clean account.
+- [ ] Verify loopback binding, authentication, origin validation, payload limits, and diagnostic redaction.
+- [ ] Record idle, decay, and burst CPU/GPU behavior on the supported macOS range.
+- [ ] Confirm the release archive contains no runtime state, compiled local binary, logs, secrets, personal paths, or private-repository metadata.
+
+## Documentation and media
+
+- [ ] Capture current light/dark screenshots and short Focus/Arcade demonstrations.
+- [ ] Review README, architecture, privacy, security, troubleshooting, contribution, and maintenance documentation.
+- [ ] Add supported macOS and Codex version ranges after final compatibility testing.
+- [ ] Prepare release notes and a known-limitations section.
