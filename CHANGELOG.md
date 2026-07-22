@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a conservative RC readiness summary that detects stale cachebuster evidence and keeps automated, trusted Hook, hands-on, Instruments, and owner-decision gates separate.
 - Added an ephemeral Release Candidate source-archive drill that packages only tracked files, removes the candidate after inspection, and blocks runtime state, compiled binaries, credentials, personal paths, private repository metadata, undeclared binary assets, or missing media provenance; removed private repository URLs from the plugin manifest.
 - Added an isolated RC security gate covering loopback binding, token permissions, API and browser-stream authentication, origin checks, JSON and size limits, recursive sensitive-field rejection, failure isolation, and privacy-safe doctor output; POST endpoints now reject non-JSON bodies and nested secret-bearing fields.
 - Reframed the README as a private Release Candidate, removed out-of-scope platform roadmap promises, documented current acceptance limits, and added a privacy-aware FAQ for lifecycle, visibility, task modes, Hook verification, Accessibility, performance, and publication status.

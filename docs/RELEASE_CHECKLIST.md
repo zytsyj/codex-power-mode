@@ -35,6 +35,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [x] Enforce a native peak compositor budget for overlapping Energy, semantic, Typing Combo, cursor, and injection choreography across Focus, Arcade, and Reduce Motion.
 - [ ] Repeat performance sampling across the supported macOS range and inspect per-process GPU/energy behavior with Instruments.
 - [x] Run `npm run archive:rc` and confirm the ephemeral candidate contains only tracked source and declared first-party media, with no runtime state, compiled local binary, logs, secrets, personal paths, or private-repository metadata.
+- [x] Add `npm run readiness:rc` so stale automation, real Hook evidence, hands-on checks, Instruments review, and owner decisions cannot be conflated.
 
 ## Documentation and media
 

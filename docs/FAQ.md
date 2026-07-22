@@ -50,6 +50,8 @@ No. The automated report measures CPU, memory, macOS `top` POWER, threads, conte
 
 No. The repository remains private and `UNLICENSED`. Documentation and release gates are being prepared for a possible public release, but publication, repository visibility, license choice, supported versions, and the first release number all require explicit owner approval.
 
+Run `npm run readiness:rc` for a conservative snapshot. `passed` means evidence matches the current cachebuster build; `stale` means an older build passed and must be rerun. Synthetic rendering never satisfies the trusted-Hook or hands-on-interaction gates, and even complete automation cannot resolve owner decisions or authorize publication.
+
 ## Where should I start when something looks wrong?
 
 Use [Troubleshooting](TROUBLESHOOTING.md) for connection, Accessibility, duplicate-process, stale-version, cursor, and visibility checks. Installation, upgrade, reset, purge, and removal are documented in [Installation](INSTALLATION.md).

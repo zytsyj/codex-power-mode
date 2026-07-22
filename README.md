@@ -72,6 +72,7 @@ npm run replay
 npm run render:demos
 npm run render:qa
 npm run archive:rc
+npm run readiness:rc
 npm run security:rc
 npm run perf:rc
 npm run stability:rc
@@ -100,6 +101,8 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 `npm run status` reports service health, the native overlay PID and launch configuration, `hudDisplay` for the state currently shown after settling/decay, `taskState` for the last raw task state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
 `npm run doctor` gives a short, non-technical health report for the service, native HUD, installed version, data directory, duplicate processes, event-stream connection, and trusted Codex lifecycle hooks. Use `npm run doctor -- --json` for automation.
+
+`npm run readiness:rc` gives one conservative release-candidate summary. It marks reports from older cachebuster builds as stale and keeps automated checks, a real trusted Hook, hands-on interaction, Instruments review, and owner publication decisions separate. It never changes repository visibility or publishes anything.
 
 ## Maintenance and removal
 
