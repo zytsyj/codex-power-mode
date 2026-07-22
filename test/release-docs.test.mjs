@@ -50,6 +50,21 @@ test("checked-in media is generated, privacy-safe, and documented", async () => 
   }
   assert.match(provenance, /no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history/i);
   assert.match(renderer, /CODEX_POWER_MODE_RENDER_QA_DIR/);
+
+  for (const filename of ["focus-demo.gif", "arcade-demo.gif"]) {
+    const bytes = await readFile(path.join(root, "docs/media", filename));
+    assert.equal(bytes.subarray(0, 6).toString("ascii"), "GIF87a");
+    assert.ok(bytes.length < 100_000, `${filename} must stay compact`);
+    assert.match(provenance, new RegExp(filename.replaceAll(".", "\\.")));
+  }
+  const demoRenderer = await readFile(path.join(root, "scripts/render-demos.mjs"), "utf8");
+  const composer = await readFile(path.join(root, "scripts/compose-demo.swift"), "utf8");
+  assert.match(demoRenderer, /scripts\/render-qa\.mjs/);
+  assert.match(composer, /UTType\.gif/);
+  assert.deepEqual(
+    [...composer.matchAll(/^import\s+([A-Za-z0-9_]+)/gm)].map((match) => match[1]).sort(),
+    ["Foundation", "ImageIO", "UniformTypeIdentifiers"]
+  );
 });
 
 test("installation guide preserves the private release and safe maintenance boundaries", async () => {

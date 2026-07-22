@@ -4,9 +4,9 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-| Focus · Verify | Arcade · Act | Arcade · Verified |
-| --- | --- | --- |
-| ![Focus Verify on a light background](docs/media/focus-light-verify.png) | ![Arcade Act on a dark background](docs/media/arcade-dark-act.png) | ![Arcade verified completion on a dark background](docs/media/arcade-dark-complete.png) |
+| Focus lifecycle | Arcade lifecycle |
+| --- | --- |
+| ![Synthetic Focus lifecycle: Observe, Act, Verify, Complete](docs/media/focus-demo.gif) | ![Synthetic Arcade lifecycle with Typing Combo, Energy tiers, Verify, and Complete](docs/media/arcade-demo.gif) |
 
 Power Mode reads Codex lifecycle signals—not keystrokes or code volume—and turns them into a compact semantic rhythm. Useful edits build Energy, consecutive agent steps build Combo, verification creates evidence-backed rewards, and inactivity visibly decays back to Idle. Everything stays local and the runtime has zero third-party packages.
 
@@ -67,6 +67,7 @@ npm run demo
 npm run showcase
 npm run showcase:energy
 npm run replay
+npm run render:demos
 npm run render:qa
 ```
 

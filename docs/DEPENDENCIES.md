@@ -11,6 +11,8 @@ Codex Power Mode currently has no third-party runtime or development packages. T
 
 Node.js, macOS, Apple frameworks, Swift, and Codex are platform prerequisites. They are not copied into or redistributed with this repository.
 
+The optional first-party media build additionally uses the macOS ImageIO and UniformTypeIdentifiers system frameworks to compose synthetic PNG frames into GIFs. Those frameworks are not shipped with the plugin.
+
 ## Bundled third-party code and assets
 
 None. The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, fonts, images, videos, native libraries, or precompiled executables. The small preview PNGs under `docs/media/` are first-party output generated from the project's native renderer; their provenance is recorded in `docs/MEDIA.md`.

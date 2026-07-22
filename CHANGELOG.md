@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added compact reproducible Focus and Arcade GIF storyboards composed entirely from privacy-safe synthetic native frames with macOS system tooling.
 - Added first-party privacy-safe light/dark preview media, README visual and control summaries, media provenance, and a reproducible native QA rendering command.
 - Added verified private-install, upgrade, Accessibility, troubleshooting, reset, purge, and uninstall guidance with automated documentation gates.
 - Added an explicit dependency and license inventory, third-party notice baseline, release checklist gates, and automated protection for the current zero-package private build.
