@@ -23,6 +23,7 @@
     "doctor": "node scripts/power-mode.mjs doctor",
     "perf:rc": "node scripts/performance-rc.mjs --output .power-mode/performance-rc.json",
     "stability:rc": "node scripts/stability-rc.mjs --output .power-mode/stability-rc.json",
+    "compatibility:rc": "node scripts/compatibility-rc.mjs --output .power-mode/compatibility-rc.json --frames .power-mode/compatibility-render",
     "render:demos": "node scripts/render-demos.mjs --output .power-mode/render-demos",
     "render:qa": "node scripts/render-qa.mjs --output .power-mode/render-qa",
     "test": "node --test",

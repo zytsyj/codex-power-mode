@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a reproducible 234-frame RC compatibility report that verifies native theme, motion, state, Energy, completion, cursor, and Typing Combo coverage while explicitly separating synthetic evidence from real lifecycle and hands-on acceptance.
 - Added a bounded RC stability check that forces an authenticated service restart, verifies native HUD reconnection and settings preservation, and stress-tests concurrent startup without touching real task state.
 - Added a reproducible macOS RC performance sampler, regression budgets, and documented single-machine baseline covering idle, the complete semantic lifecycle, Typing Combo, and Energy breakthroughs without touching real task data.
 - Added compact reproducible Focus and Arcade GIF storyboards composed entirely from privacy-safe synthetic native frames with macOS system tooling.

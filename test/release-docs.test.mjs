@@ -13,6 +13,7 @@ test("public-release documentation exists while publication remains explicitly b
     "CODE_OF_CONDUCT.md",
     "THIRD_PARTY_NOTICES.md",
     "docs/ARCHITECTURE.md",
+    "docs/COMPATIBILITY.md",
     "docs/DEPENDENCIES.md",
     "docs/INSTALLATION.md",
     "docs/MEDIA.md",
@@ -33,6 +34,18 @@ test("public-release documentation exists while publication remains explicitly b
   assert.match(readme, /not open source yet/);
   assert.match(checklist, /Choose and approve an open-source license/);
   assert.match(checklist, /owner explicitly authorizes publication/);
+});
+
+test("compatibility evidence separates synthetic coverage from real and manual acceptance", async () => {
+  const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const compatibility = await readFile(path.join(root, "docs/COMPATIBILITY.md"), "utf8");
+  const runner = await readFile(path.join(root, "scripts/compatibility-rc.mjs"), "utf8");
+
+  assert.equal(packageManifest.scripts["compatibility:rc"], "node scripts/compatibility-rc.mjs --output .power-mode/compatibility-rc.json --frames .power-mode/compatibility-render");
+  assert.match(compatibility, /Synthetic preview data is never presented as proof/i);
+  assert.match(compatibility, /Hands-on evidence still required/);
+  assert.match(runner, /Expected 234 native QA frames/);
+  assert.match(runner, /pending-new-trusted-task/);
 });
 
 test("stability recovery check is explicit, bounded, and privacy-safe", async () => {

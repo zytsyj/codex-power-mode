@@ -23,6 +23,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [ ] Decide whether public CI actions must be pinned to immutable commit SHAs.
 - [ ] Run `npm run doctor` after a fresh install and an upgrade.
 - [x] Run `npm run stability:rc` and review the service-restart, HUD-reconnect, concurrent-start, settings, and single-instance results on the initial RC machine.
+- [x] Generate and validate the 234-frame native compatibility matrix with `npm run compatibility:rc` on the initial RC machine.
 - [ ] Verify the full [installation and maintenance](INSTALLATION.md) flow on a clean account, including start/stop, settings reset, data purge, package removal, and Accessibility revocation.
 - [ ] Verify loopback binding, authentication, origin validation, payload limits, and diagnostic redaction.
 - [x] Record an initial reproducible single-machine CPU, memory, POWER, thread, and wakeup baseline for idle and synthetic bursts.
