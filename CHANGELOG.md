@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an ephemeral Release Candidate source-archive drill that packages only tracked files, removes the candidate after inspection, and blocks runtime state, compiled binaries, credentials, personal paths, private repository metadata, undeclared binary assets, or missing media provenance; removed private repository URLs from the plugin manifest.
 - Added an isolated RC security gate covering loopback binding, token permissions, API and browser-stream authentication, origin checks, JSON and size limits, recursive sensitive-field rejection, failure isolation, and privacy-safe doctor output; POST endpoints now reject non-JSON bodies and nested secret-bearing fields.
 - Reframed the README as a private Release Candidate, removed out-of-scope platform roadmap promises, documented current acceptance limits, and added a privacy-aware FAQ for lifecycle, visibility, task modes, Hook verification, Accessibility, performance, and publication status.
 - Added a native peak layer/animation budget self-test for simultaneous Energy breakthrough, semantic transition, Typing Combo, cursor milestone, and prompt injection choreography across Focus, Arcade, and Reduce Motion.

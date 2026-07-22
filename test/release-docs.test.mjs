@@ -62,6 +62,22 @@ test("security RC gate is isolated, privacy-safe, and documented", async () => {
   assert.match(runner, /The report contains no prompts, code, commands, key values, cursor coordinates, tokens, task identifiers, local paths, ports, or process identifiers/);
 });
 
+test("release archive drill is ephemeral, tracked-only, and blocks private metadata", async () => {
+  const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const pluginManifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
+  const archive = await readFile(path.join(root, "docs/RELEASE_ARCHIVE.md"), "utf8");
+  const runner = await readFile(path.join(root, "scripts/archive-rc.mjs"), "utf8");
+
+  assert.equal(packageManifest.scripts["archive:rc"], "node scripts/archive-rc.mjs --output .power-mode/archive-rc.json");
+  assert.equal(Object.hasOwn(pluginManifest, "repository"), false);
+  assert.equal(Object.hasOwn(pluginManifest, "homepage"), false);
+  assert.match(archive, /does not publish to npm, GitHub, a Codex marketplace, or any other destination/);
+  assert.match(runner, /trackedFilesOnly: true/);
+  assert.match(runner, /privateRepositoryMetadataAbsent: true/);
+  assert.match(runner, /retained: false/);
+  assert.match(runner, /published: false/);
+});
+
 test("compatibility evidence separates synthetic coverage from real and manual acceptance", async () => {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const compatibility = await readFile(path.join(root, "docs/COMPATIBILITY.md"), "utf8");

@@ -21,6 +21,7 @@
     "replay": "node scripts/power-mode.mjs replay",
     "status": "node scripts/power-mode.mjs status",
     "doctor": "node scripts/power-mode.mjs doctor",
+    "archive:rc": "node scripts/archive-rc.mjs --output .power-mode/archive-rc.json",
     "security:rc": "node scripts/security-rc.mjs --output .power-mode/security-rc.json",
     "perf:rc": "node scripts/performance-rc.mjs --output .power-mode/performance-rc.json",
     "stability:rc": "node scripts/stability-rc.mjs --output .power-mode/stability-rc.json",

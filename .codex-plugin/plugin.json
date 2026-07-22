@@ -1,13 +1,11 @@
 {
   "name": "codex-power-mode",
-  "version": "0.8.0+codex.20260722190256",
+  "version": "0.8.0+codex.20260722191830",
   "description": "A semantic activity and verification feedback layer for Codex.",
   "author": {
     "name": "zytsyj",
     "url": "https://github.com/zytsyj"
   },
-  "homepage": "https://github.com/zytsyj/codex-power-mode",
-  "repository": "https://github.com/zytsyj/codex-power-mode",
   "license": "UNLICENSED",
   "keywords": [
     "codex",
