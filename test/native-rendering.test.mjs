@@ -56,7 +56,10 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.doesNotMatch(source, /kAXTextAreaRole/);
   assert.match(source, /\[48, 51, 53, 117, 123, 124, 125, 126\]/);
   assert.match(source, /if \[36, 76\]\.contains\(keyCode\)/);
-  assert.match(source, /view\?\.handleTypingSubmit\(\)/);
+  assert.doesNotMatch(source, /handleTypingSubmit/);
+  assert.match(source, /event\.toolGroup == "prompt"/);
+  assert.match(source, /DispatchQueue\.main\.asyncAfter\(deadline: \.now\(\) \+ 0\.03\)/);
+  assert.match(source, /precedingCharacter = CFRange/);
   assert.match(source, /private final class TypingFeedbackRenderer/);
   assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);

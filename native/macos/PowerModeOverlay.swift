@@ -2201,10 +2201,6 @@ private final class PowerModeView: NSView {
         consumeTypingCombo(sessionId: sessionId)
     }
 
-    func handleTypingSubmit() {
-        consumeTypingCombo(sessionId: state.sessionId)
-    }
-
     private func consumeTypingCombo(sessionId: String?) {
         guard typingComboCount > 0,
               let lastAt = typingComboLastAt,
@@ -3908,12 +3904,16 @@ private final class TypingComboMonitor {
     private func handle(_ event: NSEvent) {
         guard preferences.settings.typingCombo == true, isCodexFrontmost() else { return }
         let keyCode = Int(event.keyCode)
-        if [36, 76].contains(keyCode) {
-            if !event.modifierFlags.contains(.shift) { view?.handleTypingSubmit() }
-            return
-        }
+        if [36, 76].contains(keyCode) { return }
         guard event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
               ![48, 51, 53, 117, 123, 124, 125, 126].contains(keyCode) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+            self?.recordTypingHit()
+        }
+    }
+
+    private func recordTypingHit() {
+        guard preferences.settings.typingCombo == true, isCodexFrontmost() else { return }
         let now = Date()
         count = now.timeIntervalSince(lastHit) <= comboWindow ? min(200, count + 1) : 1
         lastHit = now
@@ -3941,11 +3941,21 @@ private final class TypingComboMonitor {
         var rangeValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(focused, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
               let rangeValue else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
+        var selectedRange = CFRange()
+        var boundsRangeValue = rangeValue
+        if CFGetTypeID(rangeValue) == AXValueGetTypeID(),
+           AXValueGetValue(rangeValue as! AXValue, .cfRange, &selectedRange),
+           selectedRange.location > 0 {
+            var precedingCharacter = CFRange(location: selectedRange.location - 1, length: 1)
+            if let value = AXValueCreate(.cfRange, &precedingCharacter) {
+                boundsRangeValue = value
+            }
+        }
         var boundsValue: CFTypeRef?
         guard AXUIElementCopyParameterizedAttributeValue(
             focused,
             kAXBoundsForRangeParameterizedAttribute as CFString,
-            rangeValue,
+            boundsRangeValue,
             &boundsValue
         ) == .success,
         let boundsValue,
