@@ -118,6 +118,8 @@ test("installation guide preserves the private release and safe maintenance boun
   assert.match(installation, /Start a new Codex task after installation/);
   assert.match(installation, /reset:settings -- --yes/);
   assert.match(installation, /purge:data -- --yes/);
+  assert.match(installation, /npm run audit:hook-runtimes/);
+  assert.match(installation, /Automatic cleanup remains disabled/);
   assert.match(installation, /codex plugin remove codex-power-mode@personal/);
   assert.match(installation, /public installation channel.*explicitly approved/i);
   assert.match(troubleshooting, /Version mismatch or duplicate HUD/);

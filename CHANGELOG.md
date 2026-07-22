@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a read-only Hook runtime storage audit and a tested candidate retention policy that keeps the newest eight versions plus the linked current runtime; automatic deletion remains disabled pending real Hook acceptance.
 - Added an isolated native settings persistence self-test covering save/reload, validation, position reset, language, idle, inactive-app, motion, Combo, and cursor preferences without touching installed user settings.
 - Extracted the native event-stream retry policy into a Swift-tested 1/2/4/8/16/30-second schedule with a 10-second healthy-connection reset, and added both reconnect and placement self-tests to macOS CI.
 - Added a bounded live reconnect check that rejects three local stream attempts, measures the real 1/2/4-second cadence, and verifies automatic recovery without injecting lifecycle activity or changing settings.

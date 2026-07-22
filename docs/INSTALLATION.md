@@ -27,6 +27,16 @@ npm run doctor
 
 The service binds to `127.0.0.1:4737`. Installed runtime data is stored separately from the versioned plugin cache so settings and history survive replacement of the package.
 
+### Hook runtime storage audit
+
+Each upgrade keeps a versioned Hook runtime so already-open Codex tasks never point into a removed plugin cache. Inspect this storage without deleting anything:
+
+```sh
+npm run audit:hook-runtimes
+```
+
+The current release only reports a candidate policy: keep the newest eight runtimes and always protect the version selected by the stable `hook-runtime` link. Automatic cleanup remains disabled until real post-upgrade Hook acceptance is complete.
+
 ## Upgrade
 
 Private development upgrades use the plugin cachebuster helper and reinstall from the same personal marketplace. Do not edit marketplace configuration by hand. After reinstalling:
