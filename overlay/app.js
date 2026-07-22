@@ -6,6 +6,7 @@ const parameters = new URLSearchParams(location.search);
 const requestedLanguage = parameters.get("lang") || "auto";
 const chinese = requestedLanguage === "zh-CN" || requestedLanguage === "auto" && navigator.language.toLowerCase().startsWith("zh");
 const idleBehavior = ["hide", "orb", "always"].includes(parameters.get("idle")) ? parameters.get("idle") : "hide";
+const autoHideDelayMs = Math.max(0, Math.min(6_000, Number(parameters.get("hideDelay") ?? 2_000) || 0));
 const reducedMotion = parameters.get("motion") === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches;
 const preset = parameters.get("preset") === "arcade" ? "arcade" : "focus";
 const previewPhase = parameters.get("phase");
@@ -280,13 +281,14 @@ function presentationAt(next, now = Date.now()) {
         ? lastActivityAt + abandonedActivityMs
         : Number.NaN;
   const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
-  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false };
+  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false, settledAt: null };
   const explicitBreak = Date.parse(next.comboBrokenAt);
   const naturalBreak = Date.parse(next.comboExpiresAt);
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const comboEnd = Number.isFinite(disconnectedAt) ? disconnectedAt + comboLostMs : 0;
   const idleAt = Math.max(stoppedAt + finalStateHoldMs, comboEnd);
-  if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true };
+  const settledAt = idleAt + momentumReturnMs;
+  if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true, settledAt };
   const progress = Math.max(0, Math.min(1, (now - idleAt) / momentumReturnMs));
   return {
     ...next,
@@ -297,7 +299,8 @@ function presentationAt(next, now = Date.now()) {
     momentum: Math.round(momentum * (1 - progress)),
     idle: true,
     settled: progress >= 1,
-    returning: progress < 1
+    returning: progress < 1,
+    settledAt
   };
 }
 
@@ -399,7 +402,9 @@ function updateIdleVisibility(now = Date.now(), comboVisible = false, presented 
   const urgent = presented.phase === "wait" || presented.phase === "recover" || presented.status === "needs-attention" || presented.status === "failed";
   const working = presented.status === "working";
   const terminalReturning = presented.returning;
-  const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || terminalReturning || now < hudVisibleUntil;
+  const idleGrace = presented.settled && Number.isFinite(presented.settledAt) && now < presented.settledAt + autoHideDelayMs;
+  document.body.dataset.idleGrace = presented.settled ? (idleGrace ? "active" : "expired") : "pending";
+  const visible = idleBehavior !== "hide" || !connectionOnline || urgent || working || comboVisible || terminalReturning || idleGrace || now < hudVisibleUntil;
   elements.hud.classList.toggle("idle-hidden", !visible);
 }
 

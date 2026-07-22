@@ -96,6 +96,30 @@ test("event service health identifies the running plugin build", async () => {
   }
 });
 
+test("event service does not cache HUD assets during plugin updates", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-assets-"));
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const [page, script] = await Promise.all([
+      fetch(`http://127.0.0.1:${port}/`),
+      fetch(`http://127.0.0.1:${port}/app.js`)
+    ]);
+    assert.equal(page.status, 200);
+    assert.equal(script.status, 200);
+    assert.equal(page.headers.get("cache-control"), "no-store");
+    assert.equal(script.headers.get("cache-control"), "no-store");
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("event service records concurrent activity without replacing the active HUD session", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-arbitration-"));
   const port = await freePort();

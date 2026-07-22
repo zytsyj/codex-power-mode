@@ -117,7 +117,10 @@ const server = http.createServer(async (request, response) => {
   try {
     const info = await stat(filePath);
     if (!info.isFile()) throw new Error("Not a file");
-    response.writeHead(200, { "content-type": mime.get(path.extname(filePath)) || "application/octet-stream" });
+    response.writeHead(200, {
+      "content-type": mime.get(path.extname(filePath)) || "application/octet-stream",
+      "cache-control": "no-store"
+    });
     response.end(await readFile(filePath));
   } catch {
     sendJson(response, 404, { error: "Not found" });

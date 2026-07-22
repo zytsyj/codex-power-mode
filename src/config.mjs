@@ -4,6 +4,7 @@ const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
 const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
+const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
 const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -43,6 +44,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const inactiveBehavior = hasValue(environment, "CODEX_POWER_MODE_INACTIVE_BEHAVIOR")
     ? environment.CODEX_POWER_MODE_INACTIVE_BEHAVIOR
     : storedInactiveBehavior;
+  const requestedAutoHideDelay = Number(hasValue(environment, "CODEX_POWER_MODE_AUTO_HIDE_DELAY")
+    ? environment.CODEX_POWER_MODE_AUTO_HIDE_DELAY
+    : settings.autoHideDelay);
   const enabled = hasValue(environment, "CODEX_POWER_MODE_ENABLED")
     ? environment.CODEX_POWER_MODE_ENABLED !== "0"
     : settings.enabled !== false;
@@ -56,6 +60,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     scale: Number.isFinite(parsedScale) ? Math.min(1.6, Math.max(0.75, parsedScale)) : 1.15,
     reducedMotion,
     inactiveBehavior: INACTIVE_BEHAVIORS.has(inactiveBehavior) ? inactiveBehavior : "hide",
+    autoHideDelay: AUTO_HIDE_DELAYS.has(requestedAutoHideDelay) ? requestedAutoHideDelay : 2,
     enabled,
     idleBehavior: IDLE_BEHAVIORS.has(idleBehavior) ? idleBehavior : "hide",
     language: LANGUAGES.has(language) ? language : "auto",

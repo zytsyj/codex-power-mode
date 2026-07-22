@@ -15,6 +15,7 @@ test("native config reports defaults used by the overlay", () => {
     scale: 1.15,
     reducedMotion: false,
     inactiveBehavior: "hide",
+    autoHideDelay: 2,
     enabled: true,
     idleBehavior: "hide",
     language: "auto",
@@ -33,6 +34,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_SCALE: "9",
     CODEX_POWER_MODE_REDUCED_MOTION: "1",
     CODEX_POWER_MODE_INACTIVE_BEHAVIOR: "follow",
+    CODEX_POWER_MODE_AUTO_HIDE_DELAY: "6",
     CODEX_POWER_MODE_IDLE: "always",
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
@@ -46,6 +48,7 @@ test("native config normalizes environment overrides", () => {
     scale: 1.6,
     reducedMotion: true,
     inactiveBehavior: "follow",
+    autoHideDelay: 6,
     enabled: false,
     idleBehavior: "always",
     language: "zh-CN",
@@ -67,6 +70,7 @@ test("native config preserves settings unless an environment override is provide
     scale: 1.3,
     reducedMotion: true,
     inactiveBehavior: "stay",
+    autoHideDelay: 0,
     enabled: false,
     idleBehavior: "orb",
     language: "en",
@@ -111,6 +115,14 @@ test("native config adds display defaults without resetting older schema-one set
   assert.equal(upgraded.effectIntensity, "normal");
   assert.equal(upgraded.showCombo, true);
   assert.equal(upgraded.inactiveBehavior, "hide");
+  assert.equal(upgraded.autoHideDelay, 2);
+});
+
+test("native config limits auto-hide delay to supported rhythm presets", () => {
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_AUTO_HIDE_DELAY: "0" }).autoHideDelay, 0);
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_AUTO_HIDE_DELAY: "2" }).autoHideDelay, 2);
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_AUTO_HIDE_DELAY: "6" }).autoHideDelay, 6);
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_AUTO_HIDE_DELAY: "99" }).autoHideDelay, 2);
 });
 
 test("service config keeps controllers and hooks on the configured port", () => {

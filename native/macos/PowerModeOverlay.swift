@@ -28,6 +28,11 @@ private func trackedWindowTarget(codexIsFrontmost: Bool, inactiveBehavior: Strin
     }
 }
 
+private func idleGraceIsActive(now: Date, settledAt: Date?, delay: TimeInterval) -> Bool {
+    guard let settledAt, delay > 0 else { return false }
+    return now < settledAt.addingTimeInterval(delay)
+}
+
 private func runPlacementGeometrySelfTest() {
     let view = CGRect(x: 0, y: 0, width: 900, height: 700)
     precondition(resolvedHudPlacementBounds(viewBounds: view, visibleBounds: nil) == CGRect(x: 12, y: 12, width: 876, height: 676))
@@ -43,7 +48,11 @@ private func runPlacementGeometrySelfTest() {
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "hide") == .hidden)
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "stay") == .codex)
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .frontmost)
-    fputs("HUD placement and inactive behavior self-test passed\n", stdout)
+    let settledAt = Date(timeIntervalSince1970: 1_000)
+    precondition(!idleGraceIsActive(now: settledAt, settledAt: settledAt, delay: 0))
+    precondition(idleGraceIsActive(now: settledAt.addingTimeInterval(1.9), settledAt: settledAt, delay: 2))
+    precondition(!idleGraceIsActive(now: settledAt.addingTimeInterval(2), settledAt: settledAt, delay: 2))
+    fputs("HUD placement, inactive behavior, and auto-hide self-test passed\n", stdout)
 }
 
 private struct PowerState: Decodable {
@@ -100,6 +109,7 @@ private struct OverlaySettings: Codable, Equatable {
     var scale = 1.15
     var reducedMotion = false
     var inactiveBehavior = "hide"
+    var autoHideDelay = 2.0
     var enabled = true
     var idleBehavior = "hide"
     var language = "auto"
@@ -139,6 +149,10 @@ private final class PowerModePreferences {
 
     func setPreset(_ value: String) { mutate { $0.preset = value } }
     func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
+    func setAutoHideDelay(_ value: Double) {
+        guard [0.0, 2.0, 6.0].contains(value) else { return }
+        mutate { $0.autoHideDelay = value }
+    }
     func setLanguage(_ value: String) { mutate { $0.language = value } }
     func setActivitySource(_ value: String) { mutate { $0.activitySource = value == "global" ? "global" : "focused" } }
     func setEffectIntensity(_ value: String) {
@@ -869,7 +883,7 @@ private final class PowerModeView: NSView {
         return CGRect(origin: hudOrigin(size: size), size: size)
     }
 
-    private func presentationSnapshot(now: Date = Date()) -> (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool) {
+    private func presentationSnapshot(now: Date = Date()) -> (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool, settledAt: Date?) {
         let phase = state.phase ?? "observe"
         let status = state.status ?? "ready"
         let momentum = min(100, max(0, state.momentum ?? 0))
@@ -879,14 +893,15 @@ private final class PowerModeView: NSView {
         let effectiveStopAt = turnStoppedAt
             ?? (canSettleRecovery ? recoveryAt?.addingTimeInterval(15) : nil)
             ?? (canSettleAbandoned ? lastActivityAt?.addingTimeInterval(5 * 60) : nil)
-        guard let effectiveStopAt else { return (phase, status, momentum, false, false, false) }
+        guard let effectiveStopAt else { return (phase, status, momentum, false, false, false, nil) }
         let finalHoldEnd = effectiveStopAt.addingTimeInterval(3)
         let disconnectedAt = comboBrokenAt ?? comboExpiresAt
         let comboEnd = disconnectedAt?.addingTimeInterval(3.2) ?? .distantPast
         let idleAt = max(finalHoldEnd, comboEnd)
-        guard now >= idleAt else { return (phase, status, momentum, false, false, false) }
+        let settledAt = idleAt.addingTimeInterval(4)
+        guard now >= idleAt else { return (phase, status, momentum, false, false, false, settledAt) }
         let progress = min(1, max(0, now.timeIntervalSince(idleAt) / 4))
-        return ("idle", "ready", Int((Double(momentum) * (1 - progress)).rounded()), true, progress >= 1, progress < 1)
+        return ("idle", "ready", Int((Double(momentum) * (1 - progress)).rounded()), true, progress >= 1, progress < 1, settledAt)
     }
 
     private func shouldShowHUD(now: Date) -> Bool {
@@ -902,7 +917,11 @@ private final class PowerModeView: NSView {
             let combo = comboSnapshot(now: now)
             if combo.active || combo.lost { return true }
         }
-        return presentation.returning
+        if presentation.returning { return true }
+        if idleGraceIsActive(now: now, settledAt: presentation.settledAt, delay: preferences.settings.autoHideDelay) {
+            return true
+        }
+        return false
     }
 
     private func reactorCenter() -> CGPoint {
@@ -2281,6 +2300,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             selected: preferences.settings.idleBehavior,
             action: #selector(selectIdleBehavior)
         ))
+        let autoHideDelay = submenu(
+            title: preferences.text("Auto-hide delay", "自动隐藏延迟"),
+            choices: [
+                ("0", preferences.text("Immediately", "立即")),
+                ("2", preferences.text("Brief · 2 seconds", "短暂 · 2 秒")),
+                ("6", preferences.text("Relaxed · 6 seconds", "从容 · 6 秒"))
+            ],
+            selected: String(preferences.settings.autoHideDelay),
+            action: #selector(selectAutoHideDelay),
+            numericSelected: preferences.settings.autoHideDelay
+        )
+        autoHideDelay.isEnabled = preferences.settings.idleBehavior == "hide"
+        menu.addItem(autoHideDelay)
         menu.addItem(submenu(
             title: preferences.text("Language", "语言"),
             choices: [("auto", preferences.text("System", "跟随系统")), ("zh-CN", "中文"), ("en", "English")],
@@ -2363,6 +2395,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func toggleCombo() { preferences?.toggleCombo() }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
+    @objc private func selectAutoHideDelay(_ sender: NSMenuItem) {
+        if let value = sender.representedObject as? String, let delay = Double(value) { preferences?.setAutoHideDelay(delay) }
+    }
     @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
     @objc private func selectEdge(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEdge(value) } }
