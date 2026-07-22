@@ -6,6 +6,8 @@ Power Mode keeps deterministic state tests separate from a small real-process re
 
 `npm run check` verifies session arbitration and storage behavior for Focus, Global, and Mix; late-event suppression; per-session Energy and Combo isolation; Mix parallel-stop and recovery handling; missing terminal-event fallback to Idle; service authentication; clean SSE shutdown; stale PID safety; and concurrent native startup locking.
 
+The native macOS CI job also executes the event-stream retry policy directly. Consecutive failures wait 1, 2, 4, 8, 16, and then at most 30 seconds; the attempt counter resets only after a connection remains healthy for 10 seconds. This guards against accidental high-frequency reconnect loops without making the normal test suite wait through a full minute.
+
 The isolated tests use temporary data directories and synthetic lifecycle metadata. They do not connect to or mutate a real Codex task.
 
 ## Real service recovery
@@ -31,3 +33,7 @@ The ignored report at `.power-mode/stability-rc.json` contains only pass/fail fa
 The first single-machine run on macOS 26.5 passed: the service restarted, the original HUD survived and reconnected, eight concurrent native-start requests reused that HUD, and the final doctor check found one service, one HUD, preserved settings, and one consistent data directory. This is an RC recovery baseline, not a claim of compatibility with every supported macOS or Codex version.
 
 This check briefly interrupts live visual updates. It does not stop Codex, erase Power Mode history, change settings, inject lifecycle events, or modify the connected task. Final RC acceptance still requires a longer personal-use period and compatibility checks for supported macOS/Codex versions, display arrangements, and inactive-app policies.
+
+For the bounded repeated-failure check, run `npm run stability:reconnect`. It replaces the stopped local service with a temporary loopback responder that rejects exactly three stream attempts, measures the observed 1/2/4-second cadence, restores the installed service, and waits through the next retry for authenticated HUD recovery. It neither accepts nor emits lifecycle events.
+
+The installed RC build observed 967 ms, 2,122 ms, and 4,076 ms between the service loss and three rejected attempts. The original HUD then recovered through the next scheduled retry with one service, one HUD, and unchanged settings. Longer 8/16/30-second values remain enforced by the native policy self-test so routine validation does not deliberately hold the live HUD offline for a full minute.

@@ -52,12 +52,16 @@ test("stability recovery check is explicit, bounded, and privacy-safe", async ()
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const stability = await readFile(path.join(root, "docs/STABILITY.md"), "utf8");
   const runner = await readFile(path.join(root, "scripts/stability-rc.mjs"), "utf8");
+  const reconnectRunner = await readFile(path.join(root, "scripts/reconnect-live-rc.mjs"), "utf8");
 
   assert.equal(packageManifest.scripts["stability:rc"], "node scripts/stability-rc.mjs --output .power-mode/stability-rc.json");
   assert.match(stability, /eight concurrent native-start requests/i);
   assert.match(stability, /does not stop Codex/i);
   assert.match(runner, /Refusing to stop an unrecognized service process/);
   assert.match(runner, /No task identifiers, prompts, code, commands, key values, cursor coordinates, tokens, or local paths/);
+  assert.equal(packageManifest.scripts["stability:reconnect"], "node scripts/reconnect-live-rc.mjs --output .power-mode/reconnect-live-rc.json");
+  assert.match(reconnectRunner, /expectedDelaySeconds: \[1, 2, 4\]/);
+  assert.match(reconnectRunner, /realLifecycleEventsInjected: 0/);
 });
 
 test("performance baseline is reproducible and keeps final GPU acceptance explicit", async () => {

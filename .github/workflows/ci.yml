@@ -31,3 +31,5 @@ jobs:
             -framework AppKit -framework Foundation \
             -o /tmp/codex-power-mode-overlay
           file /tmp/codex-power-mode-overlay
+          CODEX_POWER_MODE_PLACEMENT_SELF_TEST=1 /tmp/codex-power-mode-overlay
+          CODEX_POWER_MODE_RECONNECT_SELF_TEST=1 /tmp/codex-power-mode-overlay

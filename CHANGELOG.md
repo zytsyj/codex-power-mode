@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Extracted the native event-stream retry policy into a Swift-tested 1/2/4/8/16/30-second schedule with a 10-second healthy-connection reset, and added both reconnect and placement self-tests to macOS CI.
+- Added a bounded live reconnect check that rejects three local stream attempts, measures the real 1/2/4-second cadence, and verifies automatic recovery without injecting lifecycle activity or changing settings.
 - Added a reproducible 234-frame RC compatibility report that verifies native theme, motion, state, Energy, completion, cursor, and Typing Combo coverage while explicitly separating synthetic evidence from real lifecycle and hands-on acceptance.
 - Added a bounded RC stability check that forces an authenticated service restart, verifies native HUD reconnection and settings preservation, and stress-tests concurrent startup without touching real task state.
 - Added a reproducible macOS RC performance sampler, regression budgets, and documented single-machine baseline covering idle, the complete semantic lifecycle, Typing Combo, and Energy breakthroughs without touching real task data.

@@ -35,6 +35,30 @@ private func idleGraceIsActive(now: Date, settledAt: Date?, delay: TimeInterval)
     return now < settledAt.addingTimeInterval(delay)
 }
 
+private let reconnectStableWindow: TimeInterval = 10
+
+private func reconnectDelay(for attempt: Int) -> TimeInterval {
+    min(30, pow(2, Double(max(0, attempt))))
+}
+
+private func nextReconnectAttempt(after attempt: Int) -> Int {
+    min(5, max(0, attempt) + 1)
+}
+
+private func reconnectAttemptAfterConnection(current attempt: Int, connectedDuration: TimeInterval?) -> Int {
+    guard let connectedDuration, connectedDuration >= reconnectStableWindow else { return attempt }
+    return 0
+}
+
+private func runReconnectPolicySelfTest() {
+    precondition((0...7).map(reconnectDelay) == [1, 2, 4, 8, 16, 30, 30, 30])
+    precondition((0...7).map(nextReconnectAttempt) == [1, 2, 3, 4, 5, 5, 5, 5])
+    precondition(reconnectAttemptAfterConnection(current: 4, connectedDuration: nil) == 4)
+    precondition(reconnectAttemptAfterConnection(current: 4, connectedDuration: 9.999) == 4)
+    precondition(reconnectAttemptAfterConnection(current: 4, connectedDuration: 10) == 0)
+    fputs("Event-stream reconnect policy self-test passed\n", stdout)
+}
+
 private func isUsableCaretBounds(_ bounds: CGRect) -> Bool {
     guard !bounds.isNull,
           bounds.origin.x.isFinite, bounds.origin.y.isFinite,
@@ -4488,15 +4512,16 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard !stopped, session === self.session else { return }
         updateConnection(false)
-        if let connectedAt, Date().timeIntervalSince(connectedAt) >= 10 {
-            reconnectAttempt = 0
-        }
+        reconnectAttempt = reconnectAttemptAfterConnection(
+            current: reconnectAttempt,
+            connectedDuration: connectedAt.map { Date().timeIntervalSince($0) }
+        )
         connectedAt = nil
         self.task = nil
         self.session = nil
         session.finishTasksAndInvalidate()
-        let delay = min(30.0, pow(2.0, Double(reconnectAttempt)))
-        reconnectAttempt = min(5, reconnectAttempt + 1)
+        let delay = reconnectDelay(for: reconnectAttempt)
+        reconnectAttempt = nextReconnectAttempt(after: reconnectAttempt)
         let workItem = DispatchWorkItem { [weak self] in self?.start() }
         reconnectWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
@@ -5422,6 +5447,10 @@ private struct PowerModeOverlayApp {
         }
         if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PLACEMENT_SELF_TEST"] == "1" {
             runPlacementGeometrySelfTest()
+            return
+        }
+        if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RECONNECT_SELF_TEST"] == "1" {
+            runReconnectPolicySelfTest()
             return
         }
         if let directory = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RENDER_QA_DIR"] {

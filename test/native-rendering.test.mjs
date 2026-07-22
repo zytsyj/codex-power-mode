@@ -50,6 +50,18 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.doesNotMatch(source, /\("always", preferences\.text\("Always expanded"/);
 });
 
+test("native event stream applies bounded exponential reconnect backoff", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private let reconnectStableWindow: TimeInterval = 10/);
+  assert.match(source, /private func reconnectDelay\(for attempt: Int\)/);
+  assert.match(source, /min\(30, pow\(2, Double\(max\(0, attempt\)\)\)\)/);
+  assert.match(source, /\(0\.\.\.7\)\.map\(reconnectDelay\) == \[1, 2, 4, 8, 16, 30, 30, 30\]/);
+  assert.match(source, /connectedDuration >= reconnectStableWindow/);
+  assert.match(source, /CODEX_POWER_MODE_RECONNECT_SELF_TEST/);
+  assert.match(source, /reconnectAttempt = reconnectAttemptAfterConnection/);
+});
+
 test("typing Combo follows the foreground Codex app without relying on an AX text role", async () => {
   const source = await readFile(overlaySource, "utf8");
 
