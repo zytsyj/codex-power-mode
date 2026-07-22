@@ -279,6 +279,44 @@ test("event service records concurrent activity without replacing the active HUD
   }
 });
 
+test("mix mode streams one shared pool across Codex conversations", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-server-mix-"));
+  const port = await freePort();
+  await mkdir(path.join(dataDir, "native"), { recursive: true });
+  await writeFile(path.join(dataDir, "native", "overlay-config.json"), JSON.stringify({ activitySource: "mix" }));
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const first = await postEvent(dataDir, port, {
+      type: "activity-start", phase: "observe", toolGroup: "search",
+      sessionId: "conversation-a", sessionSource: "desktop", timestamp: new Date(1_000).toISOString(),
+      state: { sessionId: "conversation-a", phase: "observe", momentum: 14 }
+    });
+    const second = await postEvent(dataDir, port, {
+      type: "activity-start", phase: "act", toolGroup: "change",
+      sessionId: "conversation-b", sessionSource: "desktop", timestamp: new Date(2_000).toISOString(),
+      state: { sessionId: "conversation-b", phase: "act", momentum: 28 }
+    });
+    assert.equal((await first.json()).mixed, true);
+    assert.equal((await second.json()).mixed, true);
+    const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
+    assert.equal(state.sessionId, "mix");
+    assert.equal(state.momentum, 42);
+    assert.equal(state.combo, 2);
+    assert.equal(state.mixedConversationCount, 2);
+    assert.equal(health.session.activitySource, "mix");
+    assert.equal(health.session.activeSessionId, "mix");
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("transient previews do not alter real state, ownership, or activity diagnostics", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-preview-"));
   const port = await freePort();

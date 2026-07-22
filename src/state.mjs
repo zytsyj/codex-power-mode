@@ -3,6 +3,7 @@ export const initialState = Object.freeze({
   status: "ready",
   momentum: 0,
   bestMomentum: 0,
+  energyUpdatedAt: null,
   combo: 0,
   bestCombo: 0,
   comboBreaks: 0,
@@ -38,13 +39,17 @@ export const initialState = Object.freeze({
   sessionSource: "unknown"
 });
 
+export const ENERGY_MAX = 999;
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
+const clampEnergy = (value) => clamp(value, 0, ENERGY_MAX);
 export const COMBO_DECAY_MS = 12_000;
 export const COMBO_LOST_MS = 3_200;
 export const COMBO_RELINK_FEEDBACK_MS = 1_600;
 export const VERIFICATION_REWARD_HOLD_MS = 1_800;
 export const FINAL_STATE_HOLD_MS = 3_000;
 export const MOMENTUM_RETURN_MS = 4_000;
+export const ENERGY_IDLE_GRACE_MS = 20_000;
+export const ENERGY_DECAY_MS = 90_000;
 export const ABANDONED_ACTIVITY_MS = 5 * 60_000;
 export const RECOVERY_TIMEOUT_MS = 15_000;
 
@@ -103,12 +108,15 @@ export function comboDisplayStatus(state, now = Date.now()) {
 }
 
 export function energyLevel(momentum = 0) {
-  const value = clamp(momentum);
+  const value = clampEnergy(momentum);
   if (value <= 0) return "idle";
-  if (value < 25) return "charging";
-  if (value < 50) return "flow";
-  if (value < 75) return "surge";
-  return "overdrive";
+  if (value < 100) return "awakening";
+  if (value < 250) return "charging";
+  if (value < 450) return "driving";
+  if (value < 700) return "high-energy";
+  if (value < 900) return "overload";
+  if (value < ENERGY_MAX) return "critical";
+  return "verified-peak";
 }
 
 export function comboStage(state, now = Date.now()) {
@@ -125,9 +133,24 @@ export function comboStage(state, now = Date.now()) {
   const relinkedAt = Date.parse(state.comboRelinkedAt);
   if (Number.isFinite(current) && Number.isFinite(relinkedAt) && current < relinkedAt + COMBO_RELINK_FEEDBACK_MS) return "relinked";
   if (progress <= 0.25) return "critical";
-  if ((state.combo ?? 0) < 3) return "building";
-  if ((state.combo ?? 0) < 6) return "linked";
-  return "chain";
+  if ((state.combo ?? 0) < 5) return "ignition";
+  if ((state.combo ?? 0) < 10) return "linked";
+  if ((state.combo ?? 0) < 20) return "accelerated";
+  if ((state.combo ?? 0) < 40) return "heated";
+  return "extreme";
+}
+
+export function energyAt(state, now = Date.now()) {
+  const current = typeof now === "number" ? now : Date.parse(now);
+  const energy = clampEnergy(state?.momentum ?? 0);
+  if (!energy || !Number.isFinite(current)) return energy;
+  if (state?.status === "needs-attention" || state?.phase === "wait") return energy;
+  const updatedAt = Date.parse(state?.energyUpdatedAt ?? state?.lastActivityAt ?? "");
+  if (!Number.isFinite(updatedAt)) return energy;
+  const decayStartsAt = updatedAt + ENERGY_IDLE_GRACE_MS;
+  if (current <= decayStartsAt) return energy;
+  const progress = clamp((current - decayStartsAt) / ENERGY_DECAY_MS, 0, 1);
+  return Math.round(energy * (1 - progress));
 }
 
 export function presentationSnapshot(state, now = Date.now()) {
@@ -145,7 +168,7 @@ export function presentationSnapshot(state, now = Date.now()) {
       : canSettleAbandoned && Number.isFinite(lastActivityAt)
       ? lastActivityAt + ABANDONED_ACTIVITY_MS
       : Number.NaN;
-  const momentum = clamp(state.momentum ?? 0);
+  const momentum = energyAt(state, current);
   if (!Number.isFinite(current) || !Number.isFinite(stoppedAt)) {
     return { ...state, momentum, idle: false, settled: false, returning: false };
   }
@@ -216,8 +239,11 @@ export function reduceState(previous = initialState, event) {
   const sessionChanged = Boolean(previous.sessionId && event.sessionId && previous.sessionId !== event.sessionId);
   const prior = sessionChanged ? initialState : previous;
   const startsNewTurn = !sessionChanged && prior.phase === "complete" && event.type !== "turn-stop";
+  const eventAt = Date.parse(event.timestamp);
+  const carriedEnergy = energyAt(prior, eventAt);
   const turnBase = startsNewTurn ? {
     ...initialState,
+    momentum: carriedEnergy,
     bestMomentum: prior.bestMomentum ?? 0,
     bestCombo: prior.bestCombo ?? 0,
     sessionId: prior.sessionId ?? null,
@@ -229,6 +255,7 @@ export function reduceState(previous = initialState, event) {
     sessionId: event.sessionId ?? turnBase.sessionId,
     sessionSource: event.sessionSource && event.sessionSource !== "unknown" ? event.sessionSource : turnBase.sessionSource
   };
+  state.momentum = carriedEnergy;
   state.evidence = Array.isArray(turnBase.evidence) ? [...turnBase.evidence] : [];
   if (event.type !== "turn-stop") state.turnStoppedAt = null;
 
@@ -237,9 +264,11 @@ export function reduceState(previous = initialState, event) {
     state.status = "working";
     state.currentActivity = activityLabel(event);
     state.steps += 1;
-    state.momentum = clamp(state.momentum + (state.phase === "observe" ? 1 : 2));
+    const gain = state.phase === "observe" ? 14 : state.phase === "verify" ? 20 : 28;
+    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + gain));
     state.completion = null;
     state.lastActivityAt = event.timestamp;
+    state.energyUpdatedAt = event.timestamp;
     state.lastActivitySignature = activitySignature(event);
     advanceCombo(state, event, 1, COMBO_HOLD_MS[state.phase] ?? 0, startsNewTurn);
   } else if (event.type === "permission-request") {
@@ -259,10 +288,12 @@ export function reduceState(previous = initialState, event) {
     state.edits += 1;
     state.addedLines += event.addedLines;
     state.removedLines += event.removedLines;
-    state.momentum = clamp(state.momentum + 7);
+    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + 85));
     state.confidence = clamp(state.confidence - 12);
     state.risk = clamp(state.risk + scopeRisk(event));
     state.lastEditAt = event.timestamp;
+    state.lastActivityAt = event.timestamp;
+    state.energyUpdatedAt = event.timestamp;
     state.lastVerificationPassed = false;
     state.completion = null;
     advanceCombo(state, event, 1, 0, startsNewTurn);
@@ -271,6 +302,8 @@ export function reduceState(previous = initialState, event) {
     state.status = "failed";
     state.currentActivity = "Repairing a failed edit";
     state.lastFailureAt = event.timestamp;
+    state.lastActivityAt = event.timestamp;
+    state.energyUpdatedAt = event.timestamp;
     state.completion = null;
     breakCombo(state, "broken", event.timestamp);
   } else if (event.type === "verification") {
@@ -282,7 +315,7 @@ export function reduceState(previous = initialState, event) {
       state.status = "verified";
       state.currentActivity = `${event.category} passed`;
       state.passedVerifications += 1;
-      state.momentum = clamp(state.momentum + 10);
+      state.momentum = clampEnergy(state.momentum + 170);
       state.confidence = clamp(state.confidence + verificationConfidence(event.category));
       state.risk = clamp(state.risk - 18);
       if (!state.evidence.includes(event.category)) state.evidence.push(event.category);
@@ -291,17 +324,21 @@ export function reduceState(previous = initialState, event) {
       const establishesRecord = state.momentum > state.bestMomentum || state.combo > state.bestCombo;
       state.verificationReward = backsLatestEdit ? (establishesRecord ? "record" : "evidence") : "confirmation";
       state.verificationRewardAt = event.timestamp;
+      state.lastActivityAt = event.timestamp;
+      state.energyUpdatedAt = event.timestamp;
     } else {
       state.phase = "recover";
       state.status = "failed";
       state.currentActivity = `${event.category} failed — recovering`;
       state.lastFailureAt = event.timestamp;
       state.failedVerifications += 1;
-      state.momentum = clamp(state.momentum - 8);
+      state.momentum = clampEnergy(state.momentum - 120);
       state.confidence = clamp(state.confidence - 28);
       state.risk = clamp(state.risk + 24);
       state.verificationReward = null;
       state.verificationRewardAt = null;
+      state.lastActivityAt = event.timestamp;
+      state.energyUpdatedAt = event.timestamp;
       breakCombo(state, "broken", event.timestamp);
     }
   } else if (event.type === "turn-stop") {
@@ -313,6 +350,9 @@ export function reduceState(previous = initialState, event) {
     state.status = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "complete";
     state.completion = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "no-change";
     state.currentActivity = verifiedAfterEdit ? "Completed with evidence" : stoppedWhileWaiting ? "Approval was not granted" : state.edits ? "Completed — verification recommended" : "Turn complete";
+    if (verifiedAfterEdit && state.edits > 0) state.momentum = ENERGY_MAX;
+    state.lastActivityAt = event.timestamp;
+    state.energyUpdatedAt = event.timestamp;
     if (verifiedAfterEdit && state.combo > 0) {
       state.comboStatus = "complete";
       state.comboHoldUntil = timestampAfter(event.timestamp, 3_200);

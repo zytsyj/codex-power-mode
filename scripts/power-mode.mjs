@@ -394,9 +394,23 @@ if (command === "start") {
     { type: "edit", addedLines: 5, removedLines: 2, addedChars: 136, removedChars: 48 },
     { type: "activity-start", phase: "verify", category: "build", toolGroup: "command" },
     { type: "verification", category: "build", success: true },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
+    { type: "edit", addedLines: 3, removedLines: 1, addedChars: 84, removedChars: 24 },
+    { type: "activity-start", phase: "act", toolGroup: "command" },
+    { type: "edit", addedLines: 4, removedLines: 1, addedChars: 112, removedChars: 24 },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
+    { type: "edit", addedLines: 2, removedLines: 1, addedChars: 64, removedChars: 20 },
+    { type: "activity-start", phase: "act", toolGroup: "command" },
+    { type: "edit", addedLines: 5, removedLines: 2, addedChars: 136, removedChars: 42 },
+    { type: "activity-start", phase: "act", toolGroup: "change" },
+    { type: "edit", addedLines: 3, removedLines: 0, addedChars: 78, removedChars: 0 },
+    { type: "activity-start", phase: "act", toolGroup: "command" },
+    { type: "edit", addedLines: 2, removedLines: 1, addedChars: 58, removedChars: 18 },
+    { type: "activity-start", phase: "verify", category: "test", toolGroup: "command" },
+    { type: "verification", category: "test", success: true },
     { type: "turn-stop" }
   ];
-  await playPreview(events, 1_900);
+  await playPreview(events, 850);
 } else if (command === "replay") {
   await replay();
 } else if (command === "native") {

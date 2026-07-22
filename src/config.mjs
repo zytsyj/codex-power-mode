@@ -1,7 +1,7 @@
 const NATIVE_EDGES = new Set(["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]);
 const IDLE_BEHAVIORS = new Set(["hide", "orb"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
-const ACTIVITY_SOURCES = new Set(["focused", "global"]);
+const ACTIVITY_SOURCES = new Set(["focused", "global", "mix"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
 const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
 const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);

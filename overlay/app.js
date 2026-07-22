@@ -51,8 +51,8 @@ const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "续连"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
-  charging: ["CHARGE", "蓄能"], flow: ["FLOW", "流动"], surge: ["SURGE", "高能"], overdrive: ["OVERDRIVE", "过载"],
-  building: ["BUILD", "蓄连"], linked: ["LINK", "续连"], chain: ["CHAIN", "连锁"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], confirmed: ["CHECK", "确认"], record: ["RECORD", "纪录"], relinked: ["RELINK", "重连"],
+  awakening: ["WAKE", "唤醒"], charging: ["CHARGE", "聚能"], driving: ["DRIVE", "推进"], "high-energy": ["HIGH", "高能"], overload: ["OVERLOAD", "超载"], criticalEnergy: ["CRITICAL", "临界"], "verified-peak": ["PEAK", "峰值"],
+  ignition: ["IGNITE", "点火"], linked: ["LINK", "续连"], accelerated: ["ACCEL", "加速"], heated: ["HEAT", "高热"], extreme: ["EXTREME", "极限"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], confirmed: ["CHECK", "确认"], record: ["RECORD", "纪录"], relinked: ["RELINK", "重连"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
   newBest: ["NEW PERSONAL BEST", "刷新个人纪录"]
@@ -84,7 +84,7 @@ if (previewMode) {
   const comboHolding = previewCombo === "hold";
   const comboCritical = previewCombo === "critical";
   const comboRelinked = previewCombo === "relink";
-  const previewMomentum = { charging: 18, flow: 38, surge: 64, overdrive: 88 }[previewEnergy] ?? (verifiedComplete ? 100 : 72);
+  const previewMomentum = { awakening: 72, charging: 180, driving: 340, "high-energy": 560, overload: 780, critical: 940, peak: 999 }[previewEnergy] ?? (verifiedComplete ? 999 : 560);
   render({
     phase: previewPhase,
     status: cancelledComplete ? "cancelled" : unverifiedComplete ? "unverified" : previewPhase === "wait" ? "needs-attention" : previewPhase === "recover" ? "failed" : "ready",
@@ -283,7 +283,10 @@ function presentationAt(next, now = Date.now()) {
       : canSettleAbandoned && Number.isFinite(lastActivityAt)
         ? lastActivityAt + abandonedActivityMs
         : Number.NaN;
-  const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
+  const baseMomentum = Math.max(0, Math.min(999, next.momentum ?? 0));
+  const energyUpdatedAt = Date.parse(next.energyUpdatedAt ?? next.lastActivityAt);
+  const energyDecay = Number.isFinite(energyUpdatedAt) ? Math.max(0, Math.min(1, (now - energyUpdatedAt - 20_000) / 90_000)) : 0;
+  const momentum = Math.round(baseMomentum * (1 - energyDecay));
   if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false, idleAt: null, settledAt: null };
   const explicitBreak = Date.parse(next.comboBrokenAt);
   const naturalBreak = Date.parse(next.comboExpiresAt);
@@ -320,29 +323,32 @@ function comboProgressAt(next, now = Date.now()) {
 
 function energyLevelAt(momentum) {
   if (momentum <= 0) return "idle";
-  if (momentum < 25) return "charging";
-  if (momentum < 50) return "flow";
-  if (momentum < 75) return "surge";
-  return "overdrive";
+  if (momentum < 100) return "awakening";
+  if (momentum < 250) return "charging";
+  if (momentum < 450) return "driving";
+  if (momentum < 700) return "high-energy";
+  if (momentum < 900) return "overload";
+  if (momentum < 999) return "critical";
+  return "verified-peak";
 }
 
 function energyRankAt(level) {
-  return { idle: 0, charging: 1, flow: 2, surge: 3, overdrive: 4 }[level] ?? 0;
+  return { idle: 0, awakening: 1, charging: 2, driving: 3, "high-energy": 4, overload: 5, critical: 6, "verified-peak": 7 }[level] ?? 0;
 }
 
 function reactToEnergyTransition(level) {
   if (reducedMotion || level === "idle") return;
   const start = reactorOrigin();
-  const color = level === "overdrive" ? "#ffd66b" : level === "surge" ? "#a987ff" : "#75dfff";
-  document.body.classList.remove("energy-upgrade-charging", "energy-upgrade-flow", "energy-upgrade-surge", "energy-upgrade-overdrive");
+  const color = ["overload", "critical", "verified-peak"].includes(level) ? "#ffd66b" : ["driving", "high-energy"].includes(level) ? "#a987ff" : "#75dfff";
+  document.body.classList.remove(...["awakening", "charging", "driving", "high-energy", "overload", "critical", "verified-peak"].map((name) => `energy-upgrade-${name}`));
   void document.body.offsetWidth;
   document.body.classList.add(`energy-upgrade-${level}`);
-  if (level === "charging") {
+  if (level === "awakening") {
     ring(color, preset === "arcade" ? .42 : .24, start);
-  } else if (level === "flow") {
+  } else if (level === "charging") {
     ring(color, preset === "arcade" ? .72 : .42, start);
     burst(color, preset === "arcade" ? 34 : 16, .48, "inward", start);
-  } else if (level === "surge") {
+  } else if (["driving", "high-energy"].includes(level)) {
     ring(color, preset === "arcade" ? 1.18 : .68, start);
     burst(color, preset === "arcade" ? 58 : 26, .72, "inward", start);
     if (preset === "arcade") scheduleEffect(160, effectGeneration, () => ring("#75dfff", .82, start));
@@ -364,9 +370,11 @@ function comboStageAt(next, progress, status, now = Date.now()) {
   const relinkedAt = Date.parse(next.comboRelinkedAt);
   if (Number.isFinite(relinkedAt) && now < relinkedAt + comboRelinkFeedbackMs) return "relinked";
   if (progress <= .25) return "critical";
-  if ((next.combo ?? 0) < 3) return "building";
-  if ((next.combo ?? 0) < 6) return "linked";
-  return "chain";
+  if ((next.combo ?? 0) < 5) return "ignition";
+  if ((next.combo ?? 0) < 10) return "linked";
+  if ((next.combo ?? 0) < 20) return "accelerated";
+  if ((next.combo ?? 0) < 40) return "heated";
+  return "extreme";
 }
 
 function renderCombo(now = Date.now()) {
@@ -385,19 +393,22 @@ function renderCombo(now = Date.now()) {
   document.body.dataset.comboStatus = status;
   document.body.dataset.comboStage = stage;
   if (stage !== visualComboStage) {
-    if (visualComboStage !== null || previewMode) reactToComboTransition(stage);
+    if (visualComboStage !== null || previewMode) reactToComboTransition(stage, visualComboStage);
     visualComboStage = stage;
   }
   updateIdleVisibility(now, active || recentlyLost, presentationAt(state, now));
 }
 
-function reactToComboTransition(stage) {
-  if (reducedMotion || !["lost", "relinked"].includes(stage)) return;
+function reactToComboTransition(stage, previous) {
+  if (reducedMotion) return;
+  const ranks = { ignition: 1, linked: 2, accelerated: 3, heated: 4, extreme: 5 };
+  const grew = (ranks[stage] ?? 0) > (ranks[previous] ?? 0);
+  if (!["lost", "relinked"].includes(stage) && !grew) return;
   const start = reactorOrigin();
-  const color = stage === "lost" ? "#ff5477" : "#65e9de";
-  document.body.classList.remove("combo-break-kick", "combo-relink-kick");
+  const color = stage === "lost" ? "#ff5477" : stage === "relinked" ? "#65e9de" : "#a987ff";
+  document.body.classList.remove("combo-break-kick", "combo-relink-kick", "combo-growth-kick");
   void document.body.offsetWidth;
-  document.body.classList.add(stage === "lost" ? "combo-break-kick" : "combo-relink-kick");
+  document.body.classList.add(stage === "lost" ? "combo-break-kick" : stage === "relinked" ? "combo-relink-kick" : "combo-growth-kick");
   ring(color, stage === "lost" ? (preset === "arcade" ? .82 : .42) : (preset === "arcade" ? .72 : .38), start);
   burst(color, stage === "lost" ? (preset === "arcade" ? 42 : 20) : (preset === "arcade" ? 36 : 18), .58, stage === "lost" ? "fragments" : "inward", start);
 }
@@ -436,7 +447,7 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.verificationReward = presented.verificationReward ?? "none";
   document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
-  elements["momentum-meter"].style.setProperty("--progress", `${momentum * 3.6}deg`);
+  elements["momentum-meter"].style.setProperty("--progress", `${momentum / 999 * 360}deg`);
   elements["power-label"].textContent = orbActivityCopy(presented);
 }
 
@@ -537,7 +548,7 @@ function react(event) {
   const start = reactorOrigin();
   const completion = event.state?.completion;
   const quietCompletion = event.type === "turn-stop" && completion === "no-change";
-  const momentumPower = .7 + Math.min(100, event.state?.momentum ?? 0) / 125;
+  const momentumPower = .7 + Math.min(999, event.state?.momentum ?? 0) / 1248;
   expand(phase === "wait" || phase === "recover" ? 0 : phase === "complete" ? 3200 : 2100);
   const flashStrength = event.type !== "turn-stop" ? .14 : completion === "verified" ? (preset === "arcade" ? .18 : .09) : completion === "cancelled" ? .08 : completion === "unverified" ? .10 : .035;
   flashAt(start, flashStrength);

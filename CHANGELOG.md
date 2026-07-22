@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Expanded Energy to `0–999` with seven visible tiers, real-time inactivity decay, stage breakthrough/vent animations, and an evidence-backed verified peak.
+- Added Combo growth pulses, five count stages, a critical double warning, relink recovery, and an explicit compositor-driven fracture on natural or forced disconnect.
+- Added Mix activity mode, combining all Codex desktop conversations into one Energy/Combo pool while retaining isolated Focus and latest-task Global behavior.
+- Reconciled inactive conversation energy against elapsed time and added a 780 ms orb/ring handoff so Global task switches no longer look like unexplained counter jumps.
+- Added a multi-track orbit when more than one Codex conversation is active in Mix, without allowing one parallel stop or failure to reset the shared chain.
 - Replaced the live HUD's timer-driven drawing path with a Core Animation layer renderer so semantic motion, fades, energy, Combo decay, and event particles are composited by macOS.
 - Reduced the floating UI to one draggable orb: concise activity text now sits inside the core, Combo is the outer lifetime ring, and the expanded confidence/evidence card is gone.
 - Refined the orb into a calmer glass form with larger type, cleaner dual rings, lower-saturation phase colors, softer event particles, and no instrument-panel ornaments.

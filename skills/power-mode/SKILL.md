@@ -23,7 +23,7 @@ node "${PLUGIN_ROOT}/scripts/power-mode.mjs" start --open
 
 Tell the user the HUD is running at `http://127.0.0.1:4737`. The plugin hooks automatically capture supported Codex edits and verification commands after the user has reviewed and trusted them.
 
-On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, independent low/normal/high effect intensity, Combo visibility, auto-hide versus a quiet Idle orb, the immediate/2-second/6-second auto-hide delay, English/Chinese, size, reduced motion, inactive-Codex behavior, and drag positioning. The hide delay begins only after completion feedback, Combo, and energy return have settled; it does not extend an active Combo. The inactive behavior can hide the HUD, keep it over the last Codex window position, or follow the current foreground app. Hiding Combo also disables its otherwise invisible high-frequency decay redraw. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior. Settings survive overlay restarts, and the menu reports historical best energy and Combo.
+On macOS, settings live under the menu-bar bolt. It controls Focus/Arcade, independent low/normal/high effect intensity, Combo visibility, auto-hide versus a quiet Idle orb, the immediate/2-second/6-second auto-hide delay, English/Chinese, size, reduced motion, inactive-Codex behavior, activity source, and drag positioning. Activity source offers Focus (keep one conversation), Global (follow the latest conversation with isolated state), and Mix (share one Energy/Combo pool across all Codex app conversations). The hide delay begins only after completion feedback, Combo, and energy return have settled; it does not extend an active Combo. The inactive behavior can hide the HUD, keep it over the last Codex window position, or follow the current foreground app. Hiding Combo also disables its otherwise invisible high-frequency decay redraw. Positioning mode temporarily makes only the HUD hit target interactive; releasing the drag restores click-through behavior. Settings survive overlay restarts, and the menu reports historical best energy and Combo.
 
 Positioning mode keeps the full HUD inside the Codex window, snaps near edges, shows the active snap direction, and reports the saved region in the menu. Position presets include Smart, four corners, and center. Smart placement avoids the title bar and reserves space for common Codex side panels on wide windows; a manually dragged position always wins. Reset position exits positioning and returns to Smart placement.
 
@@ -73,8 +73,8 @@ Read `hudDisplay` as the state currently visible after settling and decay, and `
 - `PreToolUse` maps Codex activity into observe, act, and verify phases.
 - Permission requests enter a visible wait state that asks for user attention.
 - Each useful edit step adds the same momentum; large diffs raise risk instead of earning a larger reward.
-- Energy has four visible working levels: Charge, Flow, Surge, and Overdrive.
-- Combo progresses through Build, Link, and Chain, then signals a critical break window when little time remains.
+- Energy spans `0–999`: Wake, Charge, Drive, High, Overload, Critical, and an evidence-backed verified Peak. Inactive conversations decay by elapsed real time before they return to the HUD.
+- Combo progresses through Ignite, Link, Accel, Heat, and Extreme. Every increase pulses, tier crossings expand, the critical window double-warns, and expiry fractures the outer ring.
 - Successful tests, builds, lint, or type checks add confidence and evidence and briefly lock the Combo in a Boost reward window.
 - Failed verification enters recovery and lowers confidence.
 - A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.

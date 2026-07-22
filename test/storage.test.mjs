@@ -7,6 +7,7 @@ import {
   readSessionState,
   readState,
   recordEventResult,
+  recordMixedEventResult,
   recordSessionEventResult,
   writeStateSnapshot
 } from "../src/storage.mjs";
@@ -132,6 +133,27 @@ test("hook sessions keep independent momentum and combo state", async () => {
     assert.equal(threadB.combo, 1);
     assert.equal(displayed.steps, 0);
     assert.equal(displayed.combo, 0);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("mix storage shares energy and Combo without letting one parallel stop reset the pool", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-mix-"));
+  try {
+    let result = await recordMixedEventResult(directory, { ...eventAt(1_000), sessionId: "thread-a" });
+    result = await recordMixedEventResult(directory, { ...eventAt(2_000), sessionId: "thread-b" });
+    assert.equal(result.state.sessionId, "mix");
+    assert.equal(result.state.momentum, 28);
+    assert.equal(result.state.combo, 2);
+    assert.equal(result.state.mixedConversationCount, 2);
+
+    result = await recordMixedEventResult(directory, {
+      type: "turn-stop", timestamp: new Date(3_000).toISOString(), sessionId: "thread-a"
+    });
+    assert.notEqual(result.state.phase, "complete");
+    assert.equal(result.state.combo, 2);
+    assert.equal(result.state.mixedConversationCount, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

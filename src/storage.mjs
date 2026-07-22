@@ -121,6 +121,10 @@ function sessionStatePath(dataDir, sessionId) {
   return path.join(dataDir, "sessions", `${safeSessionId}.json`);
 }
 
+function mixedStatePath(dataDir) {
+  return path.join(dataDir, "mixed-state.json");
+}
+
 async function readStateFile(filePath) {
   try {
     const stored = JSON.parse(await readFile(filePath, "utf8"));
@@ -143,6 +147,63 @@ async function writeSessionStateFile(dataDir, sessionId, state) {
 
 export async function readSessionState(dataDir, sessionId) {
   return readStateFile(sessionStatePath(dataDir, sessionId));
+}
+
+export async function readMixedState(dataDir) {
+  return readStateFile(mixedStatePath(dataDir));
+}
+
+export async function recordMixedEventResult(dataDir, event) {
+  await mkdir(dataDir, { recursive: true });
+  return withLock(dataDir, async () => {
+    const previous = await readMixedState(dataDir);
+    const eventAt = Date.parse(event.timestamp);
+    const sessionActivity = previous.mixedSessionActivity && typeof previous.mixedSessionActivity === "object"
+      ? { ...previous.mixedSessionActivity }
+      : Object.fromEntries((previous.mixedActiveSessions ?? []).map((sessionId) => [sessionId, event.timestamp]));
+    for (const [sessionId, timestamp] of Object.entries(sessionActivity)) {
+      if (Number.isFinite(eventAt) && eventAt - Date.parse(timestamp) > 5 * 60_000) delete sessionActivity[sessionId];
+    }
+    if (event.type === "turn-stop") delete sessionActivity[event.sessionId];
+    else sessionActivity[event.sessionId] = event.timestamp;
+    const activeSessions = new Set(Object.keys(sessionActivity));
+    const mixedEvent = { ...event, sessionId: "mix", sessionSource: "desktop" };
+    let next;
+    if (event.type === "turn-stop" && activeSessions.size > 0) {
+      next = {
+        ...previous,
+        sessionId: "mix",
+        sessionSource: "desktop",
+        currentActivity: "A parallel conversation completed",
+        lastActivityAt: event.timestamp,
+        energyUpdatedAt: event.timestamp
+      };
+    } else {
+      next = reduceState(previous, mixedEvent);
+      if ((event.type === "edit-failure" || (event.type === "verification" && event.success === false)) && activeSessions.size > 1) {
+        next = {
+          ...next,
+          phase: previous.phase,
+          status: previous.status,
+          currentActivity: "A parallel conversation is recovering",
+          combo: previous.combo,
+          comboStatus: previous.comboStatus,
+          comboLastAt: previous.comboLastAt,
+          comboHoldUntil: previous.comboHoldUntil,
+          comboExpiresAt: previous.comboExpiresAt,
+          comboBrokenAt: previous.comboBrokenAt,
+          comboRelinkedAt: previous.comboRelinkedAt
+        };
+      }
+    }
+    next.mixedActiveSessions = [...activeSessions].slice(-16);
+    next.mixedConversationCount = activeSessions.size;
+    next.mixedSessionActivity = Object.fromEntries(next.mixedActiveSessions.map((sessionId) => [sessionId, sessionActivity[sessionId]]));
+    const temp = path.join(dataDir, `mixed-state-${process.pid}.tmp`);
+    await writeFile(temp, JSON.stringify(next, null, 2));
+    await rename(temp, mixedStatePath(dataDir));
+    return { state: next, recorded: true };
+  });
 }
 
 export async function writeStateSnapshot(dataDir, state) {

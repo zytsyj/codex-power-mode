@@ -19,6 +19,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
   let activeStopped = isTerminalState(initialState);
   let lastSwitchAt = activeSessionId ? activeAt || now() : null;
   let suppressedEvents = 0;
+  const mixedSessions = new Set();
 
   return {
     consider(event, { mode = "focused" } = {}) {
@@ -27,6 +28,15 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
       const at = eventTime(event, now());
 
       if (!sessionId || sessionId === "demo") return { displayed: true, switched: false };
+
+      if (mode === "mix") {
+        mixedSessions.add(sessionId);
+        activeSessionId = "mix";
+        activeSessionSource = "desktop";
+        activeAt = Math.max(activeAt, at);
+        activeStopped = false;
+        return { displayed: true, switched: false, mixed: true };
+      }
 
       if (sessionId === activeSessionId) {
         if (at < activeAt) {
@@ -68,7 +78,7 @@ export function createSessionArbiter(initialState = {}, { leaseMs = DEFAULT_LEAS
     },
 
     snapshot() {
-      return { activeSessionId, activeSessionSource, lastSwitchAt, suppressedEvents, leaseMs };
+      return { activeSessionId, activeSessionSource, lastSwitchAt, suppressedEvents, leaseMs, mixedSessions: mixedSessions.size };
     }
   };
 }

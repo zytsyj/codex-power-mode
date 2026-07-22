@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboDisplayStatus, comboProgress, comboStage, energyLevel, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -9,7 +9,7 @@ test("activity events represent Codex states without rewarding code volume", () 
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
   });
   assert.equal(state.phase, "observe");
-  assert.equal(state.momentum, 1);
+  assert.equal(state.momentum, 14);
   assert.equal(state.currentActivity, "Searching the workspace");
 });
 
@@ -19,7 +19,7 @@ test("prompt submission immediately enters understanding", () => {
   });
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
-  assert.equal(state.momentum, 1);
+  assert.equal(state.momentum, 14);
   assert.equal(state.combo, 1);
 });
 
@@ -63,7 +63,7 @@ test("failed verification enters recovery and raises risk", () => {
     type: "verification", category: "test", success: false, timestamp: at(3)
   });
   assert.equal(state.phase, "recover");
-  assert.equal(state.momentum, 12);
+  assert.equal(state.momentum, 0);
   assert.equal(state.confidence, 12);
   assert.ok(state.risk > 0);
 });
@@ -82,7 +82,7 @@ test("successful verification creates evidence and confidence", () => {
 });
 
 test("verification rewards distinguish evidence, records, and standalone confirmation", () => {
-  let state = reduceState({ ...initialState, bestMomentum: 80, bestCombo: 12 }, {
+  let state = reduceState({ ...initialState, bestMomentum: 500, bestCombo: 12 }, {
     type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s"
   });
   state = reduceState(state, { type: "verification", category: "test", success: true, timestamp: at(2), sessionId: "s" });
@@ -98,15 +98,40 @@ test("verification rewards distinguish evidence, records, and standalone confirm
   assert.equal(comboStage(record, at(2.5)), "record");
 });
 
-test("energy levels communicate charging, flow, surge, and overdrive", () => {
+test("energy levels span awakening through a verified 999 peak", () => {
   assert.equal(energyLevel(0), "idle");
-  assert.equal(energyLevel(1), "charging");
-  assert.equal(energyLevel(25), "flow");
-  assert.equal(energyLevel(50), "surge");
-  assert.equal(energyLevel(75), "overdrive");
+  assert.equal(energyLevel(1), "awakening");
+  assert.equal(energyLevel(100), "charging");
+  assert.equal(energyLevel(250), "driving");
+  assert.equal(energyLevel(450), "high-energy");
+  assert.equal(energyLevel(700), "overload");
+  assert.equal(energyLevel(900), "critical");
+  assert.equal(energyLevel(999), "verified-peak");
 });
 
-test("combo stages distinguish building, linked, chain, and critical timing", () => {
+test("energy has a grace period, decays by real elapsed time, and materializes before the next event", () => {
+  const charged = { ...initialState, momentum: 600, energyUpdatedAt: at(1), lastActivityAt: at(1), sessionId: "s" };
+  assert.equal(energyAt(charged, at(21)), 600);
+  assert.equal(energyAt(charged, at(66)), 300);
+  assert.equal(energyAt(charged, at(111)), 0);
+  const resumed = reduceState(charged, {
+    type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(66), sessionId: "s"
+  });
+  assert.equal(resumed.momentum, 314);
+});
+
+test("only an evidence-backed edited completion reaches the 999 peak", () => {
+  let verified = reduceState(initialState, { type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s" });
+  verified = reduceState(verified, { type: "verification", category: "test", success: true, timestamp: at(2), sessionId: "s" });
+  verified = reduceState(verified, { type: "turn-stop", timestamp: at(3), sessionId: "s" });
+  assert.equal(verified.momentum, 999);
+
+  let unverified = reduceState(initialState, { type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s" });
+  unverified = reduceState(unverified, { type: "turn-stop", timestamp: at(3), sessionId: "s" });
+  assert.ok(unverified.momentum < 999);
+});
+
+test("combo stages span ignition through extreme and critical timing", () => {
   const base = {
     ...initialState,
     combo: 2,
@@ -115,9 +140,11 @@ test("combo stages distinguish building, linked, chain, and critical timing", ()
     comboHoldUntil: at(1),
     comboExpiresAt: at(13)
   };
-  assert.equal(comboStage(base, at(2)), "building");
-  assert.equal(comboStage({ ...base, combo: 4 }, at(2)), "linked");
-  assert.equal(comboStage({ ...base, combo: 7 }, at(2)), "chain");
+  assert.equal(comboStage(base, at(2)), "ignition");
+  assert.equal(comboStage({ ...base, combo: 5 }, at(2)), "linked");
+  assert.equal(comboStage({ ...base, combo: 10 }, at(2)), "accelerated");
+  assert.equal(comboStage({ ...base, combo: 20 }, at(2)), "heated");
+  assert.equal(comboStage({ ...base, combo: 40 }, at(2)), "extreme");
   assert.equal(comboStage({ ...base, combo: 7 }, at(11)), "critical");
   assert.equal(comboStage({ ...base, combo: 7 }, at(13.5)), "lost");
 });
@@ -166,11 +193,11 @@ test("new work cancels the idle countdown", () => {
   });
   assert.equal(state.turnStoppedAt, null);
   assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
-  assert.equal(state.momentum, 1);
+  assert.equal(state.momentum, 14);
   assert.equal(state.combo, 1);
 });
 
-test("a new turn resets current energy, evidence, risk, and edit scope while preserving records", () => {
+test("a new turn carries decayed energy while resetting evidence, risk, and edit scope", () => {
   let state = reduceState(initialState, {
     type: "activity-start", phase: "act", toolGroup: "change", timestamp: at(1), sessionId: "s"
   });
@@ -186,7 +213,7 @@ test("a new turn resets current energy, evidence, risk, and edit scope while pre
   state = reduceState(state, {
     type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(30), sessionId: "s"
   });
-  assert.equal(state.momentum, 1);
+  assert.equal(state.momentum, 946);
   assert.equal(state.combo, 1);
   assert.equal(state.confidence, 0);
   assert.equal(state.risk, 0);
@@ -285,7 +312,7 @@ test("an expired combo restarts instead of increasing forever", () => {
   assert.equal(state.comboBreaks, 1);
   assert.equal(state.comboRelinkedAt, at(20));
   assert.equal(comboStage(state, at(20.5)), "relinked");
-  assert.equal(comboStage(state, at(22)), "building");
+  assert.equal(comboStage(state, at(22)), "ignition");
 });
 
 test("failed verification immediately breaks the combo", () => {

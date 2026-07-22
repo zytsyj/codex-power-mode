@@ -11,7 +11,7 @@ import { validateIncomingEvent } from "../src/event-validation.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { pluginIdentity } from "../src/service-identity.mjs";
 import { createSessionArbiter } from "../src/session-arbiter.mjs";
-import { readSessionState, readState, writeStateSnapshot } from "../src/storage.mjs";
+import { readSessionState, readState, recordMixedEventResult, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const identity = await pluginIdentity(root);
@@ -36,7 +36,7 @@ const nativeConfigFile = path.join(dataDir, "native", "overlay-config.json");
 async function activitySource() {
   try {
     const settings = JSON.parse(await readFile(nativeConfigFile, "utf8"));
-    return settings.activitySource === "global" ? "global" : "focused";
+    return ["global", "mix"].includes(settings.activitySource) ? settings.activitySource : "focused";
   } catch {
     return "focused";
   }
@@ -125,12 +125,15 @@ async function handleRequest(request, response) {
     const { state: ignoredState, ...event } = incoming;
     activity.record(event);
     const previousSession = sessionArbiter.snapshot().activeSessionId;
-    const decision = sessionArbiter.consider(event, { mode: await activitySource() });
+    const mode = await activitySource();
+    const decision = sessionArbiter.consider(event, { mode });
     const sessionTransition = decision.switched && previousSession && previousSession !== event.sessionId
       ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
       : null;
     if (decision.displayed) {
-      const state = await readSessionState(dataDir, event.sessionId);
+      const state = mode === "mix"
+        ? (await recordMixedEventResult(dataDir, event)).state
+        : await readSessionState(dataDir, event.sessionId);
       await writeStateSnapshot(dataDir, state);
       const displayedEvent = { ...event, state, ...(sessionTransition ? { sessionTransition } : {}) };
       broadcast(displayedEvent);

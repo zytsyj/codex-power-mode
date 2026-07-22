@@ -63,6 +63,7 @@ private struct PowerState: Decodable {
     let status: String?
     let momentum: Int?
     let bestMomentum: Int?
+    let energyUpdatedAt: String?
     let combo: Int?
     let bestCombo: Int?
     let comboStatus: String?
@@ -82,6 +83,7 @@ private struct PowerState: Decodable {
     let addedLines: Int?
     let removedLines: Int?
     let verifications: Int?
+    let mixedConversationCount: Int?
 }
 
 private struct PowerEvent: Decodable {
@@ -159,7 +161,10 @@ private final class PowerModePreferences {
         mutate { $0.autoHideDelay = value }
     }
     func setLanguage(_ value: String) { mutate { $0.language = value } }
-    func setActivitySource(_ value: String) { mutate { $0.activitySource = value == "global" ? "global" : "focused" } }
+    func setActivitySource(_ value: String) {
+        guard ["focused", "global", "mix"].contains(value) else { return }
+        mutate { $0.activitySource = value }
+    }
     func setEffectIntensity(_ value: String) {
         guard ["low", "normal", "high"].contains(value) else { return }
         mutate { $0.effectIntensity = value }
@@ -249,6 +254,7 @@ private final class OrbLayerRenderer {
     private let beatRing = CAShapeLayer()
     private let comboTrack = CAShapeLayer()
     private let comboRing = CAShapeLayer()
+    private let mixOrbit = CAShapeLayer()
     private let semantic = CATextLayer()
     private let value = CATextLayer()
     private let activity = CATextLayer()
@@ -258,6 +264,9 @@ private final class OrbLayerRenderer {
     private let choreography = CALayer()
     private var comboAnimationGeneration = 0
     private var lastComboSignature = ""
+    private var lastComboCount = 0
+    private var lastComboStage = "idle"
+    private var lastEnergyTier = 0
     private var phase = "idle"
     private var rhythmGeneration = 0
     private var reducedMotion = false
@@ -325,6 +334,9 @@ private final class OrbLayerRenderer {
         configureRing(comboRing, radius: 43.5, width: 2.8)
         comboRing.lineCap = .round
         comboRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+        configureRing(mixOrbit, radius: 46, width: 1.2)
+        mixOrbit.lineDashPattern = [2, 7]
+        mixOrbit.opacity = 0
         configureRing(energyTrack, radius: 35.5, width: 2.2)
         energyTrack.strokeColor = NSColor.white.withAlphaComponent(0.09).cgColor
         configureRing(energyRing, radius: 35.5, width: 3.2)
@@ -413,13 +425,19 @@ private final class OrbLayerRenderer {
         let nextPhase = presentation.phase
         let color = phaseColor(phase: nextPhase, state: state)
         CATransaction.begin()
-        CATransaction.setAnimationDuration(reducedMotion ? 0 : 0.36)
+        CATransaction.setAnimationDuration(reducedMotion ? 0 : event?.sessionTransition != nil ? 0.78 : 0.36)
         halo.backgroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.025 : 0.065).cgColor
         halo.shadowColor = color.cgColor
         inner.colors = [color.withAlphaComponent(0.18).cgColor, color.withAlphaComponent(0.055).cgColor, NSColor.clear.cgColor]
         inner.borderColor = color.withAlphaComponent(0.18).cgColor
         energyRing.strokeColor = color.cgColor
-        energyRing.strokeEnd = CGFloat(max(0, min(100, presentation.momentum))) / 100
+        if event?.sessionTransition != nil, !reducedMotion {
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 0.72
+            value.add(fade, forKey: "session-value-crossfade")
+        }
+        energyRing.strokeEnd = CGFloat(max(0, min(999, presentation.momentum))) / 999
         value.string = "\(presentation.momentum)"
         activity.string = label
         activity.foregroundColor = NSColor.white.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.78).cgColor
@@ -427,7 +445,13 @@ private final class OrbLayerRenderer {
         semantic.foregroundColor = color.cgColor
         CATransaction.commit()
         updateEnergyStyle(presentation.momentum, color: color)
-        updateCombo(state, color: color)
+        updateMixOrbit(state, color: color)
+        let nextEnergyTier = energyTier(presentation.momentum)
+        if nextEnergyTier != lastEnergyTier {
+            animateEnergyTierChange(from: lastEnergyTier, to: nextEnergyTier, color: color)
+            lastEnergyTier = nextEnergyTier
+        }
+        updateCombo(state, color: color, event: event)
         if phase != nextPhase {
             phase = nextPhase
             updateCoreSignature(nextPhase, color: color)
@@ -436,6 +460,7 @@ private final class OrbLayerRenderer {
             animateRhythmEntry(nextPhase, color: color)
         }
         if let event {
+            if event.sessionTransition != nil { animateSessionTransition(color: color) }
             animateEventRhythm(event, phase: nextPhase, color: color)
             animateCoreEvent(nextPhase)
             playSemanticChoreography(phase: nextPhase, color: color)
@@ -444,29 +469,131 @@ private final class OrbLayerRenderer {
     }
 
     private func updateEnergyStyle(_ momentum: Int, color: NSColor) {
-        let width: CGFloat = momentum >= 75 ? 4.0 : momentum >= 50 ? 3.6 : momentum >= 25 ? 3.3 : 2.8
+        let width: CGFloat = momentum >= 900 ? 4.8 : momentum >= 700 ? 4.35 : momentum >= 450 ? 3.9 : momentum >= 250 ? 3.5 : momentum >= 100 ? 3.15 : 2.7
         energyRing.lineWidth = width
         energyRing.shadowColor = color.cgColor
-        energyRing.shadowOpacity = momentum >= 50 ? 0.48 : 0.22
-        energyRing.shadowRadius = momentum >= 75 ? 6 : 3
+        energyRing.shadowOpacity = momentum >= 700 ? 0.68 : momentum >= 250 ? 0.46 : 0.24
+        energyRing.shadowRadius = momentum >= 900 ? 9 : momentum >= 700 ? 7 : momentum >= 250 ? 5 : 3
     }
 
-    private func updateCombo(_ state: PowerState, color: NSColor) {
-        guard preferences.settings.showCombo == true, let count = state.combo, count > 0, let expires = parseDate(state.comboExpiresAt), expires > Date() else {
-            guard lastComboSignature != "idle" else { return }
-            lastComboSignature = "idle"
+    private func updateMixOrbit(_ state: PowerState, color: NSColor) {
+        let conversations = state.mixedConversationCount ?? 0
+        guard conversations > 1 else {
+            mixOrbit.opacity = 0
+            mixOrbit.removeAnimation(forKey: "mix-orbit")
+            return
+        }
+        mixOrbit.opacity = min(0.9, Float(0.45 + Double(conversations) * 0.09))
+        mixOrbit.strokeColor = color.withAlphaComponent(0.82).cgColor
+        mixOrbit.shadowColor = color.cgColor
+        mixOrbit.shadowOpacity = 0.5
+        mixOrbit.shadowRadius = 4
+        guard mixOrbit.animation(forKey: "mix-orbit") == nil, !reducedMotion else { return }
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = Double.pi * 2
+        spin.duration = arcade ? 2.8 : 4.4
+        spin.repeatCount = .infinity
+        spin.isRemovedOnCompletion = false
+        mixOrbit.add(spin, forKey: "mix-orbit")
+    }
+
+    private func energyTier(_ momentum: Int) -> Int {
+        if momentum <= 0 { return 0 }
+        if momentum < 100 { return 1 }
+        if momentum < 250 { return 2 }
+        if momentum < 450 { return 3 }
+        if momentum < 700 { return 4 }
+        if momentum < 900 { return 5 }
+        if momentum < 999 { return 6 }
+        return 7
+    }
+
+    private func animateEnergyTierChange(from previous: Int, to next: Int, color: NSColor) {
+        guard previous > 0, next > 0, !reducedMotion else { return }
+        let rising = next > previous
+        let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
+        pulse.values = rising ? [1, 1.04, 1.2, 0.97, 1] : [1, 0.94, 1.06, 1]
+        pulse.keyTimes = rising ? [0, 0.18, 0.46, 0.76, 1] : [0, 0.34, 0.68, 1]
+        pulse.duration = rising ? 0.7 : 0.5
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        body.add(pulse, forKey: "energy-tier-body")
+        let flare = CAShapeLayer()
+        flare.frame = choreography.bounds
+        flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
+        flare.fillColor = NSColor.clear.cgColor
+        flare.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
+        flare.lineWidth = rising ? CGFloat(1.6 + Double(next) * 0.34) : 1.8
+        flare.lineDashPattern = rising ? nil : [4, 5]
+        flare.shadowColor = flare.strokeColor
+        flare.shadowOpacity = rising ? 0.9 : 0.55
+        flare.shadowRadius = rising ? CGFloat(4 + next) : 3
+        choreography.addSublayer(flare)
+        let group = CAAnimationGroup()
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = rising ? 0.74 : 1.18
+        scale.toValue = rising ? 1.55 : 0.84
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [0, 1, 0]
+        opacity.keyTimes = [0, 0.2, 1]
+        group.animations = [scale, opacity]
+        group.duration = rising ? 0.82 : 0.58
+        group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
+        flare.add(group, forKey: rising ? "energy-breakthrough" : "energy-vent")
+        DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.05) { [weak flare] in flare?.removeFromSuperlayer() }
+    }
+
+    private func updateCombo(_ state: PowerState, color: NSColor, event: PowerEvent?) {
+        guard preferences.settings.showCombo == true else {
+            lastComboSignature = "hidden"
+            lastComboCount = 0
             comboRing.removeAllAnimations()
             comboRing.strokeEnd = 0
             comboTrack.opacity = 0
             comboValue.string = ""
             return
         }
-        let signature = "\(count)|\(state.comboStatus ?? "")|\(state.comboHoldUntil ?? "")|\(state.comboExpiresAt ?? "")"
+        let now = Date()
+        let count = state.combo ?? 0
+        let parsedExpires = parseDate(state.comboExpiresAt)
+        let brokenAt = parseDate(state.comboBrokenAt) ?? parsedExpires
+        if count <= 0 || parsedExpires == nil || parsedExpires! <= now {
+            let lostIsVisible = brokenAt.map { now < $0.addingTimeInterval(3.2) } ?? false
+            let lostSignature = lostIsVisible ? "lost|\(state.comboBrokenAt ?? state.comboExpiresAt ?? "")" : "idle"
+            guard lostSignature != lastComboSignature else { return }
+            lastComboSignature = lostSignature
+            if lostIsVisible {
+                playComboBreak()
+            } else {
+                comboRing.removeAllAnimations()
+                comboRing.strokeEnd = 0
+                comboTrack.opacity = 0
+                comboValue.string = ""
+            }
+            lastComboCount = 0
+            lastComboStage = lostIsVisible ? "lost" : "idle"
+            return
+        }
+        let expires = parsedExpires!
+        let hold = parseDate(state.comboHoldUntil) ?? now
+        let totalDuration = max(0.1, expires.timeIntervalSince(hold))
+        let progress = now < hold ? 1 : max(0, min(1, expires.timeIntervalSince(now) / totalDuration))
+        let nextStage = state.comboStatus == "reward" || state.comboStatus == "complete"
+            ? "reward"
+            : progress <= 0.25 ? "critical" : comboStageName(count)
+        let signature = "\(count)|\(state.comboStatus ?? "")|\(state.comboHoldUntil ?? "")|\(state.comboExpiresAt ?? "")|\(nextStage)"
         guard signature != lastComboSignature else { return }
+        let grew = count > lastComboCount && event?.sessionTransition == nil
+        let crossedStage = grew && nextStage != lastComboStage && !["critical", "reward"].contains(nextStage)
+        let relinked = state.comboRelinkedAt.flatMap { parseDate($0) }.map { abs(now.timeIntervalSince($0)) < 1.6 } ?? false
         lastComboSignature = signature
         comboAnimationGeneration &+= 1
         let generation = comboAnimationGeneration
         comboTrack.opacity = 1
+        comboRing.opacity = 1
+        comboValue.opacity = 1
+        comboRing.lineDashPattern = nil
+        comboValue.foregroundColor = NSColor.white.cgColor
         comboValue.string = "\(count)×"
         let stageColor: NSColor = state.comboStatus == "reward" || state.comboStatus == "complete" ? .systemGreen : color
         comboRing.strokeColor = stageColor.cgColor
@@ -475,10 +602,7 @@ private final class OrbLayerRenderer {
         comboRing.shadowRadius = 3
         comboRing.removeAllAnimations()
         comboRing.strokeEnd = 0
-        let hold = parseDate(state.comboHoldUntil) ?? Date()
-        let now = Date()
         let delay = max(0, hold.timeIntervalSince(now))
-        let totalDuration = max(0.1, expires.timeIntervalSince(hold))
         let remainingDuration = max(0.1, expires.timeIntervalSince(now))
         let currentProgress = now < hold ? 1 : max(0, min(1, expires.timeIntervalSince(now) / totalDuration))
         let animation = CABasicAnimation(keyPath: "strokeEnd")
@@ -489,6 +613,121 @@ private final class OrbLayerRenderer {
         animation.fillMode = .both
         animation.isRemovedOnCompletion = false
         comboRing.add(animation, forKey: "combo-decay-\(generation)")
+        if grew { playComboGrowth(color: stageColor, strong: crossedStage) }
+        if relinked { playComboRelink(color: .systemCyan) }
+        if nextStage == "critical" && lastComboStage != "critical" { playComboDanger() }
+        lastComboCount = count
+        lastComboStage = nextStage
+    }
+
+    private func comboStageName(_ count: Int) -> String {
+        if count < 5 { return "ignition" }
+        if count < 10 { return "linked" }
+        if count < 20 { return "accelerated" }
+        if count < 40 { return "heated" }
+        return "extreme"
+    }
+
+    private func playComboGrowth(color: NSColor, strong: Bool) {
+        guard !reducedMotion else { return }
+        let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
+        pulse.values = strong ? [1, 1.19, 0.96, 1] : [1, 1.08, 1]
+        pulse.keyTimes = strong ? [0, 0.35, 0.7, 1] : [0, 0.45, 1]
+        pulse.duration = strong ? 0.58 : 0.28
+        comboRing.add(pulse, forKey: "combo-growth")
+        comboValue.add(pulse, forKey: "combo-value-growth")
+        let wave = CAShapeLayer()
+        wave.frame = choreography.bounds
+        wave.path = CGPath(ellipseIn: CGRect(x: 1.5, y: 1.5, width: 89, height: 89), transform: nil)
+        wave.fillColor = NSColor.clear.cgColor
+        wave.strokeColor = color.cgColor
+        wave.lineWidth = strong ? 3.8 : 2.2
+        wave.shadowColor = color.cgColor
+        wave.shadowOpacity = strong ? 0.9 : 0.58
+        wave.shadowRadius = strong ? 8 : 4
+        choreography.addSublayer(wave)
+        let group = CAAnimationGroup()
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 0.9
+        scale.toValue = strong ? 1.32 : 1.14
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [0, 1, 0]
+        opacity.keyTimes = [0, 0.22, 1]
+        group.animations = [scale, opacity]
+        group.duration = strong ? 0.62 : 0.34
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        wave.add(group, forKey: "combo-growth-wave")
+        DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.05) { [weak wave] in wave?.removeFromSuperlayer() }
+    }
+
+    private func playComboRelink(color: NSColor) {
+        guard !reducedMotion else { return }
+        let close = CAKeyframeAnimation(keyPath: "lineDashPhase")
+        close.values = [24, 10, 0]
+        close.duration = 0.52
+        close.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        comboRing.add(close, forKey: "combo-relink-close")
+        playComboGrowth(color: color, strong: true)
+    }
+
+    private func playComboDanger() {
+        guard !reducedMotion else { return }
+        comboRing.strokeColor = NSColor.systemOrange.cgColor
+        comboRing.shadowColor = NSColor.systemRed.cgColor
+        comboRing.shadowOpacity = 0.82
+        comboRing.shadowRadius = 7
+        let warning = CAKeyframeAnimation(keyPath: "opacity")
+        warning.values = [1, 0.28, 1, 0.28, 1]
+        warning.keyTimes = [0, 0.18, 0.36, 0.62, 1]
+        warning.duration = 0.9
+        warning.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        comboRing.add(warning, forKey: "combo-danger-double-pulse")
+        comboValue.add(warning, forKey: "combo-danger-value")
+    }
+
+    private func playComboBreak() {
+        comboAnimationGeneration &+= 1
+        comboTrack.opacity = 1
+        comboRing.removeAllAnimations()
+        comboRing.strokeColor = NSColor.systemRed.cgColor
+        comboRing.shadowColor = NSColor.systemRed.cgColor
+        comboRing.shadowOpacity = 0.78
+        comboRing.shadowRadius = 7
+        comboRing.lineDashPattern = [8, 6]
+        comboRing.strokeEnd = 0.72
+        comboValue.string = "×"
+        comboValue.foregroundColor = NSColor.systemRed.cgColor
+        guard !reducedMotion else { return }
+        comboRing.opacity = 0
+        comboValue.opacity = 0
+        let group = CAAnimationGroup()
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [1, 1, 0.65, 0]
+        opacity.keyTimes = [0, 0.18, 0.52, 1]
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = [1, 1.14, 0.94, 1.3]
+        scale.keyTimes = [0, 0.22, 0.58, 1]
+        group.animations = [opacity, scale]
+        group.duration = 0.72
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        comboRing.add(group, forKey: "combo-break")
+        comboValue.add(group, forKey: "combo-break-value")
+    }
+
+    private func animateSessionTransition(color: NSColor) {
+        guard !reducedMotion else { return }
+        let handoff = CAKeyframeAnimation(keyPath: "transform.scale")
+        handoff.values = [1, 0.74, 0.74, 1.06, 1]
+        handoff.keyTimes = [0, 0.32, 0.54, 0.8, 1]
+        handoff.duration = 0.78
+        handoff.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        body.add(handoff, forKey: "session-handoff")
+        let ring = CAKeyframeAnimation(keyPath: "opacity")
+        ring.values = [1, 0.18, 0.18, 1]
+        ring.keyTimes = [0, 0.34, 0.58, 1]
+        ring.duration = 0.78
+        energyRing.add(ring, forKey: "session-handoff-energy")
+        playComboGrowth(color: color, strong: false)
     }
 
     private func animateSemanticPhase(_ phase: String) {
@@ -1240,7 +1479,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, sessionSource: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, sessionSource: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, energyUpdatedAt: nil, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0, mixedConversationCount: nil)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -1400,9 +1639,12 @@ private final class PowerModeView: NSView {
     }
 
     func activitySourceSummary() -> String {
-        let source = preferences.settings.activitySource == "global"
-            ? preferences.text("Follow all Codex activity", "跟随全部 Codex")
-            : preferences.text("Keep current conversation", "保持当前对话")
+        let source: String
+        switch preferences.settings.activitySource {
+        case "mix": source = preferences.text("Mix all conversations", "混合所有对话")
+        case "global": source = preferences.text("Follow latest conversation", "跟随最新对话")
+        default: source = preferences.text("Keep current conversation", "保持当前对话")
+        }
         return "\(preferences.text("Activity source", "动态来源")): \(source)"
     }
 
@@ -1433,6 +1675,13 @@ private final class PowerModeView: NSView {
     }
 
     func sessionSummary() -> (title: String, fullId: String?) {
+        if preferences.settings.activitySource == "mix" {
+            let count = state.mixedConversationCount ?? 0
+            let detail = count > 0
+                ? preferences.text("\(count) active", "\(count) 个活跃")
+                : preferences.text("waiting for activity", "等待活动")
+            return ("\(preferences.text("Mixed conversations", "混合对话")): \(detail)", nil)
+        }
         guard let sessionId = state.sessionId, !sessionId.isEmpty else {
             return (preferences.text("Current session: waiting for activity", "当前会话：等待活动"), nil)
         }
@@ -1820,12 +2069,12 @@ private final class PowerModeView: NSView {
 
     private func playEnergyUpgrade(_ level: String, generation: Int) {
         switch level {
-        case "charging":
+        case "awakening":
             shockwave(color: .systemCyan, power: arcadeMode ? 0.42 : 0.24)
-        case "flow":
+        case "charging":
             charge(color: .systemCyan, count: arcadeMode ? 58 : 28)
             shockwave(color: .systemCyan, power: arcadeMode ? 0.72 : 0.42)
-        case "surge":
+        case "driving", "high-energy":
             shockwave(color: .systemPurple, power: arcadeMode ? 1.18 : 0.68)
             charge(color: .systemPurple, count: arcadeMode ? 92 : 44)
             if arcadeMode {
@@ -1833,7 +2082,7 @@ private final class PowerModeView: NSView {
                     view.shockwave(color: .systemCyan, power: 0.82)
                 }
             }
-        case "overdrive":
+        case "overload", "critical", "verified-peak":
             shockwave(color: .systemYellow, power: arcadeMode ? 1.72 : 0.92)
             burst(color: .systemYellow, count: arcadeMode ? 132 : 58, power: arcadeMode ? 1.18 : 0.78)
             shake = max(shake, arcadeMode ? 5.5 : 2.2)
@@ -2025,7 +2274,10 @@ private final class PowerModeView: NSView {
     private func presentationSnapshot(now: Date = Date()) -> (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool, settledAt: Date?) {
         let phase = state.phase ?? "observe"
         let status = state.status ?? "ready"
-        let momentum = min(100, max(0, state.momentum ?? 0))
+        let baseMomentum = min(999, max(0, state.momentum ?? 0))
+        let energyUpdatedAt = state.energyUpdatedAt.flatMap(isoDateFormatter.date(from:)) ?? lastActivityAt
+        let decayProgress = energyUpdatedAt.map { min(1, max(0, now.timeIntervalSince($0.addingTimeInterval(20)) / 90)) } ?? 0
+        let momentum = Int((Double(baseMomentum) * (1 - decayProgress)).rounded())
         let canSettleAbandoned = ["observe", "act", "verify"].contains(phase) && status != "needs-attention" && status != "failed"
         let canSettleRecovery = phase == "recover" && status == "failed"
         let recoveryAt = lastFailureAt ?? lastActivityAt
@@ -2534,20 +2786,21 @@ private final class PowerModeView: NSView {
         let progress = CGFloat(momentum) / 100
         let energy = energyLevel(momentum)
         let energyPulse = reducedMotion ? CGFloat(1) : 0.88 + 0.12 * sin(shakePhase * energy.rhythm)
-        let tierMarks = energy.name == "flow" ? 4 : energy.name == "surge" ? 8 : energy.name == "overdrive" ? 12 : 0
+        let tierMarks = energy.name == "charging" ? 4 : energy.name == "driving" ? 6 : energy.name == "high-energy" ? 8 : energy.name == "overload" ? 10 : energy.name == "critical" || energy.name == "verified-peak" ? 12 : 0
         if tierMarks > 0 {
             let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
             let markers = NSBezierPath()
             for index in 0..<tierMarks {
                 let angle = CGFloat(index) / CGFloat(tierMarks) * .pi * 2 - .pi / 2
-                let innerRadius: CGFloat = energy.name == "overdrive" ? 36.5 : 37.5
-                let outerRadius: CGFloat = energy.name == "overdrive" ? 41 : 40
+                let maximumEnergy = energy.name == "overload" || energy.name == "critical" || energy.name == "verified-peak"
+                let innerRadius: CGFloat = maximumEnergy ? 36.5 : 37.5
+                let outerRadius: CGFloat = maximumEnergy ? 41 : 40
                 markers.move(to: CGPoint(x: center.x + cos(angle) * innerRadius, y: center.y + sin(angle) * innerRadius))
                 markers.line(to: CGPoint(x: center.x + cos(angle) * outerRadius, y: center.y + sin(angle) * outerRadius))
             }
-            markers.lineWidth = energy.name == "overdrive" ? 1.8 : energy.name == "surge" ? 1.35 : 1
+            markers.lineWidth = energy.name == "verified-peak" ? 2 : energy.name == "critical" || energy.name == "overload" ? 1.8 : energy.name == "high-energy" ? 1.35 : 1
             markers.lineCapStyle = .round
-            phaseColor.withAlphaComponent((energy.name == "overdrive" ? 0.88 : energy.name == "surge" ? 0.68 : 0.48) * energyPulse).setStroke()
+            phaseColor.withAlphaComponent((energy.name == "verified-peak" || energy.name == "critical" ? 0.92 : energy.name == "overload" ? 0.82 : energy.name == "high-energy" ? 0.68 : 0.48) * energyPulse).setStroke()
             markers.stroke()
         }
         let arc = NSBezierPath()
@@ -2557,16 +2810,16 @@ private final class PowerModeView: NSView {
         phaseColor.withAlphaComponent(energyPulse).setStroke()
         arc.stroke()
 
-        if energy.name == "surge" || energy.name == "overdrive" {
+        if ["high-energy", "overload", "critical", "verified-peak"].contains(energy.name) {
             let reserve = NSBezierPath()
             reserve.appendArc(withCenter: CGPoint(x: origin.x + 41, y: origin.y + 41), radius: 36.5, startAngle: 90, endAngle: 90 - 360 * progress, clockwise: true)
-            reserve.lineWidth = energy.name == "overdrive" ? 1.8 : 1.1
+            reserve.lineWidth = ["overload", "critical", "verified-peak"].contains(energy.name) ? 1.8 : 1.1
             reserve.lineCapStyle = .round
-            phaseColor.withAlphaComponent((energy.name == "overdrive" ? 0.72 : 0.42) * energyPulse).setStroke()
+            phaseColor.withAlphaComponent((["overload", "critical", "verified-peak"].contains(energy.name) ? 0.72 : 0.42) * energyPulse).setStroke()
             reserve.stroke()
         }
 
-        if energy.name == "overdrive" {
+        if ["overload", "critical", "verified-peak"].contains(energy.name) {
             let chargedCore = NSBezierPath(ovalIn: CGRect(x: origin.x + 14, y: origin.y + 14, width: 54, height: 54))
             phaseColor.withAlphaComponent(0.08 + 0.06 * energyPulse).setFill()
             chargedCore.fill()
@@ -2966,28 +3219,37 @@ private final class PowerModeView: NSView {
 
     private func energyLevel(_ momentum: Int) -> (name: String, lineWidth: CGFloat, rhythm: CGFloat) {
         if momentum <= 0 { return ("idle", 2.0, 0.02) }
-        if momentum < 25 { return ("charging", 2.2, 0.035) }
-        if momentum < 50 { return ("flow", 2.8, 0.055) }
-        if momentum < 75 { return ("surge", 3.4, 0.085) }
-        return ("overdrive", 4.1, 0.13)
+        if momentum < 100 { return ("awakening", 2.2, 0.032) }
+        if momentum < 250 { return ("charging", 2.6, 0.045) }
+        if momentum < 450 { return ("driving", 3.1, 0.064) }
+        if momentum < 700 { return ("high-energy", 3.65, 0.088) }
+        if momentum < 900 { return ("overload", 4.2, 0.12) }
+        if momentum < 999 { return ("critical", 4.7, 0.16) }
+        return ("verified-peak", 5.2, 0.2)
     }
 
     private func energyRank(_ level: String) -> Int {
         switch level {
-        case "charging": return 1
-        case "flow": return 2
-        case "surge": return 3
-        case "overdrive": return 4
+        case "awakening": return 1
+        case "charging": return 2
+        case "driving": return 3
+        case "high-energy": return 4
+        case "overload": return 5
+        case "critical": return 6
+        case "verified-peak": return 7
         default: return 0
         }
     }
 
     private func localizedEnergyLevel(_ level: String) -> String {
         switch level {
-        case "charging": return preferences.text("CHARGE", "蓄能")
-        case "flow": return preferences.text("FLOW", "流动")
-        case "surge": return preferences.text("SURGE", "高能")
-        case "overdrive": return preferences.text("OVERDRIVE", "过载")
+        case "awakening": return preferences.text("WAKE", "唤醒")
+        case "charging": return preferences.text("CHARGE", "聚能")
+        case "driving": return preferences.text("DRIVE", "推进")
+        case "high-energy": return preferences.text("HIGH", "高能")
+        case "overload": return preferences.text("OVERLOAD", "超载")
+        case "critical": return preferences.text("CRITICAL", "临界")
+        case "verified-peak": return preferences.text("PEAK", "峰值")
         default: return preferences.text("POWER", "能量")
         }
     }
@@ -3025,9 +3287,11 @@ private final class PowerModeView: NSView {
     }
 
     private func comboCountStage(_ count: Int) -> String {
-        if count < 3 { return "building" }
-        if count < 6 { return "linked" }
-        return "chain"
+        if count < 5 { return "ignition" }
+        if count < 10 { return "linked" }
+        if count < 20 { return "accelerated" }
+        if count < 40 { return "heated" }
+        return "extreme"
     }
 
     private func comboRewardStage() -> String {
@@ -3038,9 +3302,11 @@ private final class PowerModeView: NSView {
 
     private func localizedComboStage(_ stage: String) -> String {
         switch stage {
-        case "building": return preferences.text("BUILD", "蓄连")
+        case "ignition": return preferences.text("IGNITE", "点火")
         case "linked": return preferences.text("LINK", "续连")
-        case "chain": return preferences.text("CHAIN", "连锁")
+        case "accelerated": return preferences.text("ACCEL", "加速")
+        case "heated": return preferences.text("HEAT", "高热")
+        case "extreme": return preferences.text("EXTREME", "极限")
         case "critical": return preferences.text("BREAK", "将断")
         case "reward": return preferences.text("BOOST", "奖励")
         case "confirmed": return preferences.text("CHECK", "确认")
@@ -3447,7 +3713,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             title: preferences.text("Activity source", "动态来源"),
             choices: [
                 ("focused", preferences.text("Keep current conversation", "保持当前对话")),
-                ("global", preferences.text("Follow all Codex activity", "跟随全部 Codex"))
+                ("global", preferences.text("Follow latest conversation", "跟随最新对话")),
+                ("mix", preferences.text("Mix all conversations", "混合所有对话"))
             ],
             selected: preferences.settings.activitySource ?? "focused",
             action: #selector(selectActivitySource)
