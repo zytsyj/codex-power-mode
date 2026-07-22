@@ -40,11 +40,12 @@ Requires Node.js 20 or newer.
 npm start
 npm run demo
 npm run showcase
+npm run showcase:energy
 npm run replay
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
-Use `npm run showcase` to play every semantic state with enough delay to compare their motion language. Demo, showcase, and replay are transient previews: they never change the connected task, energy, Combo, event history, or personal best, and the real HUD state is restored when playback ends.
+Use `npm run showcase` to compare semantic states, or `npm run showcase:energy` to step through all seven Energy tiers. Demo, both showcases, and replay are transient previews: they never change the connected task, energy, Combo, event history, or personal best, and the real HUD state is restored when playback ends.
 
 For the native macOS overlay:
 
@@ -113,7 +114,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
-- Energy spans Wake, Charge, Drive, High, Overload, Critical, and the verified `999` Peak. The ring fills within the current tier, resets after a breakthrough, reverses on decay, and each tier has a different core and shell silhouette.
+- Energy spans Wake, Charge, Drive, High, Overload, Critical, and the verified `999` Peak. The ring fills within the current tier, resets after a breakthrough, reverses on decay, and each tier has a distinct material, ring texture, node density, glow, and cadence within the same circular orb silhouette.
 - Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
 
 ## Combo semantics

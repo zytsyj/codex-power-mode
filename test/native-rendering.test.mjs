@@ -88,3 +88,20 @@ test("energy tier crossings use a complete multi-ring breakthrough choreography"
   assert.match(source, /let flareCount = rising \? min\(4, 2 \+ crossings\) : 2/);
   assert.match(source, /forKey: rising \? "energy-breakthrough" : "energy-vent"/);
 });
+
+test("all seven energy tiers have distinct material, node, texture, and motion profiles", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private func energyTierPalette/);
+  assert.match(source, /let nodeCounts = \[0, 1, 3, 5, 8, 10, 14, 16\]/);
+  assert.match(source, /case 4: stageShell\.lineDashPattern = \[15, 4\]/);
+  assert.match(source, /case 7: tierAura\.lineDashPattern = \[3, 1\]/);
+  assert.match(source, /private func energyTierNodePath/);
+  assert.match(source, /private func updateEnergyTierMotion/);
+  assert.match(source, /let spinDurations: \[CFTimeInterval\] = \[0, 12, 9, 6\.8, 4\.7, 3\.4, 2\.35, 5\.6\]/);
+  assert.match(source, /forKey: "energy-tier-breath"/);
+  assert.match(source, /forKey: "energy-node-orbit"/);
+  assert.match(source, /private func runEnergyRenderQA/);
+  assert.match(source, /"CODEX_POWER_MODE_RENDER_QA_DIR"/);
+  assert.match(source, /let tiers = \[45, 170, 340, 580, 820, 960, 999\]/);
+});

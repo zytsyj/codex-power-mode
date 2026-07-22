@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Separated all seven Energy tiers with dedicated two-color materials, ring textures, node counts, glow depths, orbit directions, and breathing cadences while retaining one circular orb silhouette.
+- Added deterministic native light/dark render QA for Focus, Arcade, and Reduce Motion, and avoided a macOS 26 QuartzCore crash by assigning each tier's dash pattern directly.
 - Fixed the Energy-tier pulse keyframes and strengthened each upgrade or downgrade with ring compression, a line-weight impact, and staggered breakthrough or vent waves.
 - Moved the Typing Combo lifetime rail onto a continuous Core Animation drain, eliminating stepped rollback between low-frequency idle updates.
 - Choreographed prompt injection as a visible Combo collapse, convergence beat, and delayed particle stream into the orb.

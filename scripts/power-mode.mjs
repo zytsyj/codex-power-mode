@@ -151,6 +151,40 @@ async function playPreview(events, delayMs) {
   }
 }
 
+async function playEnergyShowcase(delayMs = 1450) {
+  await start();
+  const realState = await readState(dataDir);
+  const tierValues = [45, 170, 340, 580, 820, 960, 999];
+  try {
+    for (const momentum of tierValues) {
+      const timestamp = new Date().toISOString();
+      await broadcast({
+        type: "activity-start",
+        id: `${Date.now()}-tier-${momentum}`,
+        timestamp,
+        sessionId: "demo",
+        preview: true,
+        phase: "act",
+        toolGroup: "change",
+        state: {
+          ...initialState,
+          phase: "act",
+          status: "working",
+          momentum,
+          bestMomentum: 999,
+          energyUpdatedAt: timestamp,
+          currentActivity: `Energy tier ${momentum}`,
+          lastActivityAt: timestamp,
+          sessionId: "demo"
+        }
+      });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  } finally {
+    await restorePreview(realState);
+  }
+}
+
 async function replay() {
   await start();
   const realState = await readState(dataDir);
@@ -413,6 +447,8 @@ if (command === "start") {
     { type: "turn-stop" }
   ];
   await playPreview(events, 850);
+} else if (command === "energy-showcase") {
+  await playEnergyShowcase();
 } else if (command === "replay") {
   await replay();
 } else if (command === "native") {
@@ -420,6 +456,6 @@ if (command === "start") {
 } else if (command === "native-stop") {
   await stopNative();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|replay|status> [--open]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|energy-showcase|replay|status> [--open]\n");
   process.exitCode = 2;
 }

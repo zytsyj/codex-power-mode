@@ -14,6 +14,7 @@
     "native:stop": "node scripts/power-mode.mjs native-stop",
     "demo": "node scripts/power-mode.mjs demo",
     "showcase": "node scripts/power-mode.mjs showcase",
+    "showcase:energy": "node scripts/power-mode.mjs energy-showcase",
     "replay": "node scripts/power-mode.mjs replay",
     "status": "node scripts/power-mode.mjs status",
     "test": "node --test",

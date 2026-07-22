@@ -57,6 +57,60 @@ private func runPlacementGeometrySelfTest() {
     fputs("HUD placement, inactive behavior, and auto-hide self-test passed\n", stdout)
 }
 
+@MainActor
+private func runEnergyRenderQA(directory: String) {
+    let destination = URL(fileURLWithPath: directory, isDirectory: true)
+    try? FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+    let tiers = [45, 170, 340, 580, 820, 960, 999]
+    let variants: [(name: String, preset: String, reduced: Bool)] = [
+        ("focus", "focus", false),
+        ("arcade", "arcade", false),
+        ("reduced", "focus", true)
+    ]
+    for variant in variants {
+        for dark in [false, true] {
+            for momentum in tiers {
+                let preferences = PowerModePreferences(environment: [:])
+                preferences.setPreset(variant.preset)
+                if variant.reduced { preferences.toggleReducedMotion() }
+                let host = CALayer()
+                host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+                host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+                let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
+                renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
+                let stateJSON = "{\"phase\":\"act\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Tier QA\",\"sessionId\":\"qa\"}"
+                guard let state = try? JSONDecoder().decode(PowerState.self, from: Data(stateJSON.utf8)) else { continue }
+                renderer.apply(
+                    state: state,
+                    presentation: (phase: "act", status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
+                    label: "ACT"
+                )
+                renderer.setVisible(true, animated: false)
+                guard let bitmap = NSBitmapImageRep(
+                    bitmapDataPlanes: nil,
+                    pixelsWide: 180,
+                    pixelsHigh: 180,
+                    bitsPerSample: 8,
+                    samplesPerPixel: 4,
+                    hasAlpha: true,
+                    isPlanar: false,
+                    colorSpaceName: .deviceRGB,
+                    bytesPerRow: 0,
+                    bitsPerPixel: 0
+                ), let context = NSGraphicsContext(bitmapImageRep: bitmap) else { continue }
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = context
+                host.render(in: context.cgContext)
+                NSGraphicsContext.restoreGraphicsState()
+                let theme = dark ? "dark" : "light"
+                let file = destination.appendingPathComponent("\(variant.name)-\(theme)-\(momentum).png")
+                if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
+            }
+        }
+    }
+    fputs("Rendered native Energy QA frames to \(directory)\n", stdout)
+}
+
 private struct PowerState: Decodable {
     let sessionId: String?
     let sessionSource: String?
@@ -257,8 +311,10 @@ private final class OrbLayerRenderer {
     private let core = CALayer()
     private let inner = CAGradientLayer()
     private let sheen = CAGradientLayer()
+    private let tierAura = CAShapeLayer()
     private let signature = CAShapeLayer()
     private let stageShell = CAShapeLayer()
+    private let tierNodes = CAShapeLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -281,6 +337,7 @@ private final class OrbLayerRenderer {
     private var lastComboStage = "idle"
     private var lastEnergyTier = 0
     private var lastEnergyValue = 0
+    private var lastEnergyMotionSignature = ""
     private var phase = "idle"
     private var rhythmGeneration = 0
     private var reducedMotion = false
@@ -333,11 +390,21 @@ private final class OrbLayerRenderer {
         sheen.opacity = 0.1
         body.addSublayer(sheen)
 
+        tierAura.frame = body.bounds
+        tierAura.fillColor = NSColor.clear.cgColor
+        tierAura.lineCap = .round
+        body.addSublayer(tierAura)
+
         stageShell.frame = body.bounds
         stageShell.fillColor = NSColor.clear.cgColor
         stageShell.lineCap = .round
         stageShell.lineJoin = .round
         body.addSublayer(stageShell)
+
+        tierNodes.frame = body.bounds
+        tierNodes.fillColor = NSColor.clear.cgColor
+        tierNodes.lineCap = .round
+        body.addSublayer(tierNodes)
 
         signature.frame = body.bounds
         signature.fillColor = NSColor.clear.cgColor
@@ -514,18 +581,23 @@ private final class OrbLayerRenderer {
         return CGFloat(value - range.0) / CGFloat(range.1 - range.0)
     }
 
-    private func energyStageColor(tier: Int, phaseColor: NSColor) -> NSColor {
-        let accents: [NSColor] = [
-            .systemGray,
-            NSColor(calibratedRed: 0.28, green: 0.76, blue: 0.95, alpha: 1),
-            NSColor(calibratedRed: 0.34, green: 0.86, blue: 0.70, alpha: 1),
-            NSColor(calibratedRed: 0.58, green: 0.53, blue: 1.00, alpha: 1),
-            NSColor(calibratedRed: 0.94, green: 0.42, blue: 0.92, alpha: 1),
-            NSColor(calibratedRed: 1.00, green: 0.55, blue: 0.20, alpha: 1),
-            NSColor(calibratedRed: 1.00, green: 0.26, blue: 0.36, alpha: 1),
-            NSColor(calibratedRed: 0.36, green: 1.00, blue: 0.62, alpha: 1)
+    private func energyTierPalette(_ tier: Int) -> (primary: NSColor, secondary: NSColor) {
+        let palettes: [(NSColor, NSColor)] = [
+            (.systemGray, .white),
+            (NSColor(calibratedRed: 0.28, green: 0.76, blue: 0.95, alpha: 1), NSColor(calibratedRed: 0.30, green: 0.52, blue: 1.00, alpha: 1)),
+            (NSColor(calibratedRed: 0.34, green: 0.86, blue: 0.70, alpha: 1), NSColor(calibratedRed: 0.72, green: 1.00, blue: 0.48, alpha: 1)),
+            (NSColor(calibratedRed: 0.58, green: 0.53, blue: 1.00, alpha: 1), NSColor(calibratedRed: 0.24, green: 0.90, blue: 1.00, alpha: 1)),
+            (NSColor(calibratedRed: 0.94, green: 0.42, blue: 0.92, alpha: 1), NSColor(calibratedRed: 0.54, green: 0.30, blue: 1.00, alpha: 1)),
+            (NSColor(calibratedRed: 1.00, green: 0.55, blue: 0.20, alpha: 1), NSColor(calibratedRed: 1.00, green: 0.22, blue: 0.62, alpha: 1)),
+            (NSColor(calibratedRed: 1.00, green: 0.26, blue: 0.36, alpha: 1), NSColor(calibratedRed: 1.00, green: 0.78, blue: 0.18, alpha: 1)),
+            (NSColor(calibratedRed: 0.36, green: 1.00, blue: 0.62, alpha: 1), NSColor(calibratedRed: 0.92, green: 1.00, blue: 0.98, alpha: 1))
         ]
-        return phaseColor.blended(withFraction: tier >= 5 ? 0.94 : tier >= 3 ? 0.86 : 0.76, of: accents[tier]) ?? accents[tier]
+        return palettes[max(0, min(palettes.count - 1, tier))]
+    }
+
+    private func energyStageColor(tier: Int, phaseColor: NSColor) -> NSColor {
+        let accent = energyTierPalette(tier).primary
+        return phaseColor.blended(withFraction: tier >= 5 ? 0.94 : tier >= 3 ? 0.86 : 0.76, of: accent) ?? accent
     }
 
     private func polygonPath(center: CGPoint = CGPoint(x: 46, y: 46), radius: CGFloat, sides: Int, rotation: CGFloat = -.pi / 2) -> CGPath {
@@ -540,45 +612,124 @@ private final class OrbLayerRenderer {
     }
 
     private func updateEnergyStageShape(tier: Int, color: NSColor) {
+        let palette = energyTierPalette(tier)
+        let nodeCounts = [0, 1, 3, 5, 8, 10, 14, 16]
+        let coreBorders: [CGFloat] = [1, 1, 1.15, 1.3, 1.55, 1.85, 2.2, 2.6]
+        let shellWidths: [CGFloat] = [0, 0.9, 1.1, 1.3, 1.65, 1.95, 2.25, 2.7]
+        let haloRadii: [CGFloat] = [10, 12, 14, 16, 19, 22, 26, 30]
         let coreFrame = CGRect(x: 10, y: 10, width: 72, height: 72)
         core.frame = coreFrame
         core.cornerRadius = coreFrame.width / 2
-        core.borderWidth = tier >= 6 ? 2.2 : tier >= 4 ? 1.5 : 1
-        core.borderColor = color.withAlphaComponent(tier >= 5 ? 0.7 : 0.34).cgColor
+        core.borderWidth = coreBorders[tier]
+        core.borderColor = palette.secondary.withAlphaComponent(tier >= 5 ? 0.76 : 0.4).cgColor
         inner.frame = coreFrame.insetBy(dx: 5, dy: 5)
         inner.cornerRadius = inner.frame.width / 2
+        inner.colors = [
+            palette.secondary.withAlphaComponent(0.12 + CGFloat(tier) * 0.035).cgColor,
+            color.withAlphaComponent(0.07 + CGFloat(tier) * 0.025).cgColor,
+            NSColor.clear.cgColor
+        ]
+        inner.locations = tier >= 6 ? [0, 0.36, 1] : tier >= 3 ? [0, 0.48, 1] : [0, 0.6, 1]
+        sheen.colors = [
+            NSColor.clear.cgColor,
+            palette.secondary.withAlphaComponent(tier >= 5 ? 0.42 : 0.24).cgColor,
+            NSColor.white.withAlphaComponent(tier >= 6 ? 0.32 : 0.16).cgColor,
+            NSColor.clear.cgColor
+        ]
+        sheen.locations = [0.18, 0.42, 0.57, 0.82]
         stageShell.opacity = tier == 0 ? 0 : 1
-        stageShell.strokeColor = color.withAlphaComponent(tier >= 5 ? 0.92 : 0.62).cgColor
-        stageShell.lineWidth = tier >= 6 ? 2.3 : tier >= 4 ? 1.7 : 1.15
-        stageShell.lineDashPattern = tier == 2 ? [3, 5] : tier == 4 ? [12, 4] : tier == 5 ? [8, 3] : tier >= 6 ? [3, 2] : nil
+        stageShell.strokeColor = palette.secondary.withAlphaComponent(tier >= 5 ? 0.96 : 0.68).cgColor
+        stageShell.lineWidth = shellWidths[tier]
+        switch tier {
+        case 2: stageShell.lineDashPattern = [2, 7]
+        case 3: stageShell.lineDashPattern = [9, 7]
+        case 4: stageShell.lineDashPattern = [15, 4]
+        case 5: stageShell.lineDashPattern = [7, 2]
+        case 6: stageShell.lineDashPattern = [2, 2]
+        default: stageShell.lineDashPattern = nil
+        }
         stageShell.path = CGPath(ellipseIn: CGRect(x: 18, y: 18, width: 56, height: 56), transform: nil)
-        stageShell.shadowColor = color.cgColor
+        stageShell.shadowColor = palette.secondary.cgColor
         stageShell.shadowOpacity = tier >= 5 ? 0.9 : tier >= 3 ? 0.56 : 0.24
         stageShell.shadowRadius = tier >= 6 ? 12 : tier >= 4 ? 7 : 3
+        tierAura.opacity = tier == 0 ? 0 : Float(0.12 + Double(tier) * 0.075)
+        tierAura.path = CGPath(ellipseIn: CGRect(x: 13.5, y: 13.5, width: 65, height: 65), transform: nil)
+        tierAura.strokeColor = color.withAlphaComponent(tier >= 5 ? 0.82 : 0.5).cgColor
+        tierAura.lineWidth = 0.7 + CGFloat(tier) * 0.13
+        switch tier {
+        case 1: tierAura.lineDashPattern = [1, 12]
+        case 2: tierAura.lineDashPattern = [2, 8]
+        case 3: tierAura.lineDashPattern = [5, 7]
+        case 4: tierAura.lineDashPattern = [11, 4]
+        case 5: tierAura.lineDashPattern = [5, 2]
+        case 6: tierAura.lineDashPattern = [1, 2]
+        case 7: tierAura.lineDashPattern = [3, 1]
+        default: tierAura.lineDashPattern = nil
+        }
+        tierAura.shadowColor = color.cgColor
+        tierAura.shadowOpacity = tier >= 5 ? 0.72 : 0.3
+        tierAura.shadowRadius = tier >= 6 ? 8 : 4
+        tierNodes.opacity = tier == 0 ? 0 : 1
+        tierNodes.path = energyTierNodePath(count: nodeCounts[tier], radius: 31.8, tier: tier)
+        tierNodes.strokeColor = palette.secondary.withAlphaComponent(tier >= 5 ? 0.96 : 0.72).cgColor
+        tierNodes.lineWidth = tier >= 6 ? 2.4 : tier >= 4 ? 1.8 : 1.35
+        tierNodes.shadowColor = palette.secondary.cgColor
+        tierNodes.shadowOpacity = tier >= 5 ? 0.9 : 0.42
+        tierNodes.shadowRadius = tier >= 6 ? 7 : 3
         ticks.opacity = tier >= 3 ? Float(min(0.92, 0.22 + Double(tier) * 0.1)) : 0
-        ticks.strokeColor = color.withAlphaComponent(0.72).cgColor
+        ticks.strokeColor = palette.secondary.withAlphaComponent(0.72).cgColor
         ticks.lineDashPattern = tier >= 6 ? [1, 3] : tier >= 4 ? [3, 5] : [2, 8]
-        halo.shadowRadius = tier >= 6 ? 24 : tier >= 4 ? 19 : 14
+        halo.shadowRadius = haloRadii[tier]
         halo.shadowOpacity = tier >= 6 ? 0.62 : tier >= 4 ? 0.42 : 0.26
         halo.backgroundColor = color.withAlphaComponent(tier >= 5 ? 0.12 : tier >= 3 ? 0.075 : 0.04).cgColor
         halo.shadowColor = color.cgColor
-        inner.colors = [
-            color.withAlphaComponent(tier >= 5 ? 0.34 : tier >= 3 ? 0.25 : 0.18).cgColor,
-            color.withAlphaComponent(0.07).cgColor,
-            NSColor.clear.cgColor
-        ]
-        sheen.opacity = tier >= 6 ? 0.28 : tier >= 4 ? 0.18 : 0.1
-        if tier >= 4, !reducedMotion, stageShell.animation(forKey: "energy-stage-spin") == nil {
-            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-            spin.fromValue = 0
-            spin.toValue = Double.pi * 2
-            spin.duration = tier >= 6 ? 2.6 : 4.2
-            spin.repeatCount = .infinity
-            spin.isRemovedOnCompletion = false
-            stageShell.add(spin, forKey: "energy-stage-spin")
-        } else if tier < 4 || reducedMotion {
-            stageShell.removeAnimation(forKey: "energy-stage-spin")
+        sheen.opacity = Float(0.06 + Double(tier) * 0.032)
+        updateEnergyTierMotion(tier: tier)
+    }
+
+    private func energyTierNodePath(count: Int, radius: CGFloat, tier: Int) -> CGPath {
+        let path = CGMutablePath()
+        guard count > 0 else { return path }
+        for index in 0..<count {
+            let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / CGFloat(count)
+            let size: CGFloat = tier >= 6 && index.isMultiple(of: 2) ? 3.2 : tier >= 4 ? 2.5 : 2
+            let center = CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
+            path.addEllipse(in: CGRect(x: center.x - size / 2, y: center.y - size / 2, width: size, height: size))
         }
+        return path
+    }
+
+    private func updateEnergyTierMotion(tier: Int) {
+        let signature = "\(tier)|\(arcade)|\(reducedMotion)"
+        guard signature != lastEnergyMotionSignature else { return }
+        lastEnergyMotionSignature = signature
+        stageShell.removeAnimation(forKey: "energy-stage-spin")
+        tierAura.removeAnimation(forKey: "energy-tier-breath")
+        tierNodes.removeAnimation(forKey: "energy-node-orbit")
+        guard tier > 0, !reducedMotion else { return }
+        let spinDurations: [CFTimeInterval] = [0, 12, 9, 6.8, 4.7, 3.4, 2.35, 5.6]
+        let speed = arcade ? 0.72 : 1.0
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = tier == 5 ? Double.pi * 2 : 0
+        spin.toValue = tier == 5 ? 0 : Double.pi * 2
+        spin.duration = spinDurations[tier] * speed
+        spin.repeatCount = .infinity
+        spin.isRemovedOnCompletion = false
+        stageShell.add(spin, forKey: "energy-stage-spin")
+        let nodeOrbit = CABasicAnimation(keyPath: "transform.rotation.z")
+        nodeOrbit.fromValue = tier == 6 ? Double.pi * 2 : 0
+        nodeOrbit.toValue = tier == 6 ? 0 : Double.pi * 2
+        nodeOrbit.duration = spinDurations[tier] * (tier == 7 ? 1.35 : 1.8) * speed
+        nodeOrbit.repeatCount = .infinity
+        nodeOrbit.isRemovedOnCompletion = false
+        tierNodes.add(nodeOrbit, forKey: "energy-node-orbit")
+        let breath = CAKeyframeAnimation(keyPath: "opacity")
+        breath.values = tier >= 6 ? [0.42, 1, 0.3, 0.88, 0.42] : tier == 5 ? [0.34, 0.9, 0.46, 0.76, 0.34] : [0.2, min(0.86, 0.34 + Double(tier) * 0.1), 0.2]
+        breath.keyTimes = tier >= 5 ? [0, 0.18, 0.42, 0.64, 1] : [0, 0.46, 1]
+        breath.duration = (tier == 7 ? 2.4 : max(0.82, 4.4 - Double(tier) * 0.52)) * speed
+        breath.repeatCount = .infinity
+        breath.timingFunction = CAMediaTimingFunction(name: tier >= 5 ? .easeInEaseOut : .easeOut)
+        tierAura.add(breath, forKey: "energy-tier-breath")
     }
 
     private func updateMixOrbit(_ state: PowerState, color: NSColor) {
@@ -4677,6 +4828,10 @@ private struct PowerModeOverlayApp {
     static func main() {
         if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_PLACEMENT_SELF_TEST"] == "1" {
             runPlacementGeometrySelfTest()
+            return
+        }
+        if let directory = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RENDER_QA_DIR"] {
+            runEnergyRenderQA(directory: directory)
             return
         }
         let app = NSApplication.shared
