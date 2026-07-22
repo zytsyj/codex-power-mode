@@ -76,6 +76,17 @@ test("native HUD settings self-test exercises isolated persistence and validatio
   assert.match(source, /reset\.settings\.positionX == nil/);
 });
 
+test("native HUD enforces a peak layer and animation budget", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private func layerTreeMetrics/);
+  assert.match(source, /private func runLayerBudgetSelfTest/);
+  assert.match(source, /CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST/);
+  assert.match(source, /let budgets = LayerTreeMetrics\(layers: 96, animations: 88\)/);
+  assert.match(source, /reduced\.layers < focus\.layers/);
+  assert.match(source, /reduced\.animations < focus\.animations/);
+});
+
 test("typing Combo follows the foreground Codex app without relying on an AX text role", async () => {
   const source = await readFile(overlaySource, "utf8");
 

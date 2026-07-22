@@ -32,6 +32,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [ ] Verify the full [installation and maintenance](INSTALLATION.md) flow on a clean account, including start/stop, settings reset, data purge, package removal, and Accessibility revocation.
 - [ ] Verify loopback binding, authentication, origin validation, payload limits, and diagnostic redaction.
 - [x] Record an initial reproducible single-machine CPU, memory, POWER, thread, and wakeup baseline for idle and synthetic bursts.
+- [x] Enforce a native peak compositor budget for overlapping Energy, semantic, Typing Combo, cursor, and injection choreography across Focus, Arcade, and Reduce Motion.
 - [ ] Repeat performance sampling across the supported macOS range and inspect per-process GPU/energy behavior with Instruments.
 - [ ] Confirm the release archive contains no runtime state, compiled local binary, logs, secrets, personal paths, or private-repository metadata.
 

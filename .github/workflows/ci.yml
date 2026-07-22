@@ -37,3 +37,4 @@ jobs:
           CODEX_POWER_MODE_SETTINGS_SELF_TEST=1 \
             CODEX_POWER_MODE_CONFIG_PATH="$SETTINGS_PATH" \
             /tmp/codex-power-mode-overlay
+          CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST=1 /tmp/codex-power-mode-overlay

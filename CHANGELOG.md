@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a native peak layer/animation budget self-test for simultaneous Energy breakthrough, semantic transition, Typing Combo, cursor milestone, and prompt injection choreography across Focus, Arcade, and Reduce Motion.
 - Added a recoverable real-interaction RC checklist that snapshots non-sensitive HUD settings, records only predefined manual outcomes, and atomically restores the baseline without automatically claiming visual acceptance.
 - Added a read-only Hook runtime storage audit and a tested candidate retention policy that keeps the newest eight versions plus the linked current runtime; automatic deletion remains disabled pending real Hook acceptance.
 - Added an isolated native settings persistence self-test covering save/reload, validation, position reset, language, idle, inactive-app, motion, Combo, and cursor preferences without touching installed user settings.

@@ -5512,6 +5512,77 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
 }
 
+private struct LayerTreeMetrics: Codable {
+    let layers: Int
+    let animations: Int
+}
+
+private func layerTreeMetrics(_ root: CALayer) -> LayerTreeMetrics {
+    let descendants = root.sublayers ?? []
+    return descendants.reduce(
+        LayerTreeMetrics(layers: 1, animations: root.animationKeys()?.count ?? 0)
+    ) { total, layer in
+        let child = layerTreeMetrics(layer)
+        return LayerTreeMetrics(
+            layers: total.layers + child.layers,
+            animations: total.animations + child.animations
+        )
+    }
+}
+
+@MainActor
+private func runLayerBudgetSelfTest() {
+    func state(phase: String, momentum: Int) -> PowerState {
+        let json = "{\"phase\":\"\(phase)\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Layer budget\",\"sessionId\":\"qa\"}"
+        return try! JSONDecoder().decode(PowerState.self, from: Data(json.utf8))
+    }
+    func sample(preset: String, reducedMotion: Bool) -> LayerTreeMetrics {
+        let preferences = PowerModePreferences(environment: [:])
+        preferences.setPreset(preset)
+        if reducedMotion { preferences.toggleReducedMotion() }
+        let host = CALayer()
+        host.frame = CGRect(x: 0, y: 0, width: 420, height: 240)
+        let orb = OrbLayerRenderer(hostLayer: host, preferences: preferences)
+        orb.layout(in: CGRect(x: 164, y: 74, width: 92, height: 92))
+        orb.apply(
+            state: state(phase: "observe", momentum: 580),
+            presentation: (phase: "observe", status: "working", momentum: 580, idle: false, settled: false, returning: false, settledAt: nil),
+            label: "OBSERVE"
+        )
+        orb.apply(
+            state: state(phase: "act", momentum: 999),
+            presentation: (phase: "act", status: "working", momentum: 999, idle: false, settled: false, returning: false, settledAt: nil),
+            label: "ACT"
+        )
+        let typing = TypingFeedbackRenderer(hostLayer: host, preferences: preferences)
+        typing.layout(in: host.bounds, beside: CGRect(x: 164, y: 74, width: 92, height: 92))
+        typing.update(count: 48, progress: 1, pulse: true)
+        typing.emitCursorEffect(at: CGPoint(x: 86, y: 124), count: 40)
+        typing.inject(to: CGPoint(x: 210, y: 120), count: 48)
+        return layerTreeMetrics(host)
+    }
+
+    let focus = sample(preset: "focus", reducedMotion: false)
+    let arcade = sample(preset: "arcade", reducedMotion: false)
+    let reduced = sample(preset: "focus", reducedMotion: true)
+    let budgets = LayerTreeMetrics(layers: 96, animations: 88)
+    for metrics in [focus, arcade, reduced] {
+        precondition(metrics.layers <= budgets.layers, "Peak native layer budget exceeded")
+        precondition(metrics.animations <= budgets.animations, "Peak native animation budget exceeded")
+    }
+    precondition(reduced.layers < focus.layers, "Reduce Motion must allocate fewer transient layers")
+    precondition(reduced.animations < focus.animations, "Reduce Motion must run fewer animations")
+    let report: [String: Any] = [
+        "schemaVersion": 1,
+        "budget": ["layers": budgets.layers, "animations": budgets.animations],
+        "focus": ["layers": focus.layers, "animations": focus.animations],
+        "arcade": ["layers": arcade.layers, "animations": arcade.animations],
+        "reduceMotion": ["layers": reduced.layers, "animations": reduced.animations]
+    ]
+    let data = try! JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
+    fputs(String(data: data, encoding: .utf8)! + "\n", stdout)
+}
+
 @main
 private struct PowerModeOverlayApp {
     @MainActor
@@ -5535,6 +5606,10 @@ private struct PowerModeOverlayApp {
         }
         if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SETTINGS_SELF_TEST"] == "1" {
             runSettingsPersistenceSelfTest(environment: ProcessInfo.processInfo.environment)
+            return
+        }
+        if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST"] == "1" {
+            runLayerBudgetSelfTest()
             return
         }
         if let directory = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RENDER_QA_DIR"] {

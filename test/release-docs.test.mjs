@@ -74,6 +74,10 @@ test("performance baseline is reproducible and keeps final GPU acceptance explic
   assert.match(performance, /All automated budgets passed/);
   assert.match(performance, /Instruments-based GPU\/energy inspection/);
   assert.match(sampler, /process identity changed during sampling/);
+  assert.match(sampler, /function instrumentsCapability/);
+  assert.match(sampler, /CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST/);
+  assert.match(performance, /96 layers and 88 animations/);
+  assert.match(performance, /xctrace.*currently unavailable/i);
 });
 
 test("checked-in media is generated, privacy-safe, and documented", async () => {

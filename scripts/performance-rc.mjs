@@ -31,6 +31,22 @@ function control(script, cwd, command, options = {}) {
   return result.stdout;
 }
 
+function instrumentsCapability() {
+  const located = spawnSync("xcrun", ["--find", "xctrace"], { encoding: "utf8" });
+  if (located.status !== 0) {
+    return {
+      status: "unavailable",
+      reason: "Full Xcode Instruments (xctrace) is not installed; GPU and Energy Log acceptance remains pending"
+    };
+  }
+  const version = spawnSync("xcrun", ["xctrace", "version"], { encoding: "utf8" });
+  return {
+    status: version.status === 0 ? "available" : "unusable",
+    version: version.status === 0 ? version.stdout.trim() : null,
+    reason: version.status === 0 ? null : "xctrace was found but could not be executed"
+  };
+}
+
 function processRows(pids) {
   const result = spawnSync("ps", ["-p", pids.join(","), "-o", "pid=,%cpu=,rss="], { encoding: "utf8" });
   if (result.status !== 0) return [];
@@ -133,7 +149,9 @@ const report = {
     syntheticPreview: true,
     realStateRestored: true,
     energyImpact: "macOS top POWER score; context switches are a one-second delta",
-    gpu: "No direct per-process GPU percentage; Instruments validation remains an RC follow-up"
+    gpu: "No direct per-process GPU percentage; Instruments validation remains an RC follow-up",
+    instruments: instrumentsCapability(),
+    compositorBudget: "CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST measures peak native CALayer and animation counts in macOS CI"
   },
   budgets,
   scenarios: Object.fromEntries(results.map(({ name, ...result }) => [name, result])),
