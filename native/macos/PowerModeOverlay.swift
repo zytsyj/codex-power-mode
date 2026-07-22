@@ -385,6 +385,86 @@ private final class PowerModePreferences {
     }
 }
 
+@MainActor
+private func runSettingsPersistenceSelfTest(environment: [String: String]) {
+    guard let path = environment["CODEX_POWER_MODE_CONFIG_PATH"], !path.isEmpty else {
+        fputs("Settings persistence self-test requires CODEX_POWER_MODE_CONFIG_PATH\n", stderr)
+        exit(2)
+    }
+
+    let fileURL = URL(fileURLWithPath: path)
+    try? FileManager.default.removeItem(at: fileURL)
+    defer { try? FileManager.default.removeItem(at: fileURL) }
+
+    var isolatedEnvironment = environment
+    isolatedEnvironment["CODEX_POWER_MODE_URL"] = "http://127.0.0.1:4737/api/stream"
+    func reloaded() -> PowerModePreferences { PowerModePreferences(environment: isolatedEnvironment) }
+    let preferences = PowerModePreferences(environment: isolatedEnvironment)
+    precondition(preferences.settings == OverlaySettings())
+
+    preferences.setPreset("focus")
+    preferences.setPreset("arcade")
+    precondition(reloaded().settings.preset == "arcade")
+    preferences.setIdleBehavior("hide")
+    preferences.setIdleBehavior("orb")
+    precondition(reloaded().settings.idleBehavior == "orb")
+    preferences.setAutoHideDelay(6)
+    preferences.setLanguage("en")
+    precondition(reloaded().settings.language == "en")
+    preferences.setLanguage("auto")
+    precondition(reloaded().settings.language == "auto")
+    preferences.setLanguage("zh-CN")
+    preferences.setActivitySource("focused")
+    preferences.setActivitySource("global")
+    preferences.setActivitySource("mix")
+    preferences.setEffectIntensity("high")
+    preferences.setEdge("bottom-left")
+    preferences.setScale(2)
+    preferences.toggleEnabled()
+    preferences.toggleReducedMotion()
+    preferences.setInactiveBehavior("hide")
+    preferences.setInactiveBehavior("stay")
+    preferences.setInactiveBehavior("follow")
+    preferences.toggleCombo()
+    preferences.toggleTypingCombo()
+    preferences.setCursorEffect("off")
+    preferences.setCursorEffect("spark")
+    preferences.setCursorEffect("neon")
+    preferences.setPosition(x: 345, y: 678)
+
+    let persisted = reloaded()
+    precondition(persisted.settings.preset == "arcade")
+    precondition(persisted.settings.idleBehavior == "orb")
+    precondition(persisted.settings.autoHideDelay == 6)
+    precondition(persisted.settings.language == "zh-CN")
+    precondition(persisted.settings.activitySource == "mix")
+    precondition(persisted.settings.effectIntensity == "high")
+    precondition(persisted.settings.edge == "bottom-left")
+    precondition(persisted.settings.scale == 1.6)
+    precondition(!persisted.settings.enabled)
+    precondition(persisted.settings.reducedMotion)
+    precondition(persisted.settings.inactiveBehavior == "follow")
+    precondition(persisted.settings.showCombo == false)
+    precondition(persisted.settings.typingCombo == true)
+    precondition(persisted.settings.cursorEffect == "neon")
+    precondition(persisted.settings.positionX == 345)
+    precondition(persisted.settings.positionY == 678)
+
+    let snapshot = persisted.settings
+    persisted.setAutoHideDelay(3)
+    persisted.setActivitySource("cli")
+    persisted.setEffectIntensity("extreme")
+    persisted.setInactiveBehavior("detach")
+    persisted.setCursorEffect("fixed")
+    precondition(persisted.settings == snapshot)
+
+    persisted.resetPosition()
+    let reset = reloaded()
+    precondition(reset.settings.edge == "smart")
+    precondition(reset.settings.positionX == nil && reset.settings.positionY == nil)
+    fputs("HUD settings persistence self-test passed\n", stdout)
+}
+
 private extension JSONEncoder {
     static var pretty: JSONEncoder {
         let encoder = JSONEncoder()
@@ -5451,6 +5531,10 @@ private struct PowerModeOverlayApp {
         }
         if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RECONNECT_SELF_TEST"] == "1" {
             runReconnectPolicySelfTest()
+            return
+        }
+        if ProcessInfo.processInfo.environment["CODEX_POWER_MODE_SETTINGS_SELF_TEST"] == "1" {
+            runSettingsPersistenceSelfTest(environment: ProcessInfo.processInfo.environment)
             return
         }
         if let directory = ProcessInfo.processInfo.environment["CODEX_POWER_MODE_RENDER_QA_DIR"] {

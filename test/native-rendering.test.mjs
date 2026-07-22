@@ -62,6 +62,20 @@ test("native event stream applies bounded exponential reconnect backoff", async 
   assert.match(source, /reconnectAttempt = reconnectAttemptAfterConnection/);
 });
 
+test("native HUD settings self-test exercises isolated persistence and validation", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private func runSettingsPersistenceSelfTest/);
+  assert.match(source, /CODEX_POWER_MODE_SETTINGS_SELF_TEST/);
+  assert.match(source, /CODEX_POWER_MODE_CONFIG_PATH/);
+  assert.match(source, /func reloaded\(\) -> PowerModePreferences/);
+  assert.match(source, /let persisted = reloaded\(\)/);
+  assert.match(source, /persisted\.settings\.activitySource == "mix"/);
+  assert.match(source, /persisted\.settings\.inactiveBehavior == "follow"/);
+  assert.match(source, /persisted\.settings\.cursorEffect == "neon"/);
+  assert.match(source, /reset\.settings\.positionX == nil/);
+});
+
 test("typing Combo follows the foreground Codex app without relying on an AX text role", async () => {
   const source = await readFile(overlaySource, "utf8");
 

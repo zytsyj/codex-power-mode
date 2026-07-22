@@ -28,11 +28,13 @@ It also records aggregate installed-service health, HUD connection, Accessibilit
 | Theme and motion | 234 native light/dark Focus/Arcade/Reduce Motion frames | Observe transition rhythm and legibility on the target displays |
 | Semantic and Energy states | Six states, seven tiers, four completion outcomes | Real lifecycle ordering from a trusted Codex desktop task |
 | Typing feedback | Static Spark/Neon and Combo palette frames; Accessibility health | Effects following the real insertion point; real `UserPromptSubmit` injection |
-| Floating behavior | Position/config/state logic tests | Drag, restart persistence, multiple-display attach/detach, Dock and visible-frame changes |
-| Foreground and idle policy | Configuration normalization and presentation tests | Hide/stay/follow policies plus hide/quiet-orb timing in the live app |
-| Language | English/Chinese strings and menu paths compile | English, Chinese, and automatic selection reviewed in the live menu/HUD |
+| Floating behavior | Position/config/state logic tests plus isolated position save, reload, and reset | Drag gesture, multiple-display attach/detach, Dock and visible-frame changes |
+| Foreground and idle policy | Isolated save/reload coverage for hide/stay/follow and hide/quiet-orb settings | Policy timing and behavior in the live app |
+| Language | English/Chinese strings compile; automatic/English/Chinese preference persistence | English, Chinese, and automatic selection reviewed in the live menu/HUD |
 | Lifecycle maintenance | Isolated install/upgrade and real service-reconnect checks | Clean install, upgrade, stop, permission revocation, and uninstall on the final support range |
 
 ## Current limitation
 
 The first matrix was generated on Apple silicon with macOS 26.5. It proves renderer coverage and the current machine's local health, not the final supported macOS, hardware, display, or Codex version range. Those ranges remain intentionally undocumented until hands-on RC testing is complete.
+
+The native settings self-test always uses a temporary configuration path. It verifies atomic save/reload, value validation, scale clamping, position persistence/reset, and the main interaction policies without reading or changing the installed user's settings.

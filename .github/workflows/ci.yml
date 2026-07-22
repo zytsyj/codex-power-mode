@@ -33,3 +33,7 @@ jobs:
           file /tmp/codex-power-mode-overlay
           CODEX_POWER_MODE_PLACEMENT_SELF_TEST=1 /tmp/codex-power-mode-overlay
           CODEX_POWER_MODE_RECONNECT_SELF_TEST=1 /tmp/codex-power-mode-overlay
+          SETTINGS_PATH="$(mktemp -d)/settings.json"
+          CODEX_POWER_MODE_SETTINGS_SELF_TEST=1 \
+            CODEX_POWER_MODE_CONFIG_PATH="$SETTINGS_PATH" \
+            /tmp/codex-power-mode-overlay
