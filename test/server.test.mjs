@@ -105,14 +105,18 @@ test("event service does not cache HUD assets during plugin updates", async () =
   });
   try {
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
-    const [page, script] = await Promise.all([
+    const [page, script, module] = await Promise.all([
       fetch(`http://127.0.0.1:${port}/`),
-      fetch(`http://127.0.0.1:${port}/app.js`)
+      fetch(`http://127.0.0.1:${port}/app.js`),
+      fetch(`http://127.0.0.1:${port}/refresh-cadence.mjs`)
     ]);
     assert.equal(page.status, 200);
     assert.equal(script.status, 200);
+    assert.equal(module.status, 200);
     assert.equal(page.headers.get("cache-control"), "no-store");
     assert.equal(script.headers.get("cache-control"), "no-store");
+    assert.equal(module.headers.get("cache-control"), "no-store");
+    assert.equal(module.headers.get("content-type"), "text/javascript; charset=utf-8");
   } finally {
     child.kill("SIGTERM");
     await waitForExit(child).catch(() => child.kill("SIGKILL"));

@@ -1628,38 +1628,51 @@ private final class PowerModeView: NSView {
 
     private func drawActSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let cycle: CGFloat = arcadeMode ? 34 : 54
-        let progress = reducedMotion ? CGFloat(0.38) : shakePhase.truncatingRemainder(dividingBy: cycle) / cycle
+        let cycle: CGFloat = arcadeMode ? 30 : 50
+        let progress = reducedMotion ? CGFloat(0.48) : shakePhase.truncatingRemainder(dividingBy: cycle) / cycle
         let chevronCount = arcadeMode ? 5 : 3
         for index in 0..<chevronCount {
-            let trail = CGFloat(index) * (arcadeMode ? 6 : 8)
-            let x = center.x - 27 - progress * 10 - trail
-            let alpha = max(0.14, (1 - progress) * (0.94 - CGFloat(index) * (arcadeMode ? 0.14 : 0.2)))
+            let spacing = CGFloat(index) * (arcadeMode ? 7 : 9)
+            let x = center.x - 24 + progress * (arcadeMode ? 17 : 13) - spacing
+            let alpha = max(0.18, (0.58 + progress * 0.36) - CGFloat(index) * (arcadeMode ? 0.12 : 0.18))
             color.withAlphaComponent(alpha).setStroke()
             let chevron = NSBezierPath()
-            chevron.move(to: CGPoint(x: x + 7, y: center.y - 7))
+            chevron.move(to: CGPoint(x: x - 7, y: center.y - 7))
             chevron.line(to: CGPoint(x: x, y: center.y))
-            chevron.line(to: CGPoint(x: x + 7, y: center.y + 7))
-            chevron.lineWidth = 2.1
+            chevron.line(to: CGPoint(x: x - 7, y: center.y + 7))
+            chevron.lineWidth = arcadeMode ? 2.4 : 2.1
             chevron.lineCapStyle = .round
             chevron.lineJoinStyle = .round
             chevron.stroke()
         }
 
-        color.withAlphaComponent(0.42).setStroke()
-        let driveLine = NSBezierPath()
-        driveLine.move(to: CGPoint(x: center.x + (arcadeMode ? 38 : 29), y: center.y))
-        driveLine.line(to: CGPoint(x: center.x + 12, y: center.y))
-        driveLine.lineWidth = 1.4
-        driveLine.lineCapStyle = .square
-        driveLine.stroke()
+        let nose = center.x + (arcadeMode ? 43 : 36)
+        let tail = center.x + 9
+        for offset in [-3.5, 3.5] as [CGFloat] {
+            let rail = NSBezierPath()
+            rail.move(to: CGPoint(x: tail - progress * 4, y: center.y + offset))
+            rail.line(to: CGPoint(x: nose - 8, y: center.y + offset))
+            rail.lineWidth = arcadeMode ? 1.6 : 1.25
+            rail.lineCapStyle = .square
+            color.withAlphaComponent(0.34 + progress * 0.24).setStroke()
+            rail.stroke()
+        }
+        let spear = NSBezierPath()
+        spear.move(to: CGPoint(x: nose - 10, y: center.y - 8))
+        spear.line(to: CGPoint(x: nose, y: center.y))
+        spear.line(to: CGPoint(x: nose - 10, y: center.y + 8))
+        color.withAlphaComponent(0.72 + progress * 0.2).setStroke()
+        spear.lineWidth = arcadeMode ? 2.2 : 1.8
+        spear.lineCapStyle = .round
+        spear.lineJoinStyle = .round
+        spear.stroke()
     }
 
     private func drawVerifySignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         let cycle: CGFloat = arcadeMode ? 44 : 64
         let progress = reducedMotion ? CGFloat(0.32) : shakePhase.truncatingRemainder(dividingBy: cycle) / cycle
-        let half = 38 - progress * 8
+        let half = 40 - progress * 11
         let arm: CGFloat = 10
         color.withAlphaComponent(0.82 - progress * 0.28).setStroke()
         for (xDirection, yDirection) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
@@ -1675,9 +1688,28 @@ private final class PowerModeView: NSView {
             bracket.stroke()
         }
 
-        let coreSize = 4 + (1 - progress) * 4
+        color.withAlphaComponent(0.34 + (1 - progress) * 0.2).setStroke()
+        let crosshair = NSBezierPath()
+        crosshair.move(to: CGPoint(x: center.x - 15, y: center.y))
+        crosshair.line(to: CGPoint(x: center.x - 7, y: center.y))
+        crosshair.move(to: CGPoint(x: center.x + 7, y: center.y))
+        crosshair.line(to: CGPoint(x: center.x + 15, y: center.y))
+        crosshair.move(to: CGPoint(x: center.x, y: center.y - 15))
+        crosshair.line(to: CGPoint(x: center.x, y: center.y - 7))
+        crosshair.move(to: CGPoint(x: center.x, y: center.y + 7))
+        crosshair.line(to: CGPoint(x: center.x, y: center.y + 15))
+        crosshair.lineWidth = 1
+        crosshair.stroke()
+
+        let coreSize = 5 + (1 - progress) * 4
         color.withAlphaComponent(0.56).setFill()
-        NSBezierPath(rect: CGRect(x: center.x - coreSize / 2, y: center.y - coreSize / 2, width: coreSize, height: coreSize)).fill()
+        let verdict = NSBezierPath()
+        verdict.move(to: CGPoint(x: center.x, y: center.y - coreSize / 2))
+        verdict.line(to: CGPoint(x: center.x + coreSize / 2, y: center.y))
+        verdict.line(to: CGPoint(x: center.x, y: center.y + coreSize / 2))
+        verdict.line(to: CGPoint(x: center.x - coreSize / 2, y: center.y))
+        verdict.close()
+        verdict.fill()
 
         if arcadeMode {
             color.withAlphaComponent(0.38 + (1 - progress) * 0.28).setStroke()

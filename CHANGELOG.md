@@ -2,6 +2,9 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Split Act and Verify into different visual grammars across native and browser HUDs: Act now drives left-to-right through a thrust axis, while Verify closes four lock brackets onto a central verdict marker.
+- Preserved the directional Act and symmetric Verify silhouettes in Reduced Motion so the states remain identifiable without relying on animation or color.
+- Served browser HUD `.mjs` dependencies as JavaScript and covered their MIME type, restoring live preview execution instead of leaving the mirror frozen at its default state.
 - Grouped native diagnostics under a bilingual Status & Connection menu with separate HUD display, raw task state, last real event, task origin, following policy, and session identity rows.
 - Renamed status output to `hudDisplay` and `taskState`, and added current/last event source plus last real event type to connection diagnostics.
 - Suspended the browser HUD presentation timer after a settled auto-hide, with immediate wake-up on new activity, disconnect, and reconnect events.
