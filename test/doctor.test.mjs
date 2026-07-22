@@ -4,7 +4,7 @@ import { powerModeDoctor, renderDoctorReport } from "../src/doctor.mjs";
 
 const healthyStatus = {
   service: { running: true, ok: true, serviceVersion: "1.0.0", dataDir: "/tmp/power-mode" },
-  nativeOverlay: { running: true },
+  nativeOverlay: { running: true, configuration: { typingCombo: true } },
   connection: { hudConnected: true, hookActivity: "idle" }
 };
 
@@ -15,7 +15,8 @@ test("doctor reports a healthy single-instance installation", () => {
     expectedDataDir: "/tmp/power-mode",
     platform: "darwin",
     serverProcessCount: 1,
-    nativeProcessCount: 1
+    nativeProcessCount: 1,
+    accessibility: { accessibilityTrusted: true, frontmostBundle: "com.openai.codex", caretElementFound: true }
   });
   assert.equal(report.overall, "ok");
   assert.match(renderDoctorReport(report), /Power Mode is healthy/);
@@ -28,9 +29,23 @@ test("doctor exposes stale versions, duplicate processes, and unverified hooks",
     expectedDataDir: "/tmp/power-mode",
     platform: "darwin",
     serverProcessCount: 2,
-    nativeProcessCount: 0
+    nativeProcessCount: 0,
+    accessibility: { accessibilityTrusted: false }
   });
   assert.equal(report.overall, "fail");
   assert.equal(report.checks.find((check) => check.id === "hooks").level, "warn");
+  assert.equal(report.checks.find((check) => check.id === "accessibility").level, "warn");
   assert.match(renderDoctorReport(report), /Power Mode needs attention/);
+});
+
+test("doctor does not require Accessibility when Typing Combo is disabled", () => {
+  const report = powerModeDoctor({
+    status: { ...healthyStatus, nativeOverlay: { running: true, configuration: { typingCombo: false } } },
+    identity: { version: "1.0.0" },
+    expectedDataDir: "/tmp/power-mode",
+    platform: "darwin",
+    serverProcessCount: 1,
+    nativeProcessCount: 1
+  });
+  assert.equal(report.checks.find((check) => check.id === "accessibility").level, "ok");
 });

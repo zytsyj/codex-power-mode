@@ -455,12 +455,29 @@ function processCounts() {
 }
 
 async function doctor() {
+  const snapshot = await status();
+  let accessibility = null;
+  if (process.platform === "darwin" && snapshot.nativeOverlay?.configuration?.typingCombo === true) {
+    const diagnostic = spawnSync(nativeBinary, [], {
+      encoding: "utf8",
+      timeout: 3_000,
+      env: {
+        ...process.env,
+        CODEX_POWER_MODE_ACCESSIBILITY_SELF_TEST: "1",
+        CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
+      }
+    });
+    if (diagnostic.status === 0) {
+      try { accessibility = JSON.parse(diagnostic.stdout); } catch { /* Report the permission as unavailable below. */ }
+    }
+  }
   const report = powerModeDoctor({
-    status: await status(),
+    status: snapshot,
     identity,
     expectedDataDir: dataDir,
     platform: process.platform,
-    ...processCounts()
+    ...processCounts(),
+    accessibility
   });
   process.stdout.write(process.argv.includes("--json") ? `${JSON.stringify(report, null, 2)}\n` : renderDoctorReport(report));
   if (report.overall === "fail") process.exitCode = 1;
