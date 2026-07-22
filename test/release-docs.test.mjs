@@ -15,6 +15,7 @@ test("public-release documentation exists while publication remains explicitly b
     "docs/ARCHITECTURE.md",
     "docs/DEPENDENCIES.md",
     "docs/INSTALLATION.md",
+    "docs/MEDIA.md",
     "docs/PRIVACY.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/TROUBLESHOOTING.md"
@@ -30,6 +31,25 @@ test("public-release documentation exists while publication remains explicitly b
   assert.match(readme, /not open source yet/);
   assert.match(checklist, /Choose and approve an open-source license/);
   assert.match(checklist, /owner explicitly authorizes publication/);
+});
+
+test("checked-in media is generated, privacy-safe, and documented", async () => {
+  const media = [
+    "arcade-dark-act.png",
+    "arcade-dark-complete.png",
+    "focus-light-verify.png",
+    "reduced-light-recover.png",
+    "typing-combo-dark.png"
+  ];
+  const provenance = await readFile(path.join(root, "docs/MEDIA.md"), "utf8");
+  const renderer = await readFile(path.join(root, "scripts/render-qa.mjs"), "utf8");
+  for (const filename of media) {
+    const bytes = await readFile(path.join(root, "docs/media", filename));
+    assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.match(provenance, new RegExp(filename.replaceAll(".", "\\.")));
+  }
+  assert.match(provenance, /no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history/i);
+  assert.match(renderer, /CODEX_POWER_MODE_RENDER_QA_DIR/);
 });
 
 test("installation guide preserves the private release and safe maintenance boundaries", async () => {

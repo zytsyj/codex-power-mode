@@ -4,7 +4,30 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-Documentation: [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
+| Focus · Verify | Arcade · Act | Arcade · Verified |
+| --- | --- | --- |
+| ![Focus Verify on a light background](docs/media/focus-light-verify.png) | ![Arcade Act on a dark background](docs/media/arcade-dark-act.png) | ![Arcade verified completion on a dark background](docs/media/arcade-dark-complete.png) |
+
+Power Mode reads Codex lifecycle signals—not keystrokes or code volume—and turns them into a compact semantic rhythm. Useful edits build Energy, consecutive agent steps build Combo, verification creates evidence-backed rewards, and inactivity visibly decays back to Idle. Everything stays local and the runtime has zero third-party packages.
+
+Documentation: [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Media](docs/MEDIA.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
+
+## At a glance
+
+| Control | Choices | Purpose |
+| --- | --- | --- |
+| Visual rhythm | Focus / Arcade | Restrained clarity or high-impact choreography |
+| Activity source | Focus / Global / Mix | One task, latest isolated task, or one shared desktop pool |
+| Input feedback | Off / Sparks / Neon | Optional local cursor effect and independent Typing Combo |
+| Idle behavior | Hide / Quiet orb | Disappear after settling or retain a neutral `0 / Idle` orb |
+| Accessibility | Reduce Motion | Preserve semantic state without spatial motion or particles |
+| Language | Auto / English / 中文 | Localized HUD labels and menu controls |
+
+Typing Combo and Reduce Motion are shown below. Both are generated from the same native renderer used by the HUD.
+
+| Typing Combo | Reduce Motion · Recover |
+| --- | --- |
+| ![Gold Typing Combo on a dark background](docs/media/typing-combo-dark.png) | ![Reduced Motion Recover on a light background](docs/media/reduced-light-recover.png) |
 
 ## Current v0.8.0 private stable
 
@@ -44,6 +67,7 @@ npm run demo
 npm run showcase
 npm run showcase:energy
 npm run replay
+npm run render:qa
 ```
 
 The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.

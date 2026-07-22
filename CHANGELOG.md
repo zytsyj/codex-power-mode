@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added first-party privacy-safe light/dark preview media, README visual and control summaries, media provenance, and a reproducible native QA rendering command.
 - Added verified private-install, upgrade, Accessibility, troubleshooting, reset, purge, and uninstall guidance with automated documentation gates.
 - Added an explicit dependency and license inventory, third-party notice baseline, release checklist gates, and automated protection for the current zero-package private build.
 - Added public-readiness architecture, privacy, contribution, conduct, security, and release-checklist documentation while keeping the package private and the license explicitly unapproved until the owner makes that decision.

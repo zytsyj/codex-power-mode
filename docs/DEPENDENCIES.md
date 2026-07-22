@@ -13,7 +13,7 @@ Node.js, macOS, Apple frameworks, Swift, and Codex are platform prerequisites. T
 
 ## Bundled third-party code and assets
 
-None. The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, fonts, images, videos, native libraries, or precompiled executables.
+None. The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, fonts, images, videos, native libraries, or precompiled executables. The small preview PNGs under `docs/media/` are first-party output generated from the project's native renderer; their provenance is recorded in `docs/MEDIA.md`.
 
 The browser preview's CSS names `Inter` as an optional preferred local font, followed by operating-system fonts. No Inter font file is downloaded or distributed.
 

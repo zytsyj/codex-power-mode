@@ -29,7 +29,8 @@ The repository must remain private until the owner explicitly authorizes publica
 
 ## Documentation and media
 
-- [ ] Capture current light/dark screenshots and short Focus/Arcade demonstrations.
+- [x] Capture current privacy-safe light/dark screenshots for Focus, Arcade, Typing Combo, and Reduce Motion.
+- [ ] Capture short privacy-safe Focus/Arcade demonstrations.
 - [ ] Review README, installation, architecture, privacy, security, troubleshooting, contribution, and maintenance documentation.
 - [ ] Add supported macOS and Codex version ranges after final compatibility testing.
 - [ ] Prepare release notes and a known-limitations section.
