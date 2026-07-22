@@ -3937,10 +3937,48 @@ private final class TypingComboMonitor {
         let application = AXUIElementCreateApplication(app.processIdentifier)
         var focusedValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
-              let focused = focusedValue as! AXUIElement? else { return fallbackComposerPoint(for: app) }
+              let focused = focusedValue as! AXUIElement? else { return nil }
+        if let markerBounds = textMarkerCaretBounds(startingAt: focused) {
+            return screenPoint(for: markerBounds)
+        }
+        guard let selectedBounds = selectedTextCaretBounds(for: focused) else { return nil }
+        return screenPoint(for: selectedBounds)
+    }
+
+    private func textMarkerCaretBounds(startingAt element: AXUIElement) -> CGRect? {
+        var candidate: AXUIElement? = element
+        for _ in 0..<6 {
+            guard let current = candidate else { break }
+            var markerRange: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, "AXSelectedTextMarkerRange" as CFString, &markerRange) == .success,
+               let markerRange {
+                var boundsValue: CFTypeRef?
+                if AXUIElementCopyParameterizedAttributeValue(
+                    current,
+                    "AXBoundsForTextMarkerRange" as CFString,
+                    markerRange,
+                    &boundsValue
+                ) == .success,
+                let boundsValue,
+                CFGetTypeID(boundsValue) == AXValueGetTypeID() {
+                    var bounds = CGRect.zero
+                    if AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), !bounds.isNull, !bounds.isEmpty {
+                        return bounds
+                    }
+                }
+            }
+            var parentValue: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parentValue) == .success,
+                  let parent = parentValue as! AXUIElement? else { break }
+            candidate = parent
+        }
+        return nil
+    }
+
+    private func selectedTextCaretBounds(for focused: AXUIElement) -> CGRect? {
         var rangeValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(focused, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
-              let rangeValue else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
+              let rangeValue else { return nil }
         var selectedRange = CFRange()
         var boundsRangeValue = rangeValue
         if CFGetTypeID(rangeValue) == AXValueGetTypeID(),
@@ -3959,47 +3997,17 @@ private final class TypingComboMonitor {
             &boundsValue
         ) == .success,
         let boundsValue,
-        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
-        var quartzRect = CGRect.zero
-        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &quartzRect) else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
+        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return nil }
+        var bounds = CGRect.zero
+        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), !bounds.isNull, !bounds.isEmpty else { return nil }
+        return bounds
+    }
+
+    private func screenPoint(for quartzRect: CGRect) -> CGPoint {
         let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
             ?? NSScreen.main?.frame.maxY
             ?? 0
         return CGPoint(x: quartzRect.maxX + 8, y: mainTop - quartzRect.maxY + 5)
-    }
-
-    private func focusedElementFallback(_ element: AXUIElement) -> CGPoint? {
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
-              let positionValue, let sizeValue else { return nil }
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
-        let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
-            ?? NSScreen.main?.frame.maxY
-            ?? 0
-        return CGPoint(x: position.x + min(size.width - 18, 34), y: mainTop - position.y - size.height / 2)
-    }
-
-    private func fallbackComposerPoint(for app: NSRunningApplication) -> CGPoint? {
-        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
-        let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
-            ?? NSScreen.main?.frame.maxY
-            ?? 0
-        for info in windows {
-            guard let pid = info[kCGWindowOwnerPID as String] as? Int,
-                  pid == Int(app.processIdentifier),
-                  let layer = info[kCGWindowLayer as String] as? Int,
-                  layer == 0,
-                  let bounds = info[kCGWindowBounds as String] as? [String: Any],
-                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
-                  frame.width > 500, frame.height > 400 else { continue }
-            return CGPoint(x: frame.minX + frame.width * 0.27, y: mainTop - frame.maxY + 54)
-        }
-        return nil
     }
 }
 

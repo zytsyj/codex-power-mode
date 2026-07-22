@@ -60,6 +60,10 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /event\.toolGroup == "prompt"/);
   assert.match(source, /DispatchQueue\.main\.asyncAfter\(deadline: \.now\(\) \+ 0\.03\)/);
   assert.match(source, /precedingCharacter = CFRange/);
+  assert.match(source, /"AXSelectedTextMarkerRange"/);
+  assert.match(source, /"AXBoundsForTextMarkerRange"/);
+  assert.doesNotMatch(source, /fallbackComposerPoint/);
+  assert.doesNotMatch(source, /focusedElementFallback/);
   assert.match(source, /private final class TypingFeedbackRenderer/);
   assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);

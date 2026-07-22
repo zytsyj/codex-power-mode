@@ -4,6 +4,7 @@
 
 - Separated Typing Combo from the orb into a large adjacent `×N` counter, added optional cursor Sparks/Neon effects with accessibility and window fallbacks, and ignored deletion and shortcut keys.
 - Restricted Typing Combo injection to Codex's real `UserPromptSubmit` understanding event, removing unreliable Enter-key inference and sampling the rendered caret after the editor advances.
+- Followed Chromium editor carets through accessibility text markers and removed static composer/window coordinate fallbacks, so cursor particles either follow the real insertion point or stay hidden.
 - Installed lifecycle Hook code behind a stable, atomically updated plugin-data path so cachebuster upgrades cannot strand already-open Codex tasks on a removed plugin version.
 - Standardized every Energy tier on the same circular orb silhouette while preserving stronger tier identity through color, glow depth, ring cadence, ticks, and breakthrough intensity.
 - Reworked Energy as a per-tier refill loop: the ring fills, breaks through, resets at the next tier, and reverses through a drain/restore sequence on decay.
