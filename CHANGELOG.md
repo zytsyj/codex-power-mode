@@ -4,6 +4,7 @@
 
 - Replaced the live HUD's timer-driven drawing path with a Core Animation layer renderer so semantic motion, fades, energy, Combo decay, and event particles are composited by macOS.
 - Reduced the floating UI to one draggable orb: concise activity text now sits inside the core, Combo is the outer lifetime ring, and the expanded confidence/evidence card is gone.
+- Refined the orb into a calmer glass form with larger type, cleaner dual rings, lower-saturation phase colors, softer event particles, and no instrument-panel ornaments.
 - Removed the development-only “Always expanded” idle mode; existing settings migrate to “Keep orb”.
 
 ## 0.8.0 - 2026-07-22

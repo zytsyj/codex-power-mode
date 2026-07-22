@@ -239,7 +239,7 @@ private final class OrbLayerRenderer {
     private let container = CALayer()
     private let halo = CALayer()
     private let core = CALayer()
-    private let inner = CALayer()
+    private let inner = CAGradientLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -264,46 +264,53 @@ private final class OrbLayerRenderer {
         container.masksToBounds = false
         hostLayer.addSublayer(container)
 
-        halo.frame = CGRect(x: 6, y: 6, width: 80, height: 80)
-        halo.cornerRadius = 40
-        halo.shadowRadius = 18
-        halo.shadowOpacity = 0.42
+        halo.frame = CGRect(x: 4, y: 4, width: 84, height: 84)
+        halo.cornerRadius = 42
+        halo.shadowRadius = 16
+        halo.shadowOpacity = 0.28
         halo.shadowOffset = .zero
         container.addSublayer(halo)
 
-        core.frame = CGRect(x: 12, y: 12, width: 68, height: 68)
-        core.cornerRadius = 34
-        core.backgroundColor = NSColor(calibratedWhite: 0.025, alpha: 0.94).cgColor
-        core.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
+        core.frame = CGRect(x: 10, y: 10, width: 72, height: 72)
+        core.cornerRadius = 36
+        core.backgroundColor = NSColor(calibratedWhite: 0.035, alpha: 0.95).cgColor
+        core.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
         core.borderWidth = 1
+        core.shadowColor = NSColor.black.cgColor
+        core.shadowOpacity = 0.32
+        core.shadowRadius = 10
+        core.shadowOffset = CGSize(width: 0, height: -3)
         container.addSublayer(core)
 
-        inner.frame = CGRect(x: 23, y: 23, width: 46, height: 46)
-        inner.cornerRadius = 23
-        inner.borderWidth = 1
+        inner.frame = CGRect(x: 15, y: 15, width: 62, height: 62)
+        inner.cornerRadius = 31
+        inner.type = .radial
+        inner.startPoint = CGPoint(x: 0.38, y: 0.72)
+        inner.endPoint = CGPoint(x: 1, y: 0)
+        inner.locations = [0, 0.55, 1]
+        inner.borderWidth = 0.6
         container.addSublayer(inner)
 
         configureRing(ticks, radius: 42, width: 1)
-        ticks.lineDashPattern = [1, 5]
-        ticks.opacity = 0.3
-        configureRing(comboTrack, radius: 41, width: 2.4)
-        comboTrack.strokeColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        configureRing(comboRing, radius: 41, width: 2.4)
+        ticks.opacity = 0
+        configureRing(comboTrack, radius: 43.5, width: 2.6)
+        comboTrack.strokeColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        configureRing(comboRing, radius: 43.5, width: 2.8)
         comboRing.lineCap = .round
         comboRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
-        configureRing(energyTrack, radius: 30, width: 2.1)
-        energyTrack.strokeColor = NSColor.white.withAlphaComponent(0.08).cgColor
-        configureRing(energyRing, radius: 30, width: 2.8)
+        configureRing(energyTrack, radius: 35.5, width: 2.2)
+        energyTrack.strokeColor = NSColor.white.withAlphaComponent(0.09).cgColor
+        configureRing(energyRing, radius: 35.5, width: 3.2)
         energyRing.lineCap = .round
         energyRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
 
-        configureText(semantic, frame: CGRect(x: 34, y: 66, width: 24, height: 11), size: 8, weight: .bold)
-        configureText(comboValue, frame: CGRect(x: 25, y: 57, width: 42, height: 10), size: 6.5, weight: .bold)
-        configureText(value, frame: CGRect(x: 19, y: 34, width: 54, height: 25), size: 21, weight: .bold)
-        configureText(activity, frame: CGRect(x: 18, y: 22, width: 56, height: 11), size: 5.6, weight: .semibold)
+        configureText(semantic, frame: CGRect(x: 38, y: 69, width: 16, height: 12), size: 8, weight: .semibold)
+        configureText(comboValue, frame: CGRect(x: 28, y: 59, width: 36, height: 11), size: 7.5, weight: .bold)
+        configureText(value, frame: CGRect(x: 14, y: 35, width: 64, height: 29), size: 24, weight: .bold)
+        configureText(activity, frame: CGRect(x: 12, y: 23, width: 68, height: 12), size: 7.2, weight: .semibold)
 
-        connectionDot.frame = CGRect(x: 74, y: 68, width: 6, height: 6)
-        connectionDot.cornerRadius = 3
+        connectionDot.frame = CGRect(x: 75, y: 70, width: 5, height: 5)
+        connectionDot.cornerRadius = 2.5
         connectionDot.backgroundColor = NSColor.systemOrange.cgColor
         connectionDot.opacity = 0
         container.addSublayer(connectionDot)
@@ -374,16 +381,15 @@ private final class OrbLayerRenderer {
         let color = phaseColor(phase: nextPhase, state: state)
         CATransaction.begin()
         CATransaction.setAnimationDuration(reducedMotion ? 0 : 0.36)
-        halo.backgroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.05 : 0.11).cgColor
+        halo.backgroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.025 : 0.065).cgColor
         halo.shadowColor = color.cgColor
-        inner.backgroundColor = color.withAlphaComponent(0.07).cgColor
-        inner.borderColor = color.withAlphaComponent(0.28).cgColor
-        ticks.strokeColor = color.withAlphaComponent(0.46).cgColor
+        inner.colors = [color.withAlphaComponent(0.18).cgColor, color.withAlphaComponent(0.055).cgColor, NSColor.clear.cgColor]
+        inner.borderColor = color.withAlphaComponent(0.18).cgColor
         energyRing.strokeColor = color.cgColor
         energyRing.strokeEnd = CGFloat(max(0, min(100, presentation.momentum))) / 100
         value.string = "\(presentation.momentum)"
         activity.string = label
-        activity.foregroundColor = color.withAlphaComponent(nextPhase == "idle" ? 0.58 : 0.9).cgColor
+        activity.foregroundColor = NSColor.white.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.78).cgColor
         semantic.string = phaseGlyph(nextPhase, completion: state.completion)
         semantic.foregroundColor = color.cgColor
         CATransaction.commit()
@@ -397,11 +403,11 @@ private final class OrbLayerRenderer {
     }
 
     private func updateEnergyStyle(_ momentum: Int, color: NSColor) {
-        let width: CGFloat = momentum >= 75 ? 4.2 : momentum >= 50 ? 3.6 : momentum >= 25 ? 3.1 : 2.4
+        let width: CGFloat = momentum >= 75 ? 4.0 : momentum >= 50 ? 3.6 : momentum >= 25 ? 3.3 : 2.8
         energyRing.lineWidth = width
         energyRing.shadowColor = color.cgColor
-        energyRing.shadowOpacity = momentum >= 50 ? 0.75 : 0.42
-        energyRing.shadowRadius = momentum >= 75 ? 7 : 4
+        energyRing.shadowOpacity = momentum >= 50 ? 0.48 : 0.22
+        energyRing.shadowRadius = momentum >= 75 ? 6 : 3
     }
 
     private func updateCombo(_ state: PowerState, color: NSColor) {
@@ -424,8 +430,8 @@ private final class OrbLayerRenderer {
         let stageColor: NSColor = state.comboStatus == "reward" || state.comboStatus == "complete" ? .systemGreen : color
         comboRing.strokeColor = stageColor.cgColor
         comboRing.shadowColor = stageColor.cgColor
-        comboRing.shadowOpacity = 0.72
-        comboRing.shadowRadius = 4
+        comboRing.shadowOpacity = 0.46
+        comboRing.shadowRadius = 3
         comboRing.removeAllAnimations()
         comboRing.strokeEnd = 0
         let hold = parseDate(state.comboHoldUntil) ?? Date()
@@ -450,11 +456,11 @@ private final class OrbLayerRenderer {
         let animation: CAAnimation
         switch phase {
         case "observe":
-            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-            spin.byValue = Double.pi * 2
-            spin.duration = arcade ? 1.15 : 2.2
-            spin.repeatCount = .infinity
-            animation = spin
+            let breathe = CAKeyframeAnimation(keyPath: "opacity")
+            breathe.values = [0.55, 1, 0.55]
+            breathe.duration = arcade ? 1.35 : 2.2
+            breathe.repeatCount = .infinity
+            animation = breathe
         case "act":
             let drive = CAKeyframeAnimation(keyPath: "transform.translation.x")
             drive.values = [-2, 4, 0]
@@ -498,15 +504,15 @@ private final class OrbLayerRenderer {
         cell.name = "spark"
         cell.contents = particleImage()
         cell.color = color.cgColor
-        cell.birthRate = (event.type == "turn-stop" ? 150 : 60) * intensity * (arcade ? 1.45 : 1)
-        cell.lifetime = arcade ? 0.78 : 0.58
+        cell.birthRate = (event.type == "turn-stop" ? 105 : 38) * intensity * (arcade ? 1.25 : 1)
+        cell.lifetime = arcade ? 0.62 : 0.46
         cell.lifetimeRange = 0.18
-        cell.velocity = event.phase == "act" ? 92 : 58
-        cell.velocityRange = 38
+        cell.velocity = event.phase == "act" ? 76 : 48
+        cell.velocityRange = 28
         cell.emissionRange = event.phase == "act" ? .pi / 3 : .pi * 2
         cell.emissionLongitude = event.phase == "act" ? .pi : 0
-        cell.scale = 0.075
-        cell.scaleRange = 0.035
+        cell.scale = 0.058
+        cell.scaleRange = 0.025
         cell.alphaSpeed = -1.25
         emitter.emitterCells = [cell]
         emitter.setValue(cell.birthRate, forKeyPath: "emitterCells.spark.birthRate")
@@ -540,9 +546,9 @@ private final class OrbLayerRenderer {
         if completion == "unverified" { return "!" }
         if completion == "cancelled" { return "×" }
         switch phase {
-        case "observe": return "◎"
-        case "act": return "▶"
-        case "verify": return "◆"
+        case "observe": return "◌"
+        case "act": return "›"
+        case "verify": return "✓"
         case "wait": return "Ⅱ"
         case "recover": return "↻"
         case "complete": return "✓"
@@ -554,13 +560,13 @@ private final class OrbLayerRenderer {
         if state.completion == "cancelled" { return .systemOrange }
         if state.completion == "unverified" { return .systemYellow }
         switch phase {
-        case "act": return .systemPurple
-        case "verify": return .systemGreen
-        case "wait": return .systemYellow
-        case "recover": return .systemRed
-        case "complete": return state.completion == "verified" ? .systemGreen : .systemCyan
+        case "act": return NSColor(calibratedRed: 0.60, green: 0.45, blue: 0.91, alpha: 1)
+        case "verify": return NSColor(calibratedRed: 0.30, green: 0.80, blue: 0.61, alpha: 1)
+        case "wait": return NSColor(calibratedRed: 0.91, green: 0.66, blue: 0.29, alpha: 1)
+        case "recover": return NSColor(calibratedRed: 0.90, green: 0.35, blue: 0.45, alpha: 1)
+        case "complete": return state.completion == "verified" ? NSColor(calibratedRed: 0.30, green: 0.80, blue: 0.61, alpha: 1) : NSColor(calibratedRed: 0.30, green: 0.74, blue: 0.86, alpha: 1)
         case "idle": return NSColor(calibratedWhite: 0.68, alpha: 1)
-        default: return .systemCyan
+        default: return NSColor(calibratedRed: 0.30, green: 0.74, blue: 0.86, alpha: 1)
         }
     }
 }
