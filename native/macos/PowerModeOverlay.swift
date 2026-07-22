@@ -651,7 +651,7 @@ private final class OrbLayerRenderer {
         group.animations = animations
         group.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
         group.duration = duration
-        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        group.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.78, 0.2, 1)
         group.fillMode = .both
         group.isRemovedOnCompletion = false
         layer.add(group, forKey: "semantic-path")
@@ -660,28 +660,77 @@ private final class OrbLayerRenderer {
         }
     }
 
+    private func animateParticleAlongPath(_ layer: CALayer, path: CGPath, opacity: [Float], keyTimes: [NSNumber], duration: CFTimeInterval, delay: CFTimeInterval, scales: [CGFloat], rotatesWithPath: Bool = false) {
+        let position = CAKeyframeAnimation(keyPath: "position")
+        position.path = path
+        position.calculationMode = .paced
+        if rotatesWithPath { position.rotationMode = .rotateAuto }
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = opacity
+        fade.keyTimes = keyTimes
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = scales
+        scale.keyTimes = keyTimes
+        let group = CAAnimationGroup()
+        group.animations = [position, fade, scale]
+        group.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 0.72, 0.18, 1)
+        group.fillMode = .both
+        group.isRemovedOnCompletion = false
+        layer.add(group, forKey: "semantic-curve")
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay + duration + 0.08) { [weak layer] in
+            layer?.removeFromSuperlayer()
+        }
+    }
+
     private func playObserveCapture(color: NSColor) {
-        let count = max(6, Int((arcade ? 17 : 8) * intensity))
+        let count = max(6, Int((arcade ? 15 : 8) * intensity))
         for index in 0..<count {
             let angle = CGFloat(index) / CGFloat(count) * .pi * 2 + CGFloat(index % 2) * 0.17
             let radius: CGFloat = arcade ? 82 : 62
             let start = CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
-            let shoulder = CGPoint(x: 46 + cos(angle) * 34, y: 46 + sin(angle) * 34)
             let end = CGPoint(x: 46 + cos(angle) * 8, y: 46 + sin(angle) * 8)
-            let dot = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 4.2 : 2.8, height: index.isMultiple(of: 3) ? 4.2 : 2.8), color: index.isMultiple(of: 5) ? NSColor.white : color)
-            animateParticle(dot, positions: [start, start, shoulder, end, end], opacity: [0, 1, 0.94, 0.72, 0], keyTimes: [0, 0.1, 0.46, 0.8, 1], duration: arcade ? 0.9 : 1.02, delay: Double(index) * 0.018, scales: [0.65, 1.2, 0.92, 0.42, 0.2])
+            let tier = index % 5
+            let particleSize: CGFloat = tier == 0 ? 4.4 : tier <= 2 ? 2.8 : 1.9
+            let particleColor = tier == 0 ? NSColor.white : tier == 1 ? NSColor.systemCyan : color
+            let dot = makeParticle(size: CGSize(width: particleSize, height: particleSize), color: particleColor)
+            let tangent = CGPoint(x: -sin(angle), y: cos(angle))
+            let curve = CGMutablePath()
+            curve.move(to: start)
+            curve.addCurve(
+                to: end,
+                control1: CGPoint(x: start.x + tangent.x * (arcade ? 32 : 22), y: start.y + tangent.y * (arcade ? 32 : 22)),
+                control2: CGPoint(x: 46 + cos(angle + 0.72) * 27, y: 46 + sin(angle + 0.72) * 27)
+            )
+            animateParticleAlongPath(dot, path: curve, opacity: [0, 1, 0.86, 0], keyTimes: [0, 0.12, 0.72, 1], duration: arcade ? 0.98 : 1.08, delay: Double(index) * 0.024, scales: [0.55, 1.15, 0.72, 0.16])
         }
     }
 
     private func playActDrive(color: NSColor) {
         let count = max(7, Int((arcade ? 18 : 9) * intensity))
         for index in 0..<count {
-            let lane = CGFloat(index % 5) - 2
+            let volley = index / 6
+            let lane = CGFloat(index % 6) - 2.5
             let start = CGPoint(x: 39, y: 46 + lane * 4.2)
             let recoil = CGPoint(x: 45, y: 46 + lane * 4.2)
             let end = CGPoint(x: -32 - CGFloat(index % 4) * 14, y: 46 + lane * 10)
-            let streak = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 14 : 8.5, height: index.isMultiple(of: 4) ? 2.2 : 1.7), color: index.isMultiple(of: 4) ? NSColor.systemCyan : color, square: true)
-            animateParticle(streak, positions: [start, recoil, start, end], opacity: [0, 0.78, 1, 0], keyTimes: [0, 0.12, 0.25, 1], duration: arcade ? 0.7 : 0.82, delay: Double(index) * 0.014, scales: [0.7, 0.9, 1.22, 0.5])
+            let tier = index % 6
+            let streak = makeParticle(
+                size: CGSize(width: tier == 0 ? 15 : tier <= 2 ? 9 : 5.5, height: tier == 0 ? 2.2 : 1.45),
+                color: tier == 0 ? NSColor.white : tier == 1 ? NSColor.systemCyan : color,
+                square: true
+            )
+            let curve = CGMutablePath()
+            curve.move(to: start)
+            curve.addQuadCurve(to: recoil, control: CGPoint(x: 48, y: start.y - lane))
+            curve.addCurve(
+                to: end,
+                control1: CGPoint(x: 28, y: start.y + lane * 1.8),
+                control2: CGPoint(x: end.x + 28, y: end.y - lane * 2.4)
+            )
+            let volleyDelay = Double(volley) * (arcade ? 0.14 : 0.18) + Double(tier) * 0.016
+            animateParticleAlongPath(streak, path: curve, opacity: [0, 1, 0.86, 0], keyTimes: [0, 0.18, 0.7, 1], duration: arcade ? 0.58 : 0.72, delay: volleyDelay, scales: [0.55, 1.16, 0.82, 0.24], rotatesWithPath: true)
         }
     }
 
@@ -742,12 +791,24 @@ private final class OrbLayerRenderer {
         let count = max(7, Int((arcade ? 16 : 8) * intensity))
         for index in 0..<count {
             let angle = CGFloat(index) / CGFloat(count) * .pi * 2
-            let distance: CGFloat = arcade ? 82 : 58
+            let distance: CGFloat = arcade ? 74 : 58
             let center = CGPoint(x: 46, y: 46)
             let broken = CGPoint(x: 46 + cos(angle) * distance, y: 46 + sin(angle) * distance)
             let held = CGPoint(x: 46 + cos(angle + 0.12) * (distance - 6), y: 46 + sin(angle + 0.12) * (distance - 6))
             let shard = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 6 : 3.8, height: index.isMultiple(of: 3) ? 6 : 3.8), color: index.isMultiple(of: 4) ? NSColor.white.withAlphaComponent(0.82) : color, square: true)
-            animateParticle(shard, positions: [center, broken, held, held, center], opacity: [0.8, 1, 0.7, 0.9, 0], keyTimes: [0, 0.22, 0.4, 0.58, 1], duration: arcade ? 0.92 : 1.18, delay: Double(index) * 0.018, scales: [0.4, 1.15, 0.9, 1, 0.2], rotations: [0, angle + 0.8, angle + 1.2, angle + 1.4, angle + 1.8])
+            let curve = CGMutablePath()
+            curve.move(to: center)
+            curve.addCurve(
+                to: broken,
+                control1: CGPoint(x: 46 + cos(angle - 0.7) * 28, y: 46 + sin(angle - 0.7) * 28),
+                control2: CGPoint(x: broken.x - sin(angle) * 14, y: broken.y + cos(angle) * 14)
+            )
+            curve.addCurve(
+                to: center,
+                control1: held,
+                control2: CGPoint(x: 46 + cos(angle + 0.8) * 24, y: 46 + sin(angle + 0.8) * 24)
+            )
+            animateParticleAlongPath(shard, path: curve, opacity: [0.68, 1, 0.82, 0], keyTimes: [0, 0.3, 0.68, 1], duration: arcade ? 1.08 : 1.24, delay: Double(index % 4) * 0.025, scales: [0.42, 1.08, 0.88, 0.18], rotatesWithPath: true)
         }
     }
 
