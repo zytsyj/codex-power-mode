@@ -1,3 +1,5 @@
+import { refreshDelayForState } from "./refresh-cadence.mjs";
+
 const canvas = document.querySelector("#effects");
 const context = canvas.getContext("2d");
 const element = (id) => document.querySelector(`#${id}`);
@@ -34,6 +36,8 @@ let state = {};
 let scale = devicePixelRatio || 1;
 let collapseTimer;
 let effectsFrame = null;
+let presentationTimer = null;
+let presentationTicks = 0;
 let hudVisibleUntil = Date.now() + 1800;
 let connectionOnline = false;
 let effectGeneration = 0;
@@ -122,6 +126,7 @@ function setConnection(connected, announce = true) {
   document.body.dataset.connection = connected ? "online" : "offline";
   elements.connection.textContent = connected ? t("online") : t("reconnecting");
   if (announce) expand(connected ? 1800 : 3200);
+  requestPresentationTick();
 }
 
 function resize() {
@@ -281,14 +286,14 @@ function presentationAt(next, now = Date.now()) {
         ? lastActivityAt + abandonedActivityMs
         : Number.NaN;
   const momentum = Math.max(0, Math.min(100, next.momentum ?? 0));
-  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false, settledAt: null };
+  if (!Number.isFinite(stoppedAt)) return { ...next, momentum, idle: false, settled: false, returning: false, idleAt: null, settledAt: null };
   const explicitBreak = Date.parse(next.comboBrokenAt);
   const naturalBreak = Date.parse(next.comboExpiresAt);
   const disconnectedAt = Number.isFinite(explicitBreak) ? explicitBreak : naturalBreak;
   const comboEnd = Number.isFinite(disconnectedAt) ? disconnectedAt + comboLostMs : 0;
   const idleAt = Math.max(stoppedAt + finalStateHoldMs, comboEnd);
   const settledAt = idleAt + momentumReturnMs;
-  if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true, settledAt };
+  if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true, idleAt, settledAt };
   const progress = Math.max(0, Math.min(1, (now - idleAt) / momentumReturnMs));
   return {
     ...next,
@@ -300,6 +305,7 @@ function presentationAt(next, now = Date.now()) {
     idle: true,
     settled: progress >= 1,
     returning: progress < 1,
+    idleAt,
     settledAt
   };
 }
@@ -452,6 +458,7 @@ function render(next = state) {
   elements["risk-level"].textContent = `${riskLevel.toUpperCase()} ${t("risk")}`;
   elements["risk-level"].dataset.level = riskLevel;
   renderCombo();
+  requestPresentationTick();
 }
 
 function flashAt(start, strength = .14) {
@@ -461,6 +468,51 @@ function flashAt(start, strength = .14) {
   document.body.classList.remove("flash");
   void document.body.offsetWidth;
   document.body.classList.add("flash");
+}
+
+function presentationRefreshDelay(now = Date.now()) {
+  const presented = presentationAt(state, now);
+  const holdUntil = Date.parse(state.comboHoldUntil || state.comboLastAt);
+  const expiresAt = Date.parse(state.comboExpiresAt);
+  const comboChanging = (state.combo ?? 0) > 0
+    && Number.isFinite(expiresAt)
+    && now > (Number.isFinite(holdUntil) ? holdUntil : 0)
+    && now < expiresAt;
+  const momentumChanging = presented.returning
+    && Number.isFinite(presented.idleAt)
+    && now >= presented.idleAt;
+  return refreshDelayForState({
+    previewMode,
+    connectionOnline,
+    hudHidden: elements.hud.classList.contains("idle-hidden"),
+    comboChanging,
+    momentumChanging
+  });
+}
+
+function schedulePresentationTick(delay) {
+  if (presentationTimer !== null) clearTimeout(presentationTimer);
+  if (delay === null) {
+    presentationTimer = null;
+    document.body.dataset.refreshMode = "sleep";
+    return;
+  }
+  document.body.dataset.refreshMode = delay <= 100 ? "active" : "heartbeat";
+  presentationTimer = setTimeout(runPresentationTick, delay);
+}
+
+function requestPresentationTick() {
+  schedulePresentationTick(0);
+}
+
+function runPresentationTick() {
+  presentationTimer = null;
+  const now = Date.now();
+  presentationTicks += 1;
+  document.body.dataset.refreshTicks = String(presentationTicks);
+  renderPresentation(now);
+  renderCombo(now);
+  schedulePresentationTick(presentationRefreshDelay(now));
 }
 
 function scheduleEffect(delay, generation, effect) {
@@ -573,8 +625,4 @@ if (!previewMode) {
 
 addEventListener("resize", resize);
 resize();
-setInterval(() => {
-  const now = Date.now();
-  renderPresentation(now);
-  renderCombo(now);
-}, 100);
+requestPresentationTick();

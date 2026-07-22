@@ -2,6 +2,8 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Suspended the browser HUD presentation timer after a settled auto-hide, with immediate wake-up on new activity, disconnect, and reconnect events.
+- Kept a 100 ms cadence only while energy or Combo is visibly changing and reduced static visible states to a one-second heartbeat.
 - Added an auto-hide delay setting with immediate, 2-second, and 6-second choices, so the quiet Idle orb can bridge the transition between energy settling and the HUD disappearing.
 - Disabled browser caching for local HUD assets so cachebuster reinstalls and development restarts cannot leave an older visual runtime on screen.
 - Replaced the ambiguous inactive-Codex visibility toggle with explicit Hide, Stay over Codex, and Follow active app policies in English and Chinese.
