@@ -46,3 +46,12 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.doesNotMatch(source, /particle\.color\.withAlphaComponent/);
   assert.doesNotMatch(source, /\("always", preferences\.text\("Always expanded"/);
 });
+
+test("typing Combo follows the foreground Codex app without relying on an AX text role", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private func isCodexFrontmost\(\) -> Bool/);
+  assert.match(source, /app\.bundleIdentifier == codexBundleIdentifier/);
+  assert.doesNotMatch(source, /isCodexComposerFocused/);
+  assert.doesNotMatch(source, /kAXTextAreaRole/);
+});

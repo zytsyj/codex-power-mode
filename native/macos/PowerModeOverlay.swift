@@ -3754,7 +3754,7 @@ private final class TypingComboMonitor {
 
     private func handle(_ event: NSEvent) {
         guard preferences.settings.typingCombo == true,
-              isCodexComposerFocused(),
+              isCodexFrontmost(),
               ![36, 48, 53, 76, 123, 124, 125, 126].contains(Int(event.keyCode)) else { return }
         let now = Date()
         count = now.timeIntervalSince(lastHit) <= comboWindow ? min(200, count + 1) : 1
@@ -3762,17 +3762,10 @@ private final class TypingComboMonitor {
         view?.handleTypingHit(count: count, lastAt: now, expiresAt: now.addingTimeInterval(comboWindow))
     }
 
-    private func isCodexComposerFocused() -> Bool {
+    private func isCodexFrontmost() -> Bool {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.bundleIdentifier == codexBundleIdentifier else { return false }
-        let application = AXUIElementCreateApplication(app.processIdentifier)
-        var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              let focused else { return false }
-        var roleValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(focused as! AXUIElement, kAXRoleAttribute as CFString, &roleValue) == .success,
-              let role = roleValue as? String else { return false }
-        return role == kAXTextAreaRole as String
+        return true
     }
 }
 
