@@ -243,6 +243,7 @@ private final class OrbLayerRenderer {
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
+    private let beatRing = CAShapeLayer()
     private let comboTrack = CAShapeLayer()
     private let comboRing = CAShapeLayer()
     private let semantic = CATextLayer()
@@ -251,9 +252,11 @@ private final class OrbLayerRenderer {
     private let comboValue = CATextLayer()
     private let connectionDot = CALayer()
     private let emitter = CAEmitterLayer()
+    private let choreography = CALayer()
     private var comboAnimationGeneration = 0
     private var lastComboSignature = ""
     private var phase = "idle"
+    private var rhythmGeneration = 0
     private var reducedMotion = false
     private var arcade = false
     private var intensity: Float = 1
@@ -303,6 +306,9 @@ private final class OrbLayerRenderer {
         configureRing(energyRing, radius: 35.5, width: 3.2)
         energyRing.lineCap = .round
         energyRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+        configureRing(beatRing, radius: 39.5, width: 1.4)
+        beatRing.opacity = 0
+        beatRing.lineCap = .round
 
         configureText(semantic, frame: CGRect(x: 38, y: 69, width: 16, height: 12), size: 8, weight: .semibold)
         configureText(comboValue, frame: CGRect(x: 28, y: 59, width: 36, height: 11), size: 7.5, weight: .bold)
@@ -320,6 +326,9 @@ private final class OrbLayerRenderer {
         emitter.emitterShape = .point
         emitter.renderMode = .additive
         container.insertSublayer(emitter, below: core)
+        choreography.frame = container.bounds
+        choreography.masksToBounds = false
+        container.insertSublayer(choreography, above: emitter)
         updatePreferences()
     }
 
@@ -398,8 +407,13 @@ private final class OrbLayerRenderer {
         if phase != nextPhase {
             phase = nextPhase
             animateSemanticPhase(nextPhase)
+            animateRhythmEntry(nextPhase, color: color)
         }
-        if let event { emitFeedback(for: event, color: color) }
+        if let event {
+            animateEventRhythm(event, phase: nextPhase, color: color)
+            playSemanticChoreography(phase: nextPhase, color: color)
+            emitFeedback(for: event, phase: nextPhase, color: color)
+        }
     }
 
     private func updateEnergyStyle(_ momentum: Int, color: NSColor) {
@@ -457,35 +471,37 @@ private final class OrbLayerRenderer {
         switch phase {
         case "observe":
             let breathe = CAKeyframeAnimation(keyPath: "opacity")
-            breathe.values = [0.55, 1, 0.55]
-            breathe.duration = arcade ? 1.35 : 2.2
+            breathe.values = [0.5, 1, 0.72, 0.72, 0.5]
+            breathe.keyTimes = [0, 0.2, 0.38, 0.82, 1]
+            breathe.duration = arcade ? 1.65 : 2.4
             breathe.repeatCount = .infinity
             animation = breathe
         case "act":
             let drive = CAKeyframeAnimation(keyPath: "transform.translation.x")
-            drive.values = [-2, 4, 0]
-            drive.keyTimes = [0, 0.62, 1]
-            drive.duration = arcade ? 0.48 : 0.82
+            drive.values = [0, -2, 4.5, 0, 0]
+            drive.keyTimes = [0, 0.12, 0.3, 0.48, 1]
+            drive.duration = arcade ? 0.72 : 1.05
             drive.repeatCount = .infinity
             animation = drive
         case "verify":
             let lock = CAKeyframeAnimation(keyPath: "transform.scale")
-            lock.values = [0.72, 1.18, 1]
-            lock.keyTimes = [0, 0.68, 1]
-            lock.duration = arcade ? 0.72 : 1.05
+            lock.values = [1, 0.78, 1.16, 1, 1]
+            lock.keyTimes = [0, 0.16, 0.36, 0.52, 1]
+            lock.duration = arcade ? 0.95 : 1.32
             lock.repeatCount = .infinity
             animation = lock
         case "wait":
             let pulse = CAKeyframeAnimation(keyPath: "opacity")
-            pulse.values = [0.35, 1, 0.35, 1, 0.35]
-            pulse.keyTimes = [0, 0.15, 0.32, 0.5, 1]
-            pulse.duration = arcade ? 1.05 : 1.7
+            pulse.values = [0.34, 1, 0.34, 1, 0.34, 0.34]
+            pulse.keyTimes = [0, 0.1, 0.2, 0.32, 0.44, 1]
+            pulse.duration = arcade ? 1.45 : 2.05
             pulse.repeatCount = .infinity
             animation = pulse
         case "recover":
             let repair = CAKeyframeAnimation(keyPath: "transform.rotation.z")
-            repair.values = [-0.18, 0.13, -0.08, 0]
-            repair.duration = arcade ? 0.42 : 0.72
+            repair.values = [0, -0.2, 0.14, -0.08, 0, 0]
+            repair.keyTimes = [0, 0.1, 0.22, 0.34, 0.48, 1]
+            repair.duration = arcade ? 0.92 : 1.3
             repair.repeatCount = .infinity
             animation = repair
         default:
@@ -498,25 +514,268 @@ private final class OrbLayerRenderer {
         semantic.add(animation, forKey: "semantic-phase")
     }
 
-    private func emitFeedback(for event: PowerEvent, color: NSColor) {
+    private func animateRhythmEntry(_ phase: String, color: NSColor) {
+        guard !reducedMotion, phase != "idle" else { return }
+        rhythmGeneration &+= 1
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = phase == "complete"
+            ? [0.96, 0.88, 1.14, 1.02, 1]
+            : [1, 0.94, 1.045, 1]
+        scale.keyTimes = phase == "complete"
+            ? [0, 0.2, 0.48, 0.7, 1]
+            : [0, 0.22, 0.62, 1]
+        scale.duration = phase == "complete" ? (arcade ? 0.88 : 1.08) : (arcade ? 0.5 : 0.72)
+        scale.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        container.add(scale, forKey: "rhythm-entry")
+        playBeatRing(color: color, delay: phase == "complete" ? 0.34 : 0.14, duration: phase == "complete" ? 0.74 : 0.46, power: phase == "complete" ? 1.22 : 1)
+    }
+
+    private func animateEventRhythm(_ event: PowerEvent, phase: String, color: NSColor) {
         guard !reducedMotion, event.type != "connected" else { return }
+        rhythmGeneration &+= 1
+        let generation = rhythmGeneration
+        let values: [CGFloat]
+        let times: [NSNumber]
+        let duration: CFTimeInterval
+        switch phase {
+        case "observe":
+            values = [1, 0.965, 0.965, 1.035, 1]
+            times = [0, 0.18, 0.42, 0.72, 1]
+            duration = arcade ? 0.76 : 0.98
+        case "act":
+            values = [1, 0.93, 1.085, 0.985, 1.035, 1]
+            times = [0, 0.12, 0.3, 0.47, 0.66, 1]
+            duration = arcade ? 0.62 : 0.84
+        case "verify":
+            values = [1, 0.94, 0.94, 1.075, 1.075, 1]
+            times = [0, 0.13, 0.34, 0.53, 0.7, 1]
+            duration = arcade ? 0.82 : 1.04
+        case "wait":
+            values = [1, 1.055, 1, 1.055, 1, 1]
+            times = [0, 0.12, 0.23, 0.36, 0.48, 1]
+            duration = arcade ? 1.05 : 1.35
+        case "recover":
+            values = [1, 0.9, 1.055, 0.95, 1.02, 1]
+            times = [0, 0.14, 0.3, 0.46, 0.66, 1]
+            duration = arcade ? 0.82 : 1.06
+        default:
+            values = [1, 0.91, 1.13, 1.02, 1]
+            times = [0, 0.18, 0.48, 0.72, 1]
+            duration = arcade ? 0.9 : 1.16
+        }
+        let beat = CAKeyframeAnimation(keyPath: "transform.scale")
+        beat.values = values
+        beat.keyTimes = times
+        beat.duration = duration
+        beat.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        container.add(beat, forKey: "event-rhythm-\(generation)")
+
+        let ringDelay: CFTimeInterval = phase == "act" ? 0.18 : phase == "verify" ? 0.42 : phase == "complete" ? 0.4 : 0.12
+        playBeatRing(color: color, delay: ringDelay, duration: phase == "complete" ? 0.76 : 0.5, power: phase == "complete" ? 1.25 : 1)
+        if phase == "wait" {
+            playBeatRing(color: color, delay: 0.42, duration: 0.42, power: 0.86)
+        }
+    }
+
+    private func playBeatRing(color: NSColor, delay: CFTimeInterval, duration: CFTimeInterval, power: CGFloat) {
+        beatRing.strokeColor = color.cgColor
+        beatRing.shadowColor = color.cgColor
+        beatRing.shadowOpacity = Float(0.28 * power)
+        beatRing.shadowRadius = 4 * power
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [0, min(1, 0.8 * power), 0]
+        opacity.keyTimes = [0, 0.16, 1]
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = [0.88, 1, 1.15 * power]
+        scale.keyTimes = [0, 0.18, 1]
+        let group = CAAnimationGroup()
+        group.animations = [opacity, scale]
+        group.beginTime = beatRing.convertTime(CACurrentMediaTime(), from: nil) + delay
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        beatRing.add(group, forKey: "beat-ring-\(rhythmGeneration)-\(delay)")
+    }
+
+    private func playSemanticChoreography(phase: String, color: NSColor) {
+        guard !reducedMotion, phase != "idle" else { return }
+        choreography.sublayers?.forEach { $0.removeFromSuperlayer() }
+        switch phase {
+        case "observe": playObserveCapture(color: color)
+        case "act": playActDrive(color: color)
+        case "verify": playVerifyConvergence(color: color)
+        case "wait": playWaitGates(color: color)
+        case "recover": playRecoverFragments(color: color)
+        case "complete": playCompleteRings()
+        default: break
+        }
+    }
+
+    private func makeParticle(size: CGSize, color: NSColor, square: Bool = false) -> CAShapeLayer {
+        let layer = CAShapeLayer()
+        layer.bounds = CGRect(origin: .zero, size: size)
+        layer.path = square
+            ? CGPath(roundedRect: layer.bounds, cornerWidth: 0.45, cornerHeight: 0.45, transform: nil)
+            : CGPath(ellipseIn: layer.bounds, transform: nil)
+        layer.fillColor = color.cgColor
+        layer.shadowColor = color.cgColor
+        layer.shadowOpacity = 0.55
+        layer.shadowRadius = 2.5
+        layer.opacity = 0
+        choreography.addSublayer(layer)
+        return layer
+    }
+
+    private func animateParticle(_ layer: CALayer, positions: [CGPoint], opacity: [Float], keyTimes: [NSNumber], duration: CFTimeInterval, delay: CFTimeInterval, scales: [CGFloat]? = nil, rotations: [CGFloat]? = nil) {
+        let position = CAKeyframeAnimation(keyPath: "position")
+        position.values = positions.map { NSValue(point: $0) }
+        position.keyTimes = keyTimes
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = opacity
+        fade.keyTimes = keyTimes
+        var animations: [CAAnimation] = [position, fade]
+        if let scales {
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = scales
+            scale.keyTimes = keyTimes
+            animations.append(scale)
+        }
+        if let rotations {
+            let rotation = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            rotation.values = rotations
+            rotation.keyTimes = keyTimes
+            animations.append(rotation)
+        }
+        let group = CAAnimationGroup()
+        group.animations = animations
+        group.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        group.fillMode = .both
+        group.isRemovedOnCompletion = false
+        layer.add(group, forKey: "semantic-path")
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay + duration + 0.08) { [weak layer] in
+            layer?.removeFromSuperlayer()
+        }
+    }
+
+    private func playObserveCapture(color: NSColor) {
+        let count = max(5, Int((arcade ? 11 : 7) * intensity))
+        for index in 0..<count {
+            let angle = CGFloat(index) / CGFloat(count) * .pi * 2 + CGFloat(index % 2) * 0.17
+            let radius: CGFloat = arcade ? 70 : 60
+            let start = CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
+            let shoulder = CGPoint(x: 46 + cos(angle) * 34, y: 46 + sin(angle) * 34)
+            let end = CGPoint(x: 46 + cos(angle) * 8, y: 46 + sin(angle) * 8)
+            let dot = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 3.4 : 2.2, height: index.isMultiple(of: 3) ? 3.4 : 2.2), color: color)
+            animateParticle(dot, positions: [start, start, shoulder, end, end], opacity: [0, 0.9, 0.84, 0.55, 0], keyTimes: [0, 0.12, 0.48, 0.78, 1], duration: arcade ? 0.76 : 0.98, delay: Double(index) * 0.025, scales: [0.65, 1, 0.8, 0.38, 0.2])
+        }
+    }
+
+    private func playActDrive(color: NSColor) {
+        let count = max(6, Int((arcade ? 12 : 8) * intensity))
+        for index in 0..<count {
+            let lane = CGFloat(index % 5) - 2
+            let start = CGPoint(x: 39, y: 46 + lane * 4.2)
+            let recoil = CGPoint(x: 45, y: 46 + lane * 4.2)
+            let end = CGPoint(x: -18 - CGFloat(index % 3) * 12, y: 46 + lane * 8.5)
+            let streak = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 10 : 6.5, height: 1.5), color: index.isMultiple(of: 4) ? NSColor.systemCyan : color, square: true)
+            animateParticle(streak, positions: [start, recoil, start, end], opacity: [0, 0.65, 1, 0], keyTimes: [0, 0.12, 0.27, 1], duration: arcade ? 0.58 : 0.78, delay: Double(index) * 0.018, scales: [0.7, 0.85, 1.15, 0.45])
+        }
+    }
+
+    private func playVerifyConvergence(color: NSColor) {
+        let lanes = arcade ? 8 : 5
+        for index in 0..<lanes {
+            let lane = CGFloat(index) - CGFloat(lanes - 1) / 2
+            let start = CGPoint(x: -26 - CGFloat(index % 3) * 10, y: 46 + lane * 8)
+            let align = CGPoint(x: 20, y: 46 + lane * 5)
+            let lock = CGPoint(x: 46, y: 46)
+            let evidence = makeParticle(size: CGSize(width: index.isMultiple(of: 2) ? 4.2 : 3, height: index.isMultiple(of: 2) ? 4.2 : 3), color: index.isMultiple(of: 3) ? NSColor.white.withAlphaComponent(0.9) : color, square: true)
+            animateParticle(evidence, positions: [start, align, align, lock, lock], opacity: [0, 0.82, 1, 0.9, 0], keyTimes: [0, 0.28, 0.44, 0.72, 1], duration: arcade ? 0.84 : 1.06, delay: Double(index) * 0.035, scales: [0.7, 1, 1, 0.55, 0.2])
+        }
+    }
+
+    private func playWaitGates(color: NSColor) {
+        for side in [-1, 1] {
+            let gate = makeParticle(size: CGSize(width: 3, height: 44), color: color, square: true)
+            let outside = CGPoint(x: side < 0 ? -12 : 104, y: 46)
+            let near = CGPoint(x: side < 0 ? 6 : 86, y: 46)
+            let pulse = CGPoint(x: side < 0 ? 10 : 82, y: 46)
+            animateParticle(gate, positions: [outside, near, pulse, near, pulse, near], opacity: [0, 0.72, 1, 0.62, 0.9, 0], keyTimes: [0, 0.12, 0.22, 0.36, 0.48, 1], duration: arcade ? 1.05 : 1.35, delay: 0, scales: [0.72, 1, 1.08, 1, 1.05, 1])
+        }
+    }
+
+    private func playRecoverFragments(color: NSColor) {
+        let count = max(6, Int((arcade ? 12 : 8) * intensity))
+        for index in 0..<count {
+            let angle = CGFloat(index) / CGFloat(count) * .pi * 2
+            let distance: CGFloat = arcade ? 68 : 56
+            let center = CGPoint(x: 46, y: 46)
+            let broken = CGPoint(x: 46 + cos(angle) * distance, y: 46 + sin(angle) * distance)
+            let held = CGPoint(x: 46 + cos(angle + 0.12) * (distance - 6), y: 46 + sin(angle + 0.12) * (distance - 6))
+            let shard = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 5 : 3.2, height: index.isMultiple(of: 3) ? 5 : 3.2), color: index.isMultiple(of: 4) ? NSColor.white.withAlphaComponent(0.72) : color, square: true)
+            animateParticle(shard, positions: [center, broken, held, held, center], opacity: [0.8, 1, 0.7, 0.9, 0], keyTimes: [0, 0.22, 0.4, 0.58, 1], duration: arcade ? 0.92 : 1.18, delay: Double(index) * 0.018, scales: [0.4, 1.15, 0.9, 1, 0.2], rotations: [0, angle + 0.8, angle + 1.2, angle + 1.4, angle + 1.8])
+        }
+    }
+
+    private func playCompleteRings() {
+        let colors: [NSColor] = arcade ? [.systemGreen, .systemPurple, .systemCyan] : [.systemGreen]
+        for (index, color) in colors.enumerated() {
+            let ring = CAShapeLayer()
+            ring.frame = choreography.bounds
+            ring.path = CGPath(ellipseIn: CGRect(x: 10, y: 10, width: 72, height: 72), transform: nil)
+            ring.fillColor = NSColor.clear.cgColor
+            ring.strokeColor = color.cgColor
+            ring.lineWidth = arcade ? 2.2 : 1.8
+            ring.shadowColor = color.cgColor
+            ring.shadowOpacity = 0.55
+            ring.shadowRadius = 5
+            ring.opacity = 0
+            choreography.addSublayer(ring)
+            let opacity = CAKeyframeAnimation(keyPath: "opacity")
+            opacity.values = [0, 0.95, 0.5, 0]
+            opacity.keyTimes = [0, 0.12, 0.48, 1]
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [0.72, 0.9, 1.25, 1.7]
+            scale.keyTimes = [0, 0.12, 0.48, 1]
+            let group = CAAnimationGroup()
+            group.animations = [opacity, scale]
+            let delay = 0.22 + Double(index) * 0.13
+            group.beginTime = ring.convertTime(CACurrentMediaTime(), from: nil) + delay
+            group.duration = arcade ? 0.82 : 0.96
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            group.fillMode = .both
+            group.isRemovedOnCompletion = false
+            ring.add(group, forKey: "complete-wave")
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay + group.duration + 0.08) { [weak ring] in ring?.removeFromSuperlayer() }
+        }
+    }
+
+    private func emitFeedback(for event: PowerEvent, phase: String, color: NSColor) {
+        guard !reducedMotion, event.type != "connected" else { return }
+        guard phase == "act" || phase == "complete" else {
+            emitter.emitterCells = nil
+            return
+        }
         let cell = CAEmitterCell()
         cell.name = "spark"
         cell.contents = particleImage()
         cell.color = color.cgColor
-        cell.birthRate = (event.type == "turn-stop" ? 105 : 38) * intensity * (arcade ? 1.25 : 1)
+        let baseRate: Float = event.type == "turn-stop" ? 105 : 48
+        cell.birthRate = baseRate * intensity * (arcade ? 1.25 : 1)
         cell.lifetime = arcade ? 0.62 : 0.46
         cell.lifetimeRange = 0.18
-        cell.velocity = event.phase == "act" ? 76 : 48
+        cell.velocity = phase == "act" ? 76 : 54
         cell.velocityRange = 28
-        cell.emissionRange = event.phase == "act" ? .pi / 3 : .pi * 2
-        cell.emissionLongitude = event.phase == "act" ? .pi : 0
+        cell.emissionRange = phase == "act" ? .pi / 3 : .pi * 2
+        cell.emissionLongitude = phase == "act" ? .pi : 0
         cell.scale = 0.058
         cell.scaleRange = 0.025
         cell.alphaSpeed = -1.25
         emitter.emitterCells = [cell]
         emitter.setValue(cell.birthRate, forKeyPath: "emitterCells.spark.birthRate")
-        DispatchQueue.main.asyncAfter(deadline: .now() + (arcade ? 0.18 : 0.11)) { [weak emitter] in
+        let burstLength = phase == "act" ? (arcade ? 0.24 : 0.17) : (arcade ? 0.2 : 0.13)
+        DispatchQueue.main.asyncAfter(deadline: .now() + burstLength) { [weak emitter] in
             emitter?.setValue(0, forKeyPath: "emitterCells.spark.birthRate")
         }
         let impact = CABasicAnimation(keyPath: "transform.scale")

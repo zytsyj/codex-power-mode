@@ -679,8 +679,34 @@ body[data-preview-state="true"] .power-system { width: 104px; }
 .combo-meter b { left: 36px; top: 18px; width: 28px; font-size: 8px; color: rgba(255,255,255,.78); }
 body[data-phase="act"] .reactor { transform: translateX(2px); }
 body[data-phase="verify"] .reactor { box-shadow: inset 0 1px rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.32), 0 0 24px rgba(var(--accent-rgb),.16); }
-body[data-phase="wait"] .reactor-halo { animation: halo-breathe 1.5s ease-in-out infinite; }
-body[data-phase="recover"] .reactor { animation: reactor-fault 1.1s ease-in-out infinite; }
+body[data-phase="observe"] .reactor-halo { animation: rhythm-observe-halo 2.4s ease-in-out infinite; }
+body[data-phase="act"] .reactor-halo { animation: rhythm-act-halo 1.05s ease-in-out infinite; }
+body[data-phase="verify"] .reactor-halo { animation: rhythm-verify-halo 1.32s ease-in-out infinite; }
+body[data-phase="wait"] .reactor-halo { animation: rhythm-wait-halo 2.05s ease-in-out infinite; }
+body[data-phase="recover"] .reactor-halo { animation: rhythm-recover-halo 1.3s ease-in-out infinite; }
+body.event-kick[data-phase="observe"] .reactor { animation: rhythm-observe-entry .98s ease-in-out 1; }
+body.event-kick[data-phase="act"] .reactor { animation: rhythm-act-entry .84s ease-in-out 1; }
+body.event-kick[data-phase="verify"] .reactor { animation: rhythm-verify-entry 1.04s ease-in-out 1; }
+body.event-kick[data-phase="wait"] .reactor { animation: rhythm-wait-entry 1.35s ease-in-out 1; }
+body.event-kick[data-phase="recover"] .reactor { animation: rhythm-recover-entry 1.06s ease-in-out 1; }
+body.event-kick[data-phase="complete"] .reactor { animation: rhythm-complete-entry 1.16s ease-in-out 1; }
+body[data-preset="arcade"].event-kick[data-phase="observe"] .reactor { animation-duration: .76s; }
+body[data-preset="arcade"].event-kick[data-phase="act"] .reactor { animation-duration: .62s; }
+body[data-preset="arcade"].event-kick[data-phase="verify"] .reactor { animation-duration: .82s; }
+body[data-preset="arcade"].event-kick[data-phase="wait"] .reactor { animation-duration: 1.05s; }
+body[data-preset="arcade"].event-kick[data-phase="recover"] .reactor { animation-duration: .82s; }
+body[data-preset="arcade"].event-kick[data-phase="complete"] .reactor { animation-duration: .9s; }
+@keyframes rhythm-observe-halo { 0%, 38%, 100% { opacity: .38; transform: scale(.98); } 20% { opacity: .62; transform: scale(1.06); } 82% { opacity: .38; transform: scale(.98); } }
+@keyframes rhythm-act-halo { 0%, 48%, 100% { opacity: .36; transform: translateX(0) scale(.98); } 12% { opacity: .48; transform: translateX(-2px) scale(.96); } 30% { opacity: .72; transform: translateX(3px) scale(1.08); } }
+@keyframes rhythm-verify-halo { 0%, 52%, 100% { opacity: .38; transform: scale(1); } 16% { opacity: .46; transform: scale(.94); } 36% { opacity: .75; transform: scale(1.08); } }
+@keyframes rhythm-wait-halo { 0%, 44%, 100% { opacity: .34; transform: scale(.98); } 10%, 32% { opacity: .72; transform: scale(1.07); } 20%, 42% { opacity: .38; transform: scale(1); } }
+@keyframes rhythm-recover-halo { 0%, 48%, 100% { opacity: .32; transform: rotate(0) scale(.98); } 10% { opacity: .66; transform: rotate(-5deg) scale(.92); } 24% { opacity: .54; transform: rotate(3deg) scale(1.05); } 36% { opacity: .44; transform: rotate(-2deg) scale(.97); } }
+@keyframes rhythm-observe-entry { 0% { transform: scale(1); } 18%, 42% { transform: scale(.965); } 72% { transform: scale(1.035); } 100% { transform: scale(1); } }
+@keyframes rhythm-act-entry { 0% { transform: translateX(2px) scale(1); } 12% { transform: translateX(-1px) scale(.93); } 30% { transform: translateX(5px) scale(1.085); } 47% { transform: translateX(1px) scale(.985); } 66% { transform: translateX(3px) scale(1.035); } 100% { transform: translateX(2px) scale(1); } }
+@keyframes rhythm-verify-entry { 0% { transform: scale(1); } 13%, 34% { transform: scale(.94); } 53%, 70% { transform: scale(1.075); } 100% { transform: scale(1); } }
+@keyframes rhythm-wait-entry { 0% { transform: scale(1); } 12%, 36% { transform: scale(1.055); } 23%, 48%, 100% { transform: scale(1); } }
+@keyframes rhythm-recover-entry { 0% { transform: rotate(0) scale(1); } 14% { transform: rotate(-5deg) scale(.9); } 30% { transform: rotate(3deg) scale(1.055); } 46% { transform: rotate(-2deg) scale(.95); } 66% { transform: rotate(0) scale(1.02); } 100% { transform: scale(1); } }
+@keyframes rhythm-complete-entry { 0% { transform: scale(1); } 18% { transform: scale(.91); } 48% { transform: scale(1.13); } 72% { transform: scale(1.02); } 100% { transform: scale(1); } }
 @media (max-width: 430px) {
   .power-system,
   body[data-preview-state="true"] .power-system { width: 104px; right: 12px; }
