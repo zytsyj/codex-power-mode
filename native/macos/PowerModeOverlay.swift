@@ -635,33 +635,43 @@ private final class OrbLayerRenderer {
         energyRing.add(ring, forKey: rising ? "stage-fill-reset" : "stage-drain-restore")
         let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
         pulse.values = rising ? [1, 1.08, 1.28, 0.88, 1.08, 1] : [1, 0.84, 1.1, 0.9, 1]
-        pulse.keyTimes = rising ? [0, 0.18, 0.46, 0.76, 1] : [0, 0.34, 0.68, 1]
+        pulse.keyTimes = rising ? [0, 0.14, 0.34, 0.52, 0.74, 1] : [0, 0.22, 0.5, 0.76, 1]
         pulse.duration = rising ? min(1.6, 0.72 + Double(crossings) * 0.18) : min(1.25, 0.58 + Double(crossings) * 0.14)
         pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         body.add(pulse, forKey: "energy-tier-body")
-        let flare = CAShapeLayer()
-        flare.frame = choreography.bounds
-        flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
-        flare.fillColor = NSColor.clear.cgColor
-        flare.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
-        flare.lineWidth = rising ? CGFloat(2.2 + Double(next) * 0.46) : 2.3
-        flare.lineDashPattern = rising ? nil : [4, 5]
-        flare.shadowColor = flare.strokeColor
-        flare.shadowOpacity = rising ? 0.9 : 0.55
-        flare.shadowRadius = rising ? CGFloat(4 + next) : 3
-        choreography.addSublayer(flare)
-        let group = CAAnimationGroup()
-        let scale = CABasicAnimation(keyPath: "transform.scale")
-        scale.fromValue = rising ? 0.74 : 1.18
-        scale.toValue = rising ? 1.55 : 0.84
-        let opacity = CAKeyframeAnimation(keyPath: "opacity")
-        opacity.values = [0, 1, 0]
-        opacity.keyTimes = [0, 0.2, 1]
-        group.animations = [scale, opacity]
-        group.duration = rising ? min(1.6, 0.82 + Double(crossings) * 0.16) : min(1.2, 0.62 + Double(crossings) * 0.12)
-        group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
-        flare.add(group, forKey: rising ? "energy-breakthrough" : "energy-vent")
-        DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.05) { [weak flare] in flare?.removeFromSuperlayer() }
+        let ringWidth = energyRing.presentation()?.lineWidth ?? energyRing.lineWidth
+        let ringImpact = CAKeyframeAnimation(keyPath: "lineWidth")
+        ringImpact.values = rising ? [ringWidth, ringWidth + 1.5, ringWidth + 5.2, ringWidth] : [ringWidth, ringWidth + 2.4, 1.2, ringWidth]
+        ringImpact.keyTimes = [0, 0.3, 0.52, 1]
+        ringImpact.duration = pulse.duration
+        energyRing.add(ringImpact, forKey: rising ? "tier-ring-impact" : "tier-ring-collapse")
+        let flareCount = rising ? min(4, 2 + crossings) : 2
+        for index in 0..<flareCount {
+            let flare = CAShapeLayer()
+            flare.frame = choreography.bounds
+            flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
+            flare.fillColor = NSColor.clear.cgColor
+            flare.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
+            flare.lineWidth = rising ? CGFloat(2.4 + Double(next) * 0.5 - Double(index) * 0.25) : 2.4
+            flare.lineDashPattern = rising ? nil : [4, 5]
+            flare.shadowColor = flare.strokeColor
+            flare.shadowOpacity = rising ? 0.95 : 0.58
+            flare.shadowRadius = rising ? CGFloat(5 + next) : 3
+            choreography.addSublayer(flare)
+            let group = CAAnimationGroup()
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = rising ? [0.68, 0.62, 0.9, 1.7 + Double(index) * 0.22] : [1.24, 1.08, 0.82]
+            scale.keyTimes = rising ? [0, 0.22, 0.38, 1] : [0, 0.42, 1]
+            let opacity = CAKeyframeAnimation(keyPath: "opacity")
+            opacity.values = rising ? [0, 0.9, 1, 0] : [0, 0.72, 0]
+            opacity.keyTimes = rising ? [0, 0.22, 0.4, 1] : [0, 0.34, 1]
+            group.animations = [scale, opacity]
+            group.beginTime = CACurrentMediaTime() + Double(index) * (arcade ? 0.075 : 0.11)
+            group.duration = rising ? min(1.72, 0.92 + Double(crossings) * 0.18) : min(1.2, 0.68 + Double(crossings) * 0.12)
+            group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
+            flare.add(group, forKey: rising ? "energy-breakthrough" : "energy-vent")
+            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + Double(index) * 0.11 + 0.08) { [weak flare] in flare?.removeFromSuperlayer() }
+        }
     }
 
     func updateTypingCombo(count: Int, progress: CGFloat, pulse: Bool = false) {
@@ -1636,6 +1646,7 @@ private final class TypingFeedbackRenderer {
     private let lifetimeFill = CALayer()
     private let effects = CALayer()
     private var comboAnchor = CGPoint.zero
+    private let lifetimeDuration: TimeInterval = 2
 
     init(hostLayer: CALayer, preferences: PowerModePreferences) {
         self.preferences = preferences
@@ -1691,18 +1702,50 @@ private final class TypingFeedbackRenderer {
     }
 
     func update(count: Int, progress: CGFloat, pulse: Bool = false) {
-        guard count > 0 else { setVisible(false); return }
+        guard count > 0, progress > 0 else { setVisible(false); return }
         let label = "×\(count)"
         comboGlow.string = label
         comboValue.string = label
-        lifetimeFill.transform = CATransform3DMakeScale(max(0.001, progress), 1, 1)
         setVisible(true)
+        animateLifetime(progress: progress, refill: pulse)
         guard pulse, !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
         let hit = CAKeyframeAnimation(keyPath: "transform.scale")
         hit.values = count % 10 == 0 ? [1, 1.38, 0.9, 1.08, 1] : [1, 1.14, 0.96, 1]
         hit.duration = count % 10 == 0 ? 0.38 : 0.16
         comboValue.add(hit, forKey: "typing-combo-hit")
         comboGlow.add(hit, forKey: "typing-combo-glow-hit")
+    }
+
+    private func animateLifetime(progress: CGFloat, refill: Bool) {
+        if !refill, lifetimeFill.animation(forKey: "typing-lifetime") != nil { return }
+        let presentedScale: CGFloat
+        if let presentation = lifetimeFill.presentation() {
+            presentedScale = presentation.transform.m11
+        } else {
+            presentedScale = progress
+        }
+        let current = max(0.001, presentedScale)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        lifetimeFill.transform = CATransform3DMakeScale(0.001, 1, 1)
+        lifetimeFill.backgroundColor = NSColor.systemRed.cgColor
+        CATransaction.commit()
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale.x")
+        scale.values = refill ? [current, 1, 1, 0.001] : [progress, 0.001]
+        scale.keyTimes = refill ? [0, 0.07, 0.12, 1] : [0, 1]
+        let color = CAKeyframeAnimation(keyPath: "backgroundColor")
+        color.values = [
+            NSColor.systemCyan.cgColor,
+            NSColor.systemCyan.cgColor,
+            NSColor.systemOrange.cgColor,
+            NSColor.systemRed.cgColor
+        ]
+        color.keyTimes = [0, 0.62, 0.84, 1]
+        let group = CAAnimationGroup()
+        group.animations = [scale, color]
+        group.duration = refill ? lifetimeDuration : lifetimeDuration * Double(progress)
+        group.timingFunction = CAMediaTimingFunction(name: .linear)
+        lifetimeFill.add(group, forKey: "typing-lifetime")
     }
 
     func emitCursorEffect(at point: CGPoint?) {
@@ -1743,8 +1786,44 @@ private final class TypingFeedbackRenderer {
     func inject(to target: CGPoint, count: Int) {
         guard count > 0 else { return }
         let source = comboAnchor
-        setVisible(false)
         let color = NSColor.systemCyan
+        for layer in [comboGlow, comboValue, lifetimeTrack] {
+            let collapse = CAAnimationGroup()
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [1, 1.18, 0.12]
+            scale.keyTimes = [0, 0.36, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [1, 1, 0]
+            fade.keyTimes = [0, 0.4, 1]
+            collapse.animations = [scale, fade]
+            collapse.duration = 0.24
+            collapse.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            layer.opacity = 0
+            layer.add(collapse, forKey: "typing-collapse")
+        }
+        lifetimeFill.removeAnimation(forKey: "typing-lifetime")
+        let convergence = CAShapeLayer()
+        convergence.frame = effects.bounds
+        convergence.path = CGPath(ellipseIn: CGRect(x: source.x - 28, y: source.y - 28, width: 56, height: 56), transform: nil)
+        convergence.fillColor = NSColor.clear.cgColor
+        convergence.strokeColor = color.cgColor
+        convergence.lineWidth = count >= 20 ? 3.5 : 2.2
+        convergence.shadowColor = color.cgColor
+        convergence.shadowOpacity = 1
+        convergence.shadowRadius = 8
+        effects.addSublayer(convergence)
+        let converge = CAAnimationGroup()
+        let convergeScale = CABasicAnimation(keyPath: "transform.scale")
+        convergeScale.fromValue = 1.35
+        convergeScale.toValue = 0.16
+        let convergeFade = CAKeyframeAnimation(keyPath: "opacity")
+        convergeFade.values = [0, 1, 0]
+        convergeFade.keyTimes = [0, 0.28, 1]
+        converge.animations = [convergeScale, convergeFade]
+        converge.duration = 0.28
+        converge.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        convergence.add(converge, forKey: "typing-converge")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) { [weak convergence] in convergence?.removeFromSuperlayer() }
         let streamCount = min(18, max(7, count / 2))
         for index in 0..<streamCount {
             let particle = CALayer()
@@ -1756,6 +1835,7 @@ private final class TypingFeedbackRenderer {
             particle.shadowColor = color.cgColor
             particle.shadowOpacity = 1
             particle.shadowRadius = 5
+            particle.opacity = 0
             effects.addSublayer(particle)
             let path = CGMutablePath()
             let jitter = CGFloat(index - streamCount / 2) * 2.4
@@ -1774,9 +1854,11 @@ private final class TypingFeedbackRenderer {
             fade.keyTimes = [0, 0.12, 0.72, 1]
             let group = CAAnimationGroup()
             group.animations = [move, fade]
+            group.beginTime = CACurrentMediaTime() + 0.18 + Double(index) * 0.008
             group.duration = move.duration
             particle.add(group, forKey: "typing-energy-stream")
-            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.04) { [weak particle] in particle?.removeFromSuperlayer() }
+            let cleanupDelay = 0.22 + Double(index) * 0.008 + group.duration
+            DispatchQueue.main.asyncAfter(deadline: .now() + cleanupDelay) { [weak particle] in particle?.removeFromSuperlayer() }
         }
     }
 
@@ -1785,6 +1867,13 @@ private final class TypingFeedbackRenderer {
         comboGlow.opacity = opacity
         comboValue.opacity = opacity
         lifetimeTrack.opacity = opacity
+        if !visible {
+            lifetimeFill.removeAnimation(forKey: "typing-lifetime")
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            lifetimeFill.transform = CATransform3DMakeScale(0.001, 1, 1)
+            CATransaction.commit()
+        }
     }
 }
 

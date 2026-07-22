@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed the Energy-tier pulse keyframes and strengthened each upgrade or downgrade with ring compression, a line-weight impact, and staggered breakthrough or vent waves.
+- Moved the Typing Combo lifetime rail onto a continuous Core Animation drain, eliminating stepped rollback between low-frequency idle updates.
+- Choreographed prompt injection as a visible Combo collapse, convergence beat, and delayed particle stream into the orb.
 - Separated Typing Combo from the orb into a large adjacent `×N` counter, added optional cursor Sparks/Neon effects with accessibility and window fallbacks, and ignored deletion and shortcut keys.
 - Restricted Typing Combo injection to Codex's real `UserPromptSubmit` understanding event, removing unreliable Enter-key inference and sampling the rendered caret after the editor advances.
 - Followed Chromium editor carets through a read-only event tap and the deepest accessibility text area with real range-bound support; removed static composer/window coordinate fallbacks so cursor particles either follow the insertion point or stay hidden.

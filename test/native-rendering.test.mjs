@@ -72,4 +72,19 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
   assert.match(source, /stageShell\.path = CGPath\(ellipseIn:/);
+  assert.match(source, /forKey: "typing-lifetime"/);
+  assert.match(source, /CAKeyframeAnimation\(keyPath: "backgroundColor"\)/);
+  assert.match(source, /forKey: "typing-collapse"/);
+  assert.match(source, /forKey: "typing-converge"/);
+  assert.match(source, /forKey: "typing-energy-stream"/);
+});
+
+test("energy tier crossings use a complete multi-ring breakthrough choreography", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /pulse\.values = rising \? \[1, 1\.08, 1\.28, 0\.88, 1\.08, 1\]/);
+  assert.match(source, /pulse\.keyTimes = rising \? \[0, 0\.14, 0\.34, 0\.52, 0\.74, 1\]/);
+  assert.match(source, /forKey: rising \? "tier-ring-impact" : "tier-ring-collapse"/);
+  assert.match(source, /let flareCount = rising \? min\(4, 2 \+ crossings\) : 2/);
+  assert.match(source, /forKey: rising \? "energy-breakthrough" : "energy-vent"/);
 });
