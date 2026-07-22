@@ -54,4 +54,9 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /app\.bundleIdentifier == codexBundleIdentifier/);
   assert.doesNotMatch(source, /isCodexComposerFocused/);
   assert.doesNotMatch(source, /kAXTextAreaRole/);
+  assert.match(source, /\[36, 48, 51, 53, 76, 117, 123, 124, 125, 126\]/);
+  assert.match(source, /private final class TypingFeedbackRenderer/);
+  assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
+  assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
+  assert.match(source, /stageShell\.path = CGPath\(ellipseIn:/);
 });

@@ -3,6 +3,7 @@ const IDLE_BEHAVIORS = new Set(["hide", "orb"]);
 const LANGUAGES = new Set(["auto", "en", "zh-CN"]);
 const ACTIVITY_SOURCES = new Set(["focused", "global", "mix"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
+const CURSOR_EFFECTS = new Set(["off", "spark", "neon"]);
 const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
 const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);
 
@@ -59,6 +60,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const typingCombo = hasValue(environment, "CODEX_POWER_MODE_TYPING_COMBO")
     ? environment.CODEX_POWER_MODE_TYPING_COMBO !== "0"
     : settings.typingCombo === true;
+  const cursorEffect = hasValue(environment, "CODEX_POWER_MODE_CURSOR_EFFECT")
+    ? environment.CODEX_POWER_MODE_CURSOR_EFFECT
+    : settings.cursorEffect;
   return {
     schemaVersion: 1,
     preset: preset === "arcade" ? "arcade" : "focus",
@@ -74,6 +78,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     effectIntensity: EFFECT_INTENSITIES.has(effectIntensity) ? effectIntensity : "normal",
     showCombo,
     typingCombo,
+    cursorEffect: CURSOR_EFFECTS.has(cursorEffect) ? cursorEffect : "spark",
     positionX: storedNumber(settings.positionX),
     positionY: storedNumber(settings.positionY)
   };

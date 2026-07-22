@@ -23,6 +23,7 @@ test("native config reports defaults used by the overlay", () => {
     effectIntensity: "normal",
     showCombo: true,
     typingCombo: false,
+    cursorEffect: "spark",
     positionX: null,
     positionY: null
   });
@@ -42,6 +43,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_INTENSITY: "high",
     CODEX_POWER_MODE_SHOW_COMBO: "0",
     CODEX_POWER_MODE_TYPING_COMBO: "1",
+    CODEX_POWER_MODE_CURSOR_EFFECT: "neon",
     CODEX_POWER_MODE_ENABLED: "0"
   }), {
     schemaVersion: 1,
@@ -58,6 +60,7 @@ test("native config normalizes environment overrides", () => {
     effectIntensity: "high",
     showCombo: false,
     typingCombo: true,
+    cursorEffect: "neon",
     positionX: null,
     positionY: null
   });
@@ -81,6 +84,7 @@ test("native config preserves settings unless an environment override is provide
     effectIntensity: "low",
     showCombo: false,
     typingCombo: true,
+    cursorEffect: "spark",
     positionX: 0.42,
     positionY: 0.66
   };

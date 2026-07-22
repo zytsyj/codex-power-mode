@@ -126,6 +126,7 @@ private struct OverlaySettings: Codable, Equatable {
     var effectIntensity: String?
     var showCombo: Bool?
     var typingCombo: Bool?
+    var cursorEffect: String?
     var positionX: Double?
     var positionY: Double?
     var endpoint = "http://127.0.0.1:4737/api/stream"
@@ -187,6 +188,10 @@ private final class PowerModePreferences {
     }
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func toggleTypingCombo() { mutate { $0.typingCombo = !($0.typingCombo ?? false) } }
+    func setCursorEffect(_ value: String) {
+        guard ["off", "spark", "neon"].contains(value) else { return }
+        mutate { $0.cursorEffect = value }
+    }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
     func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "smart" } }
 
@@ -520,7 +525,7 @@ private final class OrbLayerRenderer {
             NSColor(calibratedRed: 1.00, green: 0.26, blue: 0.36, alpha: 1),
             NSColor(calibratedRed: 0.36, green: 1.00, blue: 0.62, alpha: 1)
         ]
-        return phaseColor.blended(withFraction: tier >= 5 ? 0.72 : 0.52, of: accents[tier]) ?? accents[tier]
+        return phaseColor.blended(withFraction: tier >= 5 ? 0.94 : tier >= 3 ? 0.86 : 0.76, of: accents[tier]) ?? accents[tier]
     }
 
     private func polygonPath(center: CGPoint = CGPoint(x: 46, y: 46), radius: CGFloat, sides: Int, rotation: CGFloat = -.pi / 2) -> CGPath {
@@ -535,29 +540,45 @@ private final class OrbLayerRenderer {
     }
 
     private func updateEnergyStageShape(tier: Int, color: NSColor) {
-        let coreInsets: [CGFloat] = [18, 16, 14.5, 13, 11.5, 10, 8.5, 7]
-        let inset = coreInsets[tier]
-        let coreFrame = CGRect(x: inset, y: inset, width: 92 - inset * 2, height: 92 - inset * 2)
+        let coreFrame = CGRect(x: 10, y: 10, width: 72, height: 72)
         core.frame = coreFrame
-        core.cornerRadius = tier <= 2 ? coreFrame.width / 2 : tier == 3 ? 22 : tier == 4 ? 17 : 13
+        core.cornerRadius = coreFrame.width / 2
         core.borderWidth = tier >= 6 ? 2.2 : tier >= 4 ? 1.5 : 1
         core.borderColor = color.withAlphaComponent(tier >= 5 ? 0.7 : 0.34).cgColor
-        inner.frame = coreFrame.insetBy(dx: tier >= 5 ? 7 : 5, dy: tier >= 5 ? 7 : 5)
-        inner.cornerRadius = tier <= 2 ? inner.frame.width / 2 : max(9, core.cornerRadius - 5)
+        inner.frame = coreFrame.insetBy(dx: 5, dy: 5)
+        inner.cornerRadius = inner.frame.width / 2
         stageShell.opacity = tier == 0 ? 0 : 1
         stageShell.strokeColor = color.withAlphaComponent(tier >= 5 ? 0.92 : 0.62).cgColor
         stageShell.lineWidth = tier >= 6 ? 2.3 : tier >= 4 ? 1.7 : 1.15
-        stageShell.lineDashPattern = tier == 2 ? [3, 5] : tier == 5 ? [8, 3] : tier == 6 ? [3, 2] : nil
-        let sides = tier <= 2 ? 24 : tier == 3 ? 6 : tier == 4 ? 8 : tier == 5 ? 10 : tier == 6 ? 12 : 16
-        stageShell.path = polygonPath(radius: tier >= 6 ? 30 : tier >= 4 ? 28 : 25, sides: sides, rotation: tier == 4 ? -.pi / 8 : -.pi / 2)
+        stageShell.lineDashPattern = tier == 2 ? [3, 5] : tier == 4 ? [12, 4] : tier == 5 ? [8, 3] : tier >= 6 ? [3, 2] : nil
+        stageShell.path = CGPath(ellipseIn: CGRect(x: 18, y: 18, width: 56, height: 56), transform: nil)
         stageShell.shadowColor = color.cgColor
-        stageShell.shadowOpacity = tier >= 5 ? 0.76 : tier >= 3 ? 0.42 : 0.18
-        stageShell.shadowRadius = tier >= 6 ? 8 : tier >= 4 ? 5 : 2
+        stageShell.shadowOpacity = tier >= 5 ? 0.9 : tier >= 3 ? 0.56 : 0.24
+        stageShell.shadowRadius = tier >= 6 ? 12 : tier >= 4 ? 7 : 3
         ticks.opacity = tier >= 3 ? Float(min(0.92, 0.22 + Double(tier) * 0.1)) : 0
         ticks.strokeColor = color.withAlphaComponent(0.72).cgColor
         ticks.lineDashPattern = tier >= 6 ? [1, 3] : tier >= 4 ? [3, 5] : [2, 8]
         halo.shadowRadius = tier >= 6 ? 24 : tier >= 4 ? 19 : 14
         halo.shadowOpacity = tier >= 6 ? 0.62 : tier >= 4 ? 0.42 : 0.26
+        halo.backgroundColor = color.withAlphaComponent(tier >= 5 ? 0.12 : tier >= 3 ? 0.075 : 0.04).cgColor
+        halo.shadowColor = color.cgColor
+        inner.colors = [
+            color.withAlphaComponent(tier >= 5 ? 0.34 : tier >= 3 ? 0.25 : 0.18).cgColor,
+            color.withAlphaComponent(0.07).cgColor,
+            NSColor.clear.cgColor
+        ]
+        sheen.opacity = tier >= 6 ? 0.28 : tier >= 4 ? 0.18 : 0.1
+        if tier >= 4, !reducedMotion, stageShell.animation(forKey: "energy-stage-spin") == nil {
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.fromValue = 0
+            spin.toValue = Double.pi * 2
+            spin.duration = tier >= 6 ? 2.6 : 4.2
+            spin.repeatCount = .infinity
+            spin.isRemovedOnCompletion = false
+            stageShell.add(spin, forKey: "energy-stage-spin")
+        } else if tier < 4 || reducedMotion {
+            stageShell.removeAnimation(forKey: "energy-stage-spin")
+        }
     }
 
     private func updateMixOrbit(_ state: PowerState, color: NSColor) {
@@ -670,63 +691,13 @@ private final class OrbLayerRenderer {
 
     func playTypingInjection(count: Int) {
         guard count > 0 else { return }
-        let color = NSColor(calibratedRed: 0.24, green: 0.88, blue: 1.00, alpha: 1)
-        typingValue.string = "×\(count)"
-        typingOrbit.opacity = 0
-        guard !reducedMotion else {
-            typingValue.opacity = 0
-            return
-        }
-        let streamCount = min(10, max(4, count / 4))
-        for index in 0..<streamCount {
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(streamCount) - .pi / 2
-            let start = CGPoint(x: 46 + cos(angle) * 43, y: 46 + sin(angle) * 43)
-            let spark = CALayer()
-            spark.bounds = CGRect(x: 0, y: 0, width: count >= 20 ? 5 : 3.5, height: count >= 20 ? 5 : 3.5)
-            spark.cornerRadius = spark.bounds.width / 2
-            spark.position = start
-            spark.backgroundColor = color.cgColor
-            spark.shadowColor = color.cgColor
-            spark.shadowOpacity = 0.95
-            spark.shadowRadius = 5
-            choreography.addSublayer(spark)
-            let path = CGMutablePath()
-            path.move(to: start)
-            path.addCurve(
-                to: CGPoint(x: 46, y: 46),
-                control1: CGPoint(x: 46 + cos(angle + 0.9) * 33, y: 46 + sin(angle + 0.9) * 33),
-                control2: CGPoint(x: 46 + cos(angle + 1.8) * 16, y: 46 + sin(angle + 1.8) * 16)
-            )
-            let move = CAKeyframeAnimation(keyPath: "position")
-            move.path = path
-            move.duration = 0.48 + Double(index) * 0.035
-            move.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = 1
-            fade.toValue = 0.15
-            fade.duration = move.duration
-            let group = CAAnimationGroup()
-            group.animations = [move, fade]
-            group.duration = move.duration
-            spark.add(group, forKey: "typing-stream")
-            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.04) { [weak spark] in spark?.removeFromSuperlayer() }
-        }
+        guard !reducedMotion else { return }
         let absorb = CAKeyframeAnimation(keyPath: "transform.scale")
-        absorb.values = [1, 0.82, count >= 20 ? 1.34 : 1.2, 0.96, 1]
+        absorb.values = [1, 0.86, count >= 20 ? 1.36 : 1.22, 0.95, 1]
         absorb.keyTimes = [0, 0.36, 0.58, 0.82, 1]
         absorb.duration = 0.82
         body.add(absorb, forKey: "typing-absorb")
-        typingValue.opacity = 0
-        let collapse = CAAnimationGroup()
-        let scale = CABasicAnimation(keyPath: "transform.scale")
-        scale.fromValue = 1.25
-        scale.toValue = 0.35
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0
-        collapse.animations = [scale, fade]
-        collapse.duration = 0.5
-        typingValue.add(collapse, forKey: "typing-collapse")
+        playBeatRing(color: NSColor.systemCyan, delay: 0.32, duration: 0.72, power: count >= 20 ? 1.45 : 1.12)
     }
 
     private func updateCombo(_ state: PowerState, color: NSColor, event: PowerEvent?) {
@@ -1656,9 +1627,172 @@ private final class OrbLayerRenderer {
 }
 
 @MainActor
+private final class TypingFeedbackRenderer {
+    private let preferences: PowerModePreferences
+    private let root = CALayer()
+    private let comboGlow = CATextLayer()
+    private let comboValue = CATextLayer()
+    private let lifetimeTrack = CALayer()
+    private let lifetimeFill = CALayer()
+    private let effects = CALayer()
+    private var comboAnchor = CGPoint.zero
+
+    init(hostLayer: CALayer, preferences: PowerModePreferences) {
+        self.preferences = preferences
+        root.masksToBounds = false
+        effects.masksToBounds = false
+        root.addSublayer(effects)
+        for label in [comboGlow, comboValue] {
+            label.bounds = CGRect(x: 0, y: 0, width: 124, height: 62)
+            label.alignmentMode = .center
+            label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+            label.font = NSFont.monospacedSystemFont(ofSize: 34, weight: .black)
+            label.fontSize = 34
+            label.string = ""
+            root.addSublayer(label)
+        }
+        comboGlow.foregroundColor = NSColor(calibratedRed: 0.18, green: 0.88, blue: 1, alpha: 0.28).cgColor
+        comboGlow.shadowColor = NSColor.systemCyan.cgColor
+        comboGlow.shadowOpacity = 1
+        comboGlow.shadowRadius = 14
+        comboValue.foregroundColor = NSColor.white.cgColor
+        comboValue.shadowColor = NSColor.systemCyan.cgColor
+        comboValue.shadowOpacity = 0.9
+        comboValue.shadowRadius = 5
+        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 80, height: 3)
+        lifetimeTrack.cornerRadius = 1.5
+        lifetimeTrack.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        root.addSublayer(lifetimeTrack)
+        lifetimeFill.bounds = lifetimeTrack.bounds
+        lifetimeFill.anchorPoint = CGPoint(x: 0, y: 0.5)
+        lifetimeFill.position = CGPoint(x: -40, y: 1.5)
+        lifetimeFill.cornerRadius = 1.5
+        lifetimeFill.backgroundColor = NSColor.systemCyan.cgColor
+        lifetimeFill.shadowColor = NSColor.systemCyan.cgColor
+        lifetimeFill.shadowOpacity = 0.9
+        lifetimeFill.shadowRadius = 4
+        lifetimeTrack.addSublayer(lifetimeFill)
+        setVisible(false)
+        hostLayer.addSublayer(root)
+    }
+
+    func layout(in bounds: CGRect, beside hud: CGRect) {
+        root.frame = bounds
+        effects.frame = bounds
+        let placeLeft = hud.midX > bounds.midX
+        let proposedX = placeLeft ? hud.minX - 66 : hud.maxX + 66
+        comboAnchor = CGPoint(
+            x: min(bounds.maxX - 70, max(bounds.minX + 70, proposedX)),
+            y: min(bounds.maxY - 44, max(bounds.minY + 44, hud.midY))
+        )
+        comboGlow.position = comboAnchor
+        comboValue.position = comboAnchor
+        lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 27)
+    }
+
+    func update(count: Int, progress: CGFloat, pulse: Bool = false) {
+        guard count > 0 else { setVisible(false); return }
+        let label = "×\(count)"
+        comboGlow.string = label
+        comboValue.string = label
+        lifetimeFill.transform = CATransform3DMakeScale(max(0.001, progress), 1, 1)
+        setVisible(true)
+        guard pulse, !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
+        let hit = CAKeyframeAnimation(keyPath: "transform.scale")
+        hit.values = count % 10 == 0 ? [1, 1.38, 0.9, 1.08, 1] : [1, 1.14, 0.96, 1]
+        hit.duration = count % 10 == 0 ? 0.38 : 0.16
+        comboValue.add(hit, forKey: "typing-combo-hit")
+        comboGlow.add(hit, forKey: "typing-combo-glow-hit")
+    }
+
+    func emitCursorEffect(at point: CGPoint?) {
+        guard let point,
+              preferences.settings.cursorEffect != "off",
+              !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
+        let neon = (preferences.settings.cursorEffect ?? "spark") == "neon"
+        let color = neon ? NSColor(calibratedRed: 0.95, green: 0.28, blue: 1, alpha: 1) : NSColor.systemCyan
+        let count = neon ? 8 : 4
+        for index in 0..<count {
+            let spark = CALayer()
+            let size: CGFloat = neon ? 4 : 3
+            spark.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            spark.cornerRadius = size / 2
+            spark.position = point
+            spark.backgroundColor = color.cgColor
+            spark.shadowColor = color.cgColor
+            spark.shadowOpacity = 1
+            spark.shadowRadius = neon ? 5 : 3
+            effects.addSublayer(spark)
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(count) + CGFloat.random(in: -0.24...0.24)
+            let distance = CGFloat.random(in: neon ? 16...30 : 9...18)
+            let move = CABasicAnimation(keyPath: "position")
+            move.fromValue = point
+            move.toValue = CGPoint(x: point.x + cos(angle) * distance, y: point.y + sin(angle) * distance)
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            let group = CAAnimationGroup()
+            group.animations = [move, fade]
+            group.duration = neon ? 0.42 : 0.28
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            spark.add(group, forKey: "cursor-spark")
+            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.03) { [weak spark] in spark?.removeFromSuperlayer() }
+        }
+    }
+
+    func inject(to target: CGPoint, count: Int) {
+        guard count > 0 else { return }
+        let source = comboAnchor
+        setVisible(false)
+        let color = NSColor.systemCyan
+        let streamCount = min(18, max(7, count / 2))
+        for index in 0..<streamCount {
+            let particle = CALayer()
+            let size: CGFloat = count >= 20 ? 5 : 3.5
+            particle.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            particle.cornerRadius = size / 2
+            particle.position = source
+            particle.backgroundColor = color.cgColor
+            particle.shadowColor = color.cgColor
+            particle.shadowOpacity = 1
+            particle.shadowRadius = 5
+            effects.addSublayer(particle)
+            let path = CGMutablePath()
+            let jitter = CGFloat(index - streamCount / 2) * 2.4
+            path.move(to: CGPoint(x: source.x, y: source.y + jitter))
+            path.addCurve(
+                to: target,
+                control1: CGPoint(x: source.x + (target.x - source.x) * 0.28, y: source.y + 72 + jitter),
+                control2: CGPoint(x: source.x + (target.x - source.x) * 0.72, y: target.y - 58 - jitter)
+            )
+            let move = CAKeyframeAnimation(keyPath: "position")
+            move.path = path
+            move.duration = 0.48 + Double(index) * 0.018
+            move.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 1, 0.18]
+            fade.keyTimes = [0, 0.12, 0.72, 1]
+            let group = CAAnimationGroup()
+            group.animations = [move, fade]
+            group.duration = move.duration
+            particle.add(group, forKey: "typing-energy-stream")
+            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.04) { [weak particle] in particle?.removeFromSuperlayer() }
+        }
+    }
+
+    private func setVisible(_ visible: Bool) {
+        let opacity: Float = visible ? 1 : 0
+        comboGlow.opacity = opacity
+        comboValue.opacity = opacity
+        lifetimeTrack.opacity = opacity
+    }
+}
+
+@MainActor
 private final class PowerModeView: NSView {
     private let preferences: PowerModePreferences
     private var orbRenderer: OrbLayerRenderer!
+    private var typingRenderer: TypingFeedbackRenderer!
     private let usesCompositorRenderer = true
     private var particles: [Particle] = []
     private var shockwaves: [Shockwave] = []
@@ -1730,7 +1864,9 @@ private final class PowerModeView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
         if let layer {
             orbRenderer = OrbLayerRenderer(hostLayer: layer, preferences: preferences)
+            typingRenderer = TypingFeedbackRenderer(hostLayer: layer, preferences: preferences)
             orbRenderer.layout(in: currentHudRect())
+            typingRenderer.layout(in: bounds, beside: currentHudRect())
             orbRenderer.apply(state: state, presentation: presentationSnapshot(), label: localizedOrbActivity())
             orbRenderer.setVisible(false, animated: false)
         }
@@ -1763,6 +1899,7 @@ private final class PowerModeView: NSView {
     override func layout() {
         super.layout()
         orbRenderer?.layout(in: currentHudRect())
+        typingRenderer?.layout(in: bounds, beside: currentHudRect())
     }
 
     private func refreshCompositor(event: PowerEvent? = nil, now: Date = Date()) {
@@ -1772,7 +1909,8 @@ private final class PowerModeView: NSView {
         orbRenderer.setConnected(streamConnected == true)
         orbRenderer.apply(state: state, presentation: presentation, label: localizedOrbActivity(presentation), event: event)
         let typingProgress = typingComboProgress(now: now)
-        orbRenderer.updateTypingCombo(count: typingProgress > 0 ? typingComboCount : 0, progress: typingProgress)
+        typingRenderer.layout(in: bounds, beside: currentHudRect(now: now))
+        typingRenderer.update(count: typingProgress > 0 ? typingComboCount : 0, progress: typingProgress)
         orbRenderer.setVisible(shouldShowHUD(now: now))
     }
 
@@ -2031,13 +2169,17 @@ private final class PowerModeView: NSView {
         if !usesCompositorRenderer { invalidateVisuals() }
     }
 
-    func handleTypingHit(count: Int, lastAt: Date, expiresAt: Date) {
+    func handleTypingHit(count: Int, lastAt: Date, expiresAt: Date, caretScreenPoint: CGPoint?) {
         typingComboCount = count
         typingComboLastAt = lastAt
         typingComboExpiresAt = expiresAt
         hudExpandedUntil = max(hudExpandedUntil, expiresAt)
         refreshCompositor()
-        orbRenderer.updateTypingCombo(count: count, progress: 1, pulse: true)
+        typingRenderer.update(count: count, progress: 1, pulse: true)
+        if let caretScreenPoint, let window {
+            let windowPoint = window.convertPoint(fromScreen: caretScreenPoint)
+            typingRenderer.emitCursorEffect(at: convert(windowPoint, from: nil))
+        }
         scheduleTick(highFrequency: false)
     }
 
@@ -2062,6 +2204,7 @@ private final class PowerModeView: NSView {
         typingComboCount = 0
         typingComboLastAt = nil
         typingComboExpiresAt = nil
+        typingRenderer.inject(to: reactorCenter(), count: count)
         orbRenderer.playTypingInjection(count: count)
         hudExpandedUntil = Date().addingTimeInterval(2.4)
         onTypingCharge?(count, sessionId)
@@ -3755,17 +3898,50 @@ private final class TypingComboMonitor {
     private func handle(_ event: NSEvent) {
         guard preferences.settings.typingCombo == true,
               isCodexFrontmost(),
-              ![36, 48, 53, 76, 123, 124, 125, 126].contains(Int(event.keyCode)) else { return }
+              event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
+              ![36, 48, 51, 53, 76, 117, 123, 124, 125, 126].contains(Int(event.keyCode)) else { return }
         let now = Date()
         count = now.timeIntervalSince(lastHit) <= comboWindow ? min(200, count + 1) : 1
         lastHit = now
-        view?.handleTypingHit(count: count, lastAt: now, expiresAt: now.addingTimeInterval(comboWindow))
+        view?.handleTypingHit(
+            count: count,
+            lastAt: now,
+            expiresAt: now.addingTimeInterval(comboWindow),
+            caretScreenPoint: caretScreenPoint()
+        )
     }
 
     private func isCodexFrontmost() -> Bool {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.bundleIdentifier == codexBundleIdentifier else { return false }
         return true
+    }
+
+    private func caretScreenPoint() -> CGPoint? {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier == codexBundleIdentifier else { return nil }
+        let application = AXUIElementCreateApplication(app.processIdentifier)
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
+              let focused = focusedValue as! AXUIElement? else { return nil }
+        var rangeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(focused, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
+              let rangeValue else { return nil }
+        var boundsValue: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            focused,
+            kAXBoundsForRangeParameterizedAttribute as CFString,
+            rangeValue,
+            &boundsValue
+        ) == .success,
+        let boundsValue,
+        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return nil }
+        var quartzRect = CGRect.zero
+        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &quartzRect) else { return nil }
+        let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
+            ?? NSScreen.main?.frame.maxY
+            ?? 0
+        return CGPoint(x: quartzRect.maxX + 8, y: mainTop - quartzRect.maxY + 5)
     }
 }
 
@@ -4030,6 +4206,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             ? preferences.text("Counts input rhythm only; never stores text", "只统计输入节奏，不保存文字")
             : preferences.text("Requires macOS Accessibility permission", "需要 macOS 辅助功能权限")
         menu.addItem(typing)
+        let cursorEffects = submenu(
+            title: preferences.text("Cursor effects", "光标特效"),
+            choices: [
+                ("off", preferences.text("Off", "关闭")),
+                ("spark", preferences.text("Sparks", "火花")),
+                ("neon", preferences.text("Neon burst", "霓虹爆发"))
+            ],
+            selected: preferences.settings.cursorEffect ?? "spark",
+            action: #selector(selectCursorEffect)
+        )
+        cursorEffects.isEnabled = preferences.settings.typingCombo ?? false
+        menu.addItem(cursorEffects)
         menu.addItem(submenu(
             title: preferences.text("Activity source", "动态来源"),
             choices: [
@@ -4143,6 +4331,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
     @objc private func toggleCombo() { preferences?.toggleCombo() }
     @objc private func toggleTypingCombo() { preferences?.toggleTypingCombo() }
+    @objc private func selectCursorEffect(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setCursorEffect(value) } }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
     @objc private func selectAutoHideDelay(_ sender: NSMenuItem) {

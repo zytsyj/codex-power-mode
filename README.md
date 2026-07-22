@@ -8,8 +8,8 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses a `0–999` Energy scale for useful progress, Confidence for verification evidence, and Risk for change scope; only evidence-backed completion reaches the verified peak.
-- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. Every tier changes the orb's size, shell geometry, nodes, glow, and core shape.
-- Optionally counts local typing rhythm while Codex is the foreground app. Sending a real prompt collapses `INPUT ×N` into an authenticated, bounded Energy injection without reading, storing, or transmitting text.
+- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. The orb stays circular while tier colors, glow depth, rings, ticks, and particle intensity escalate.
+- Optionally counts local typing rhythm while Codex is the foreground app. A large independent `×N` sits beside the orb, optional Sparks/Neon effects fire at the text cursor, and sending collapses the counter into an authenticated Energy stream without reading, storing, or transmitting text.
 - Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.
 - Supports Focus (hold the current conversation), Global (follow the latest conversation with isolated state), and Mix (one shared Energy/Combo pool for all Codex app conversations).
@@ -74,6 +74,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_INTENSITY=low|normal|high`: tune effect density independently of the semantic preset.
 - `CODEX_POWER_MODE_SHOW_COMBO=0`: hide the Combo bar and its decay animation.
 - `CODEX_POWER_MODE_TYPING_COMBO=1`: enable the macOS-only input rhythm Combo. Accessibility permission is required; text and key values are never stored or sent.
+- `CODEX_POWER_MODE_CURSOR_EFFECT=off|spark|neon`: choose the cursor-local typing effect independently from the large Typing Combo counter.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
 - `CODEX_POWER_MODE_IDLE`: `hide` (default) or `orb`.
