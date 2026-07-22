@@ -148,18 +148,18 @@ private func runEnergyRenderQA(directory: String) {
                     filename: "complete-\(variant.name)-\(theme)-\(completion).png"
                 )
             }
-            for cursorEffect in ["spark", "neon"] {
+            for cursorSample in [(effect: "spark", count: 12, label: "spark"), (effect: "neon", count: 12, label: "neon"), (effect: "neon", count: 20, label: "neon-milestone")] {
                 let preferences = PowerModePreferences(environment: [:])
                 preferences.setPreset(variant.preset)
-                preferences.setCursorEffect(cursorEffect)
+                preferences.setCursorEffect(cursorSample.effect)
                 if variant.reduced { preferences.toggleReducedMotion() }
                 let host = CALayer()
                 host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
                 host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
                 let typing = TypingFeedbackRenderer(hostLayer: host, preferences: preferences)
                 typing.layout(in: host.bounds, beside: CGRect(x: 120, y: 60, width: 60, height: 60))
-                typing.emitCursorEffect(at: CGPoint(x: 90, y: 90))
-                writeFrame(host: host, filename: "cursor-\(variant.name)-\(theme)-\(cursorEffect).png")
+                typing.emitCursorEffect(at: CGPoint(x: 90, y: 90), count: cursorSample.count)
+                writeFrame(host: host, filename: "cursor-\(variant.name)-\(theme)-\(cursorSample.label).png")
             }
         }
     }
@@ -1989,59 +1989,117 @@ private final class TypingFeedbackRenderer {
         lifetimeFill.add(group, forKey: "typing-lifetime")
     }
 
-    func emitCursorEffect(at point: CGPoint?) {
+    func emitCursorEffect(at point: CGPoint?, count: Int) {
         guard let point,
               preferences.settings.cursorEffect != "off",
               !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
         let neon = (preferences.settings.cursorEffect ?? "spark") == "neon"
-        let color = neon ? NSColor(calibratedRed: 0.95, green: 0.28, blue: 1, alpha: 1) : NSColor.systemCyan
-        let count = neon ? 10 : 6
-        let caretPulse = CAShapeLayer()
-        caretPulse.frame = effects.bounds
-        caretPulse.path = CGPath(ellipseIn: CGRect(x: point.x - 5, y: point.y - 9, width: 10, height: 18), transform: nil)
-        caretPulse.fillColor = NSColor.clear.cgColor
-        caretPulse.strokeColor = color.withAlphaComponent(neon ? 0.96 : 0.78).cgColor
-        caretPulse.lineWidth = neon ? 2.2 : 1.5
-        caretPulse.shadowColor = color.cgColor
-        caretPulse.shadowOpacity = 1
-        caretPulse.shadowRadius = neon ? 8 : 4
-        effects.addSublayer(caretPulse)
-        let pulseScale = CABasicAnimation(keyPath: "transform.scale")
-        pulseScale.fromValue = 0.55
-        pulseScale.toValue = neon ? 1.85 : 1.5
-        let pulseFade = CABasicAnimation(keyPath: "opacity")
-        pulseFade.fromValue = 1
-        pulseFade.toValue = 0
-        let pulse = CAAnimationGroup()
-        pulse.animations = [pulseScale, pulseFade]
-        pulse.duration = neon ? 0.46 : 0.34
-        pulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        caretPulse.add(pulse, forKey: "caret-pulse")
-        DispatchQueue.main.asyncAfter(deadline: .now() + pulse.duration + 0.03) { [weak caretPulse] in caretPulse?.removeFromSuperlayer() }
-        for index in 0..<count {
+        let arcade = preferences.settings.preset == "arcade"
+        let milestone = count == 5 || count == 10 || count == 20 || count == 40 || count == 80 || count == 120 || count == 200
+        let color: NSColor = count >= 40 ? .systemYellow
+            : count >= 20 ? NSColor(calibratedRed: 0.98, green: 0.30, blue: 0.72, alpha: 1)
+            : count >= 10 ? NSColor(calibratedRed: 0.62, green: 0.38, blue: 1, alpha: 1)
+            : .systemCyan
+        let secondary = neon ? NSColor.systemCyan : NSColor.white
+        let glyph = CAShapeLayer()
+        glyph.frame = effects.bounds
+        let glyphPath = CGMutablePath()
+        if neon {
+            glyphPath.move(to: CGPoint(x: point.x, y: point.y - 10))
+            glyphPath.addLine(to: CGPoint(x: point.x, y: point.y + 10))
+            glyphPath.move(to: CGPoint(x: point.x + 3, y: point.y - 7))
+            glyphPath.addLine(to: CGPoint(x: point.x + 3, y: point.y + 7))
+        } else {
+            glyphPath.move(to: CGPoint(x: point.x - 5, y: point.y - 5))
+            glyphPath.addLine(to: CGPoint(x: point.x, y: point.y + 2))
+            glyphPath.addLine(to: CGPoint(x: point.x + 5, y: point.y - 5))
+        }
+        glyph.path = glyphPath
+        glyph.fillColor = NSColor.clear.cgColor
+        glyph.strokeColor = color.withAlphaComponent(neon ? 0.96 : 0.84).cgColor
+        glyph.lineWidth = neon ? 2.2 : 1.6
+        glyph.lineCap = .round
+        glyph.lineJoin = .round
+        glyph.shadowColor = color.cgColor
+        glyph.shadowOpacity = 1
+        glyph.shadowRadius = neon ? 8 : 4
+        effects.addSublayer(glyph)
+        let glyphScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        glyphScale.values = neon ? [0.72, 1.18, 0.94] : [0.64, 1.26, 1]
+        glyphScale.keyTimes = [0, 0.42, 1]
+        let glyphFade = CAKeyframeAnimation(keyPath: "opacity")
+        glyphFade.values = [1, 0.86, 0]
+        glyphFade.keyTimes = [0, 0.46, 1]
+        let glyphPulse = CAAnimationGroup()
+        glyphPulse.animations = [glyphScale, glyphFade]
+        glyphPulse.duration = neon ? 0.42 : 0.28
+        glyphPulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        glyph.add(glyphPulse, forKey: neon ? "caret-neon" : "caret-spark-glyph")
+        DispatchQueue.main.asyncAfter(deadline: .now() + glyphPulse.duration + 0.03) { [weak glyph] in glyph?.removeFromSuperlayer() }
+
+        if milestone {
+            let milestoneRing = CAShapeLayer()
+            milestoneRing.frame = effects.bounds
+            milestoneRing.path = CGPath(ellipseIn: CGRect(x: point.x - 9, y: point.y - 9, width: 18, height: 18), transform: nil)
+            milestoneRing.fillColor = NSColor.clear.cgColor
+            milestoneRing.strokeColor = color.cgColor
+            milestoneRing.lineWidth = arcade ? 2.4 : 1.7
+            milestoneRing.lineDashPattern = neon ? [5, 3] : nil
+            milestoneRing.shadowColor = color.cgColor
+            milestoneRing.shadowOpacity = 1
+            milestoneRing.shadowRadius = arcade ? 9 : 6
+            effects.addSublayer(milestoneRing)
+            let milestoneScale = CABasicAnimation(keyPath: "transform.scale")
+            milestoneScale.fromValue = 0.62
+            milestoneScale.toValue = arcade ? 2.65 : 2.1
+            let milestoneFade = CABasicAnimation(keyPath: "opacity")
+            milestoneFade.fromValue = 1
+            milestoneFade.toValue = 0
+            let milestonePulse = CAAnimationGroup()
+            milestonePulse.animations = [milestoneScale, milestoneFade]
+            milestonePulse.duration = arcade ? 0.5 : 0.42
+            milestonePulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            milestoneRing.add(milestonePulse, forKey: "cursor-combo-milestone")
+            DispatchQueue.main.asyncAfter(deadline: .now() + milestonePulse.duration + 0.03) { [weak milestoneRing] in milestoneRing?.removeFromSuperlayer() }
+        }
+
+        let particleCount = neon
+            ? (milestone ? (arcade ? 8 : 6) : (arcade ? 4 : 3))
+            : (milestone ? (arcade ? 6 : 4) : (arcade ? 3 : 2))
+        for index in 0..<particleCount {
             let spark = CALayer()
-            let size: CGFloat = neon ? 4.8 : 3.8
-            spark.bounds = CGRect(x: 0, y: 0, width: size, height: size)
-            spark.cornerRadius = size / 2
+            let length: CGFloat = neon ? (milestone ? 6 : 4.5) : (milestone ? 7 : 5)
+            spark.bounds = neon
+                ? CGRect(x: 0, y: 0, width: length * 0.62, height: length * 0.62)
+                : CGRect(x: 0, y: 0, width: 1.5, height: length)
+            spark.cornerRadius = neon ? length * 0.31 : 0.75
             spark.position = point
-            spark.backgroundColor = color.cgColor
-            spark.shadowColor = color.cgColor
+            let particleColor = index.isMultiple(of: 3) ? secondary : color
+            spark.backgroundColor = particleColor.cgColor
+            spark.shadowColor = particleColor.cgColor
             spark.shadowOpacity = 1
-            spark.shadowRadius = neon ? 5 : 3
+            spark.shadowRadius = neon ? 6 : 3
             effects.addSublayer(spark)
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(count) + CGFloat.random(in: -0.24...0.24)
-            let distance = CGFloat.random(in: neon ? 16...30 : 9...18)
+            let phase = CGFloat(count % 7) * 0.11
+            let angle: CGFloat = neon
+                ? (-.pi / 2 + CGFloat(index) * .pi / CGFloat(max(1, particleCount - 1)) + phase * 0.3)
+                : (.pi * 0.18 + CGFloat(index) * .pi * 0.64 / CGFloat(max(1, particleCount - 1)) + phase)
+            let distance = (neon ? CGFloat(15 + index % 3 * 4) : CGFloat(9 + index % 3 * 3)) * (milestone ? 1.35 : 1)
             let move = CABasicAnimation(keyPath: "position")
             move.fromValue = point
             move.toValue = CGPoint(x: point.x + cos(angle) * distance, y: point.y + sin(angle) * distance)
+            if !neon { spark.setAffineTransform(CGAffineTransform(rotationAngle: angle - .pi / 2)) }
             let fade = CABasicAnimation(keyPath: "opacity")
             fade.fromValue = 1
             fade.toValue = 0
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = neon ? 1 : 0.86
+            scale.toValue = neon ? 0.18 : 0.42
             let group = CAAnimationGroup()
-            group.animations = [move, fade]
-            group.duration = neon ? 0.48 : 0.36
+            group.animations = [move, fade, scale]
+            group.duration = neon ? (milestone ? 0.5 : 0.38) : (milestone ? 0.36 : 0.26)
             group.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            spark.add(group, forKey: "cursor-spark")
+            spark.add(group, forKey: neon ? "cursor-neon-particle" : "cursor-spark")
             DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.03) { [weak spark] in spark?.removeFromSuperlayer() }
         }
     }
@@ -2530,7 +2588,7 @@ private final class PowerModeView: NSView {
         typingRenderer.update(count: count, progress: 1, pulse: true)
         if let caretScreenPoint, let window {
             let windowPoint = window.convertPoint(fromScreen: caretScreenPoint)
-            typingRenderer.emitCursorEffect(at: convert(windowPoint, from: nil))
+            typingRenderer.emitCursorEffect(at: convert(windowPoint, from: nil), count: count)
         }
         scheduleTick(highFrequency: false)
     }
