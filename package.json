@@ -18,6 +18,6 @@
     "replay": "node scripts/power-mode.mjs replay",
     "status": "node scripts/power-mode.mjs status",
     "test": "node --test",
-    "check": "node scripts/validate-manifest.mjs && node --check hooks/session-start.mjs && node --check hooks/power-mode-hook.mjs && node --check scripts/server.mjs && node --check overlay/app.js && node --test"
+    "check": "node scripts/validate-manifest.mjs && node scripts/validate-release-hygiene.mjs && node --check hooks/session-start.mjs && node --check hooks/power-mode-hook.mjs && node --check scripts/server.mjs && node --check overlay/app.js && node --test"
   }
 }

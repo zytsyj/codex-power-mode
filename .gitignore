@@ -3,3 +3,7 @@ node_modules/
 .power-mode/
 coverage/
 *.log
+/overlay-config.json
+/state.json
+/service-token
+/codex-power-mode-overlay
