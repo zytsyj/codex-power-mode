@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an explicit dependency and license inventory, third-party notice baseline, release checklist gates, and automated protection for the current zero-package private build.
 - Added public-readiness architecture, privacy, contribution, conduct, security, and release-checklist documentation while keeping the package private and the license explicitly unapproved until the owner makes that decision.
 - Extended `doctor` with a privacy-preserving native Accessibility check that distinguishes Typing Combo being disabled, missing macOS permission, granted permission, and a Codex input box that is not currently focused.
 - Added guarded maintenance commands to stop Power Mode, restore display defaults without losing history, and purge only a recognized Power Mode data directory before uninstalling; destructive commands require explicit `--yes` confirmation.

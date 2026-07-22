@@ -19,6 +19,8 @@ The repository must remain private until the owner explicitly authorizes publica
 ## Engineering acceptance
 
 - [ ] Run `npm run check`, plugin validation, skill validation, and macOS Swift compilation.
+- [ ] Reconfirm `docs/DEPENDENCIES.md`, upstream CI-action licenses, and `THIRD_PARTY_NOTICES.md`; document every newly bundled dependency or asset.
+- [ ] Decide whether public CI actions must be pinned to immutable commit SHAs.
 - [ ] Run `npm run doctor` after a fresh install and an upgrade.
 - [ ] Verify start/stop, settings reset, data purge, and plugin removal instructions on a clean account.
 - [ ] Verify loopback binding, authentication, origin validation, payload limits, and diagnostic redaction.
