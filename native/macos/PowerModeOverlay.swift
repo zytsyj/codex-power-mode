@@ -67,48 +67,74 @@ private func runEnergyRenderQA(directory: String) {
         ("arcade", "arcade", false),
         ("reduced", "focus", true)
     ]
+    func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, filename: String) {
+        let preferences = PowerModePreferences(environment: [:])
+        preferences.setPreset(variant.preset)
+        if variant.reduced { preferences.toggleReducedMotion() }
+        let host = CALayer()
+        host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+        host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+        let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
+        renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
+        let completionJSON = completion.map { ",\"completion\":\"\($0)\"" } ?? ""
+        let stateJSON = "{\"phase\":\"\(phase)\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Semantic QA\",\"sessionId\":\"qa\"\(completionJSON)}"
+        guard let state = try? JSONDecoder().decode(PowerState.self, from: Data(stateJSON.utf8)) else { return }
+        renderer.apply(
+            state: state,
+            presentation: (phase: phase, status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
+            label: phase.uppercased()
+        )
+        renderer.setVisible(true, animated: false)
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 180,
+            pixelsHigh: 180,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ), let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        host.render(in: context.cgContext)
+        NSGraphicsContext.restoreGraphicsState()
+        let file = destination.appendingPathComponent(filename)
+        if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
+    }
     for variant in variants {
         for dark in [false, true] {
+            let theme = dark ? "dark" : "light"
             for momentum in tiers {
-                let preferences = PowerModePreferences(environment: [:])
-                preferences.setPreset(variant.preset)
-                if variant.reduced { preferences.toggleReducedMotion() }
-                let host = CALayer()
-                host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
-                host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
-                let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
-                renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
-                let stateJSON = "{\"phase\":\"act\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Tier QA\",\"sessionId\":\"qa\"}"
-                guard let state = try? JSONDecoder().decode(PowerState.self, from: Data(stateJSON.utf8)) else { continue }
-                renderer.apply(
-                    state: state,
-                    presentation: (phase: "act", status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
-                    label: "ACT"
+                renderFrame(variant: variant, dark: dark, phase: "act", momentum: momentum, filename: "\(variant.name)-\(theme)-\(momentum).png")
+            }
+            for phase in ["observe", "act", "verify", "wait", "recover", "complete"] {
+                for momentum in [45, 580, 960] {
+                    renderFrame(
+                        variant: variant,
+                        dark: dark,
+                        phase: phase,
+                        momentum: momentum,
+                        completion: phase == "complete" ? "verified" : nil,
+                        filename: "matrix-\(variant.name)-\(theme)-\(phase)-\(momentum).png"
+                    )
+                }
+            }
+            for completion in ["verified", "unverified", "cancelled", "no-change"] {
+                renderFrame(
+                    variant: variant,
+                    dark: dark,
+                    phase: "complete",
+                    momentum: 820,
+                    completion: completion,
+                    filename: "complete-\(variant.name)-\(theme)-\(completion).png"
                 )
-                renderer.setVisible(true, animated: false)
-                guard let bitmap = NSBitmapImageRep(
-                    bitmapDataPlanes: nil,
-                    pixelsWide: 180,
-                    pixelsHigh: 180,
-                    bitsPerSample: 8,
-                    samplesPerPixel: 4,
-                    hasAlpha: true,
-                    isPlanar: false,
-                    colorSpaceName: .deviceRGB,
-                    bytesPerRow: 0,
-                    bitsPerPixel: 0
-                ), let context = NSGraphicsContext(bitmapImageRep: bitmap) else { continue }
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.current = context
-                host.render(in: context.cgContext)
-                NSGraphicsContext.restoreGraphicsState()
-                let theme = dark ? "dark" : "light"
-                let file = destination.appendingPathComponent("\(variant.name)-\(theme)-\(momentum).png")
-                if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
             }
         }
     }
-    fputs("Rendered native Energy QA frames to \(directory)\n", stdout)
+    fputs("Rendered native Energy and semantic QA frames to \(directory)\n", stdout)
 }
 
 private struct PowerState: Decodable {
@@ -318,6 +344,7 @@ private final class OrbLayerRenderer {
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
+    private let phaseRail = CAShapeLayer()
     private let beatRing = CAShapeLayer()
     private let comboTrack = CAShapeLayer()
     private let comboRing = CAShapeLayer()
@@ -339,6 +366,7 @@ private final class OrbLayerRenderer {
     private var lastEnergyValue = 0
     private var lastEnergyMotionSignature = ""
     private var phase = "idle"
+    private var completionStyle: String?
     private var rhythmGeneration = 0
     private var reducedMotion = false
     private var arcade = false
@@ -433,6 +461,9 @@ private final class OrbLayerRenderer {
         configureRing(energyRing, radius: 35.5, width: 3.2)
         energyRing.lineCap = .round
         energyRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+        configureRing(phaseRail, radius: 32.2, width: 1.45)
+        phaseRail.lineCap = .round
+        phaseRail.opacity = 0
         configureRing(beatRing, radius: 39.5, width: 1.4)
         beatRing.opacity = 0
         beatRing.lineCap = .round
@@ -548,9 +579,10 @@ private final class OrbLayerRenderer {
         lastEnergyTier = nextEnergyTier
         lastEnergyValue = presentation.momentum
         updateCombo(state, color: color, event: event)
-        if phase != nextPhase {
+        if phase != nextPhase || completionStyle != state.completion {
             phase = nextPhase
-            updateCoreSignature(nextPhase, color: color)
+            completionStyle = state.completion
+            updateCoreSignature(nextPhase, completion: state.completion, color: color)
             animateSemanticPhase(nextPhase)
             animateCorePhase(nextPhase)
             animateRhythmEntry(nextPhase, color: color)
@@ -1098,23 +1130,33 @@ private final class OrbLayerRenderer {
         semantic.add(animation, forKey: "semantic-phase")
     }
 
-    private func updateCoreSignature(_ phase: String, color: NSColor) {
+    private func updateCoreSignature(_ phase: String, completion: String?, color: NSColor) {
         signature.removeAllAnimations()
-        energyRing.removeAnimation(forKey: "phase-dash")
+        phaseRail.removeAnimation(forKey: "phase-dash")
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        signature.path = coreSignaturePath(phase)
+        signature.path = coreSignaturePath(phase, completion: completion)
         signature.strokeColor = color.withAlphaComponent(phase == "idle" ? 0.28 : 0.82).cgColor
         signature.shadowColor = color.cgColor
         signature.shadowOpacity = phase == "idle" ? 0.1 : arcade ? 0.72 : 0.42
         signature.shadowRadius = arcade ? 4.5 : 2.5
-        signature.lineWidth = arcade ? 1.9 : 1.55
+        signature.lineWidth = phase == "complete" ? (arcade ? 2.15 : 1.8) : (arcade ? 1.9 : 1.55)
+        signature.lineDashPattern = phase == "complete" && completion == "unverified" ? [4, 3]
+            : phase == "complete" && completion == "cancelled" ? [8, 5]
+            : nil
         signature.opacity = phase == "idle" ? 0.36 : 1
-        energyRing.lineDashPattern = phase == "observe" ? [3, 5]
+        phaseRail.opacity = phase == "idle" ? 0 : 0.88
+        phaseRail.strokeColor = color.withAlphaComponent(0.92).cgColor
+        phaseRail.shadowColor = color.cgColor
+        phaseRail.shadowOpacity = arcade ? 0.72 : 0.46
+        phaseRail.shadowRadius = arcade ? 4 : 2.4
+        phaseRail.lineWidth = phase == "wait" || phase == "recover" ? 1.8 : 1.45
+        phaseRail.lineDashPattern = phase == "observe" ? [3, 5]
             : phase == "act" ? [14, 3]
             : phase == "verify" ? [7, 3]
             : phase == "wait" ? [2, 7]
             : phase == "recover" ? [5, 3]
+            : phase == "complete" ? [18, 2]
             : nil
         CATransaction.commit()
         guard !reducedMotion, phase != "idle" else { return }
@@ -1169,11 +1211,11 @@ private final class OrbLayerRenderer {
             dash.toValue = phase == "act" ? -34 : -16
             dash.duration = phase == "act" ? 0.72 : 1.6
             dash.repeatCount = .infinity
-            energyRing.add(dash, forKey: "phase-dash")
+            phaseRail.add(dash, forKey: "phase-dash")
         }
     }
 
-    private func coreSignaturePath(_ phase: String) -> CGPath {
+    private func coreSignaturePath(_ phase: String, completion: String? = nil) -> CGPath {
         let path = CGMutablePath()
         let center = CGPoint(x: 46, y: 46)
         switch phase {
@@ -1222,10 +1264,29 @@ private final class OrbLayerRenderer {
             path.addLine(to: CGPoint(x: 35, y: 43))
             path.addLine(to: CGPoint(x: 49, y: 61))
         case "complete":
-            path.addArc(center: center, radius: 26, startAngle: 0.12, endAngle: 5.7, clockwise: false)
-            path.move(to: CGPoint(x: 58, y: 28))
-            path.addLine(to: CGPoint(x: 64, y: 34))
-            path.addLine(to: CGPoint(x: 76, y: 21))
+            switch completion {
+            case "verified":
+                path.addArc(center: center, radius: 26, startAngle: 0.12, endAngle: 5.7, clockwise: false)
+                path.move(to: CGPoint(x: 58, y: 28))
+                path.addLine(to: CGPoint(x: 64, y: 34))
+                path.addLine(to: CGPoint(x: 76, y: 21))
+            case "unverified":
+                path.addArc(center: center, radius: 26, startAngle: 0.35, endAngle: 5.2, clockwise: false)
+                path.move(to: CGPoint(x: 46, y: 27))
+                path.addLine(to: CGPoint(x: 46, y: 47))
+                path.addEllipse(in: CGRect(x: 44, y: 53, width: 4, height: 4))
+            case "cancelled":
+                path.addArc(center: center, radius: 26, startAngle: 0.3, endAngle: 2.55, clockwise: false)
+                path.addArc(center: center, radius: 26, startAngle: 3.45, endAngle: 5.7, clockwise: false)
+                path.move(to: CGPoint(x: 34, y: 34))
+                path.addLine(to: CGPoint(x: 58, y: 58))
+                path.move(to: CGPoint(x: 58, y: 34))
+                path.addLine(to: CGPoint(x: 34, y: 58))
+            default:
+                path.addEllipse(in: CGRect(x: 20, y: 20, width: 52, height: 52))
+                path.move(to: CGPoint(x: 34, y: 46))
+                path.addLine(to: CGPoint(x: 58, y: 46))
+            }
         default:
             path.addEllipse(in: CGRect(x: 22, y: 22, width: 48, height: 48))
         }

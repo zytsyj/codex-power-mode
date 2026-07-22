@@ -35,7 +35,10 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.match(source, /private let signature = CAShapeLayer\(\)/);
   assert.match(source, /private func updateCoreSignature/);
   assert.match(source, /private func coreSignaturePath/);
-  assert.match(source, /energyRing\.lineDashPattern/);
+  assert.match(source, /private let phaseRail = CAShapeLayer\(\)/);
+  assert.match(source, /phaseRail\.lineDashPattern/);
+  assert.match(source, /phaseRail\.add\(dash, forKey: "phase-dash"\)/);
+  assert.doesNotMatch(source, /energyRing\.add\(dash, forKey: "phase-dash"\)/);
   assert.match(source, /pulse\.keyTimes = \[0, 0\.1, 0\.2, 0\.32, 0\.44, 1\]/);
   assert.match(source, /private func hudBaseSize\(expanded: Bool\? = nil\) -> CGSize \{ CGSize\(width: 92, height: 92\) \}/);
   assert.match(source, /effectIntensity > 1\.2 \? 30 : 45/);
@@ -104,4 +107,20 @@ test("all seven energy tiers have distinct material, node, texture, and motion p
   assert.match(source, /private func runEnergyRenderQA/);
   assert.match(source, /"CODEX_POWER_MODE_RENDER_QA_DIR"/);
   assert.match(source, /let tiers = \[45, 170, 340, 580, 820, 960, 999\]/);
+  assert.match(source, /for phase in \["observe", "act", "verify", "wait", "recover", "complete"\]/);
+  assert.match(source, /for momentum in \[45, 580, 960\]/);
+  assert.match(source, /for completion in \["verified", "unverified", "cancelled", "no-change"\]/);
+});
+
+test("semantic phase grammar stays independent from energy progress and completion outcomes remain distinct", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /configureRing\(energyRing, radius: 35\.5/);
+  assert.match(source, /configureRing\(phaseRail, radius: 32\.2/);
+  assert.match(source, /phaseRail\.lineDashPattern = phase == "observe" \? \[3, 5\]/);
+  assert.match(source, /: phase == "complete" \? \[18, 2\]/);
+  assert.match(source, /signature\.path = coreSignaturePath\(phase, completion: completion\)/);
+  assert.match(source, /case "unverified":/);
+  assert.match(source, /case "cancelled":/);
+  assert.match(source, /completionStyle != state\.completion/);
 });
