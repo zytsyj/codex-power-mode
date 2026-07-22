@@ -11,8 +11,8 @@ import {
 } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
-import { connectionDiagnostics } from "../src/diagnostics.mjs";
-import { comboStage, energyLevel, initialState, presentationSnapshot, reduceState } from "../src/state.mjs";
+import { initialState, reduceState } from "../src/state.mjs";
+import { powerModeStatus } from "../src/status.mjs";
 import { readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -291,18 +291,7 @@ async function status() {
     readState(dataDir),
     readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => null)
   ]);
-  const presentation = presentationSnapshot(state);
-  return {
-    service: { running: Boolean(health), url: endpoint, ...(health ?? {}) },
-    nativeOverlay: { running: Boolean(nativePid), pid: nativePid, configuration: nativeConfiguration },
-    connection: connectionDiagnostics({ health, nativePid, state }),
-    presentation: {
-      ...presentation,
-      energyLevel: energyLevel(presentation.momentum),
-      comboStage: comboStage(state)
-    },
-    state
-  };
+  return powerModeStatus({ health, nativePid, nativeConfiguration, state, endpoint });
 }
 
 if (command === "start") {

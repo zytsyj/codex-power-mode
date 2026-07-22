@@ -6,7 +6,7 @@ test("activity tracker distinguishes real Codex events from demos", () => {
   const tracker = createActivityTracker();
 
   tracker.record({ type: "edit", timestamp: "2026-07-21T00:00:00.000Z", sessionId: "demo" });
-  tracker.record({ type: "turn-stop", timestamp: "2026-07-21T00:01:00.000Z", sessionId: "session-1" });
+  tracker.record({ type: "turn-stop", timestamp: "2026-07-21T00:01:00.000Z", sessionId: "session-1", sessionSource: "desktop" });
 
   assert.deepEqual(tracker.snapshot(), {
     eventsReceived: 2,
@@ -14,12 +14,14 @@ test("activity tracker distinguishes real Codex events from demos", () => {
     lastEvent: {
       type: "turn-stop",
       timestamp: "2026-07-21T00:01:00.000Z",
-      sessionId: "session-1"
+      sessionId: "session-1",
+      sessionSource: "desktop"
     },
     lastRealEvent: {
       type: "turn-stop",
       timestamp: "2026-07-21T00:01:00.000Z",
-      sessionId: "session-1"
+      sessionId: "session-1",
+      sessionSource: "desktop"
     }
   });
 });

@@ -9,7 +9,8 @@ export function createActivityTracker() {
       const summary = {
         type: event?.type ?? null,
         timestamp: event?.timestamp ?? null,
-        sessionId: event?.sessionId ?? null
+        sessionId: event?.sessionId ?? null,
+        sessionSource: event?.sessionSource ?? event?.state?.sessionSource ?? null
       };
       eventsReceived += 1;
       lastEvent = summary;

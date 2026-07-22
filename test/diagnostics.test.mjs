@@ -5,23 +5,26 @@ import { connectionDiagnostics } from "../src/diagnostics.mjs";
 const health = (lastRealEvent = null, clients = 1) => ({
   clients,
   activity: { lastRealEvent },
-  session: { activeSessionId: "session-a" }
+  session: { activeSessionId: "session-a", activeSessionSource: "desktop" }
 });
 
 test("connection diagnostics distinguish waiting, receiving, idle, and service-only states", () => {
   const now = Date.parse("2026-07-21T14:30:00.000Z");
-  const state = { sessionId: "session-a" };
+  const state = { sessionId: "session-a", sessionSource: "desktop" };
 
   assert.equal(connectionDiagnostics({ health: health(), nativePid: 10, state, now }).status, "waiting-for-task");
 
   const recent = connectionDiagnostics({
-    health: health({ type: "edit", timestamp: "2026-07-21T14:29:00.000Z", sessionId: "session-a" }),
+    health: health({ type: "edit", timestamp: "2026-07-21T14:29:00.000Z", sessionId: "session-a", sessionSource: "desktop" }),
     nativePid: 10,
     state,
     now
   });
   assert.equal(recent.status, "receiving");
   assert.equal(recent.lastRealEventAgeMs, 60_000);
+  assert.equal(recent.currentSessionSource, "desktop");
+  assert.equal(recent.lastRealEventType, "edit");
+  assert.equal(recent.lastRealEventSource, "desktop");
   assert.equal(recent.sessionMatchesLastEvent, true);
 
   const idle = connectionDiagnostics({

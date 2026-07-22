@@ -57,6 +57,7 @@ private func runPlacementGeometrySelfTest() {
 
 private struct PowerState: Decodable {
     let sessionId: String?
+    let sessionSource: String?
     let phase: String?
     let status: String?
     let momentum: Int?
@@ -85,6 +86,8 @@ private struct PowerState: Decodable {
 private struct PowerEvent: Decodable {
     let type: String
     let timestamp: String?
+    let preview: Bool?
+    let sessionSource: String?
     let addedLines: Int?
     let removedLines: Int?
     let addedChars: Int?
@@ -236,7 +239,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
+    private var state = PowerState(sessionId: nil, sessionSource: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -260,6 +263,8 @@ private final class PowerModeView: NSView {
     private var reducedFeedbackWasActive = false
     private var streamConnected: Bool?
     private var lastLiveEventAt: Date?
+    private var lastLiveEventType: String?
+    private var lastLiveEventSource: String?
     private var hudAlpha: CGFloat = 0
     private var effectGeneration = 0
     private var positioning = false
@@ -376,6 +381,31 @@ private final class PowerModeView: NSView {
         ]
         let phase = phaseLabels[presentation.phase] ?? presentation.phase.uppercased()
         return "\(preferences.text("Current display", "当前显示")): \(phase)  ·  \(preferences.text("ENERGY", "能量")) \(presentation.momentum)"
+    }
+
+    func rawStateSummary() -> String {
+        let phase = (state.phase ?? "unknown").uppercased()
+        let status = (state.status ?? "unknown").uppercased()
+        return "\(preferences.text("Task state", "任务原始状态")): \(phase)  ·  \(status)  ·  \(preferences.text("ENERGY", "能量")) \(state.momentum ?? 0)"
+    }
+
+    func sessionSourceSummary() -> String {
+        let source = state.sessionSource ?? lastLiveEventSource
+        let label = source == "desktop"
+            ? preferences.text("Codex Desktop", "Codex 桌面应用")
+            : preferences.text("Waiting for source", "等待来源")
+        return "\(preferences.text("Task origin", "任务来源")): \(label)"
+    }
+
+    func lastEventSummary(now: Date = Date()) -> String {
+        guard let lastLiveEventAt, let lastLiveEventType else {
+            return preferences.text("Last real event: none since service start", "最后真实事件：服务启动后暂无")
+        }
+        let age = max(0, Int(now.timeIntervalSince(lastLiveEventAt)))
+        let ageLabel = age < 60
+            ? preferences.text("just now", "刚刚")
+            : preferences.isChinese ? "\(age / 60) 分钟前" : "\(age / 60)m ago"
+        return "\(preferences.text("Last real event", "最后真实事件")): \(lastLiveEventType)  ·  \(ageLabel)"
     }
 
     func connectionSummary(now: Date = Date()) -> String {
@@ -510,7 +540,11 @@ private final class PowerModeView: NSView {
             needsDisplay = true
             return
         }
-        lastLiveEventAt = eventAt ?? Date()
+        if event.preview != true {
+            lastLiveEventAt = eventAt ?? Date()
+            lastLiveEventType = event.type
+            lastLiveEventSource = event.state?.sessionSource ?? event.sessionSource
+        }
         effectGeneration &+= 1
         let generation = effectGeneration
         let switchedSession = event.sessionTransition != nil
@@ -2236,20 +2270,27 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             let history = NSMenuItem(title: view.historySummary(), action: nil, keyEquivalent: "")
             history.isEnabled = false
             menu.addItem(history)
-            let display = NSMenuItem(title: view.displaySummary(), action: nil, keyEquivalent: "")
-            display.isEnabled = false
-            menu.addItem(display)
-            let connection = NSMenuItem(title: view.connectionSummary(), action: nil, keyEquivalent: "")
-            connection.isEnabled = false
-            menu.addItem(connection)
-            let source = NSMenuItem(title: view.activitySourceSummary(), action: nil, keyEquivalent: "")
-            source.isEnabled = false
-            menu.addItem(source)
+            let diagnostics = NSMenuItem(title: preferences.text("Status & connection", "状态与连接"), action: nil, keyEquivalent: "")
+            let diagnosticsMenu = NSMenu()
+            for diagnosticTitle in [
+                view.displaySummary(),
+                view.rawStateSummary(),
+                view.connectionSummary(),
+                view.lastEventSummary(),
+                view.activitySourceSummary(),
+                view.sessionSourceSummary()
+            ] {
+                let item = NSMenuItem(title: diagnosticTitle, action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                diagnosticsMenu.addItem(item)
+            }
             let summary = view.sessionSummary()
             let session = NSMenuItem(title: summary.title, action: nil, keyEquivalent: "")
             session.toolTip = summary.fullId
             session.isEnabled = false
-            menu.addItem(session)
+            diagnosticsMenu.addItem(session)
+            diagnostics.submenu = diagnosticsMenu
+            menu.addItem(diagnostics)
             let position = NSMenuItem(title: view.positionSummary(), action: nil, keyEquivalent: "")
             position.isEnabled = false
             menu.addItem(position)

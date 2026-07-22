@@ -2,6 +2,8 @@
 
 ## 0.6.23 - 2026-07-21
 
+- Grouped native diagnostics under a bilingual Status & Connection menu with separate HUD display, raw task state, last real event, task origin, following policy, and session identity rows.
+- Renamed status output to `hudDisplay` and `taskState`, and added current/last event source plus last real event type to connection diagnostics.
 - Suspended the browser HUD presentation timer after a settled auto-hide, with immediate wake-up on new activity, disconnect, and reconnect events.
 - Kept a 100 ms cadence only while energy or Combo is visibly changing and reduced static visible states to a one-second heartbeat.
 - Added an auto-hide delay setting with immediate, 2-second, and 6-second choices, so the quiet Idle orb can bridge the transition between energy settling and the HUD disappearing.

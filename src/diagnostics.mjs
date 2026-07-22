@@ -20,9 +20,12 @@ export function connectionDiagnostics({ health, nativePid, state, now = Date.now
     nativeOverlayRunning,
     hookActivity,
     currentSessionId: state?.sessionId ?? health?.session?.activeSessionId ?? null,
+    currentSessionSource: state?.sessionSource ?? health?.session?.activeSessionSource ?? null,
+    lastRealEventType: lastRealEvent?.type ?? null,
     lastRealEventAt: lastRealEvent?.timestamp ?? null,
     lastRealEventAgeMs: ageMs,
     lastRealEventSessionId: lastRealEvent?.sessionId ?? null,
+    lastRealEventSource: lastRealEvent?.sessionSource ?? null,
     sessionMatchesLastEvent: Boolean(state?.sessionId && lastRealEvent?.sessionId && state.sessionId === lastRealEvent.sessionId)
   };
 }

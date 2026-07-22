@@ -65,7 +65,7 @@ Run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" status
 ```
 
-Summarize phase, energy level, Combo stage, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `completion` is `verified`. If the service is running but `service.activity.realEventsReceived` stays at `0` after a tool call, explain that the Power Mode hooks still need to be reviewed and trusted in Codex.
+Read `hudDisplay` as the state currently visible after settling and decay, and `taskState` as the last raw task state. Summarize phase, energy level, Combo stage, momentum, confidence, risk, edited lines, and verification evidence. Call a completion verified only when `taskState.completion` is `verified`. If the service is running but `service.activity.realEventsReceived` stays at `0` after a tool call, explain that the Power Mode hooks still need to be reviewed and trusted in Codex.
 
 ## Behavior
 
