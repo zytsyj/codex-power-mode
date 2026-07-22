@@ -2077,41 +2077,41 @@ private final class TypingFeedbackRenderer {
         effects.masksToBounds = false
         root.addSublayer(effects)
         for label in [comboGlow, comboValue] {
-            label.bounds = CGRect(x: 0, y: 0, width: 92, height: 50)
+            label.bounds = CGRect(x: 0, y: 0, width: 112, height: 58)
             label.alignmentMode = .center
             label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-            label.font = NSFont.monospacedSystemFont(ofSize: 30, weight: .black)
-            label.fontSize = 30
+            label.font = NSFont.monospacedSystemFont(ofSize: 36, weight: .black)
+            label.fontSize = 36
             label.string = ""
             root.addSublayer(label)
         }
         comboGlow.foregroundColor = NSColor(calibratedRed: 0.18, green: 0.88, blue: 1, alpha: 0.28).cgColor
         comboGlow.shadowColor = NSColor.systemCyan.cgColor
         comboGlow.shadowOpacity = 1
-        comboGlow.shadowRadius = 9
+        comboGlow.shadowRadius = 11
         comboValue.foregroundColor = NSColor.white.cgColor
         comboValue.shadowColor = NSColor.systemCyan.cgColor
         comboValue.shadowOpacity = 0.9
-        comboValue.shadowRadius = 3
-        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 64, height: 3)
-        lifetimeTrack.cornerRadius = 1.5
+        comboValue.shadowRadius = 4
+        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 78, height: 4)
+        lifetimeTrack.cornerRadius = 2
         lifetimeTrack.backgroundColor = NSColor.systemCyan.withAlphaComponent(0.14).cgColor
         lifetimeTrack.borderWidth = 0
         lifetimeTrack.shadowOpacity = 0
         root.addSublayer(lifetimeTrack)
         lifetimeFill.bounds = lifetimeTrack.bounds
         lifetimeFill.anchorPoint = CGPoint(x: 0, y: 0.5)
-        lifetimeFill.position = CGPoint(x: -32, y: 1.5)
-        lifetimeFill.cornerRadius = 1.5
+        lifetimeFill.position = CGPoint(x: -39, y: 2)
+        lifetimeFill.cornerRadius = 2
         lifetimeFill.startPoint = CGPoint(x: 0, y: 0.5)
         lifetimeFill.endPoint = CGPoint(x: 1, y: 0.5)
         lifetimeFill.shadowColor = NSColor.systemCyan.cgColor
         lifetimeFill.shadowOpacity = 0.9
         lifetimeFill.shadowRadius = 3
         lifetimeTrack.addSublayer(lifetimeFill)
-        lifetimeCap.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
-        lifetimeCap.position = CGPoint(x: 62, y: 1.5)
-        lifetimeCap.cornerRadius = 2
+        lifetimeCap.bounds = CGRect(x: 0, y: 0, width: 5, height: 5)
+        lifetimeCap.position = CGPoint(x: 75.5, y: 2)
+        lifetimeCap.cornerRadius = 2.5
         lifetimeCap.backgroundColor = NSColor.white.cgColor
         lifetimeCap.shadowColor = NSColor.white.cgColor
         lifetimeCap.shadowOpacity = 1
@@ -2125,14 +2125,14 @@ private final class TypingFeedbackRenderer {
         root.frame = bounds
         effects.frame = bounds
         let placeLeft = hud.midX > bounds.midX
-        let proposedX = placeLeft ? hud.minX - 48 : hud.maxX + 48
+        let proposedX = placeLeft ? hud.minX - 58 : hud.maxX + 58
         comboAnchor = CGPoint(
-            x: min(bounds.maxX - 50, max(bounds.minX + 50, proposedX)),
-            y: min(bounds.maxY - 36, max(bounds.minY + 36, hud.midY))
+            x: min(bounds.maxX - 60, max(bounds.minX + 60, proposedX)),
+            y: min(bounds.maxY - 40, max(bounds.minY + 40, hud.midY))
         )
         comboGlow.position = comboAnchor
         comboValue.position = comboAnchor
-        lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 21)
+        lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 25)
     }
 
     func update(count: Int, progress: CGFloat, pulse: Bool = false) {
