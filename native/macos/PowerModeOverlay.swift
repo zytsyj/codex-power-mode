@@ -3867,9 +3867,12 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
 private final class TypingComboMonitor {
     private weak var view: PowerModeView?
     private let preferences: PowerModePreferences
-    private var monitor: Any?
+    private var fallbackMonitor: Any?
+    private var eventTap: CFMachPort?
+    private var eventTapSource: CFRunLoopSource?
     private var count = 0
     private var lastHit = Date.distantPast
+    private var cachedCaretElement: AXUIElement?
     private let comboWindow: TimeInterval = 2.0
     private let codexBundleIdentifier = "com.openai.codex"
 
@@ -3889,23 +3892,53 @@ private final class TypingComboMonitor {
             _ = AXIsProcessTrustedWithOptions(options)
         }
         guard AXIsProcessTrusted() else { return }
-        monitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            Task { @MainActor in self?.handle(event) }
+        let eventMask = CGEventMask(1) << CGEventType.keyDown.rawValue
+        eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: eventMask,
+            callback: { _, type, event, userInfo in
+                guard type == .keyDown, let userInfo else { return Unmanaged.passUnretained(event) }
+                let owner = Unmanaged<TypingComboMonitor>.fromOpaque(userInfo).takeUnretainedValue()
+                let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+                let flags = event.flags
+                MainActor.assumeIsolated { owner.handle(keyCode: keyCode, flags: flags) }
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        )
+        if let eventTap {
+            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+            eventTapSource = source
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+            CGEvent.tapEnable(tap: eventTap, enable: true)
+        } else {
+            fallbackMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+                var flags: CGEventFlags = []
+                if event.modifierFlags.contains(.command) { flags.insert(.maskCommand) }
+                if event.modifierFlags.contains(.control) { flags.insert(.maskControl) }
+                if event.modifierFlags.contains(.function) { flags.insert(.maskSecondaryFn) }
+                Task { @MainActor in self?.handle(keyCode: Int(event.keyCode), flags: flags) }
+            }
         }
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        if let fallbackMonitor { NSEvent.removeMonitor(fallbackMonitor) }
+        fallbackMonitor = nil
+        if let eventTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapSource, .commonModes) }
+        eventTapSource = nil
+        if let eventTap { CFMachPortInvalidate(eventTap) }
+        eventTap = nil
         count = 0
         lastHit = .distantPast
     }
 
-    private func handle(_ event: NSEvent) {
+    private func handle(keyCode: Int, flags: CGEventFlags) {
         guard preferences.settings.typingCombo == true, isCodexFrontmost() else { return }
-        let keyCode = Int(event.keyCode)
         if [36, 76].contains(keyCode) { return }
-        guard event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
+        guard flags.intersection([.maskCommand, .maskControl, .maskSecondaryFn]).isEmpty,
               ![48, 51, 53, 117, 123, 124, 125, 126].contains(keyCode) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
             self?.recordTypingHit()
@@ -3935,14 +3968,106 @@ private final class TypingComboMonitor {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.bundleIdentifier == codexBundleIdentifier else { return nil }
         let application = AXUIElementCreateApplication(app.processIdentifier)
-        var focusedValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
-              let focused = focusedValue as! AXUIElement? else { return nil }
+        guard let focused = caretElement(in: application) else { return nil }
         if let markerBounds = textMarkerCaretBounds(startingAt: focused) {
             return screenPoint(for: markerBounds)
         }
         guard let selectedBounds = selectedTextCaretBounds(for: focused) else { return nil }
         return screenPoint(for: selectedBounds)
+    }
+
+    private func caretElement(in application: AXUIElement) -> AXUIElement? {
+        if let cachedCaretElement, elementSupportsPreciseCaretBounds(cachedCaretElement) {
+            return cachedCaretElement
+        }
+        var focusedValue: CFTypeRef?
+        if AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
+           let focused = focusedValue as! AXUIElement? {
+            let resolved = descendantCaretElement(startingAt: focused) ?? focused
+            cachedCaretElement = resolved
+            return resolved
+        }
+        if let cachedCaretElement, elementIsFocused(cachedCaretElement) { return cachedCaretElement }
+
+        var windowValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(application, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
+              let focusedWindow = windowValue as! AXUIElement? else { return nil }
+        var queue = [focusedWindow]
+        var supportedCandidate: AXUIElement?
+        var visited = 0
+        while !queue.isEmpty, visited < 600 {
+            let element = queue.removeFirst()
+            visited += 1
+            if elementIsFocused(element) {
+                cachedCaretElement = element
+                return element
+            }
+            if supportedCandidate == nil, elementSupportsCaretBounds(element) {
+                supportedCandidate = element
+            }
+            var childrenValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+               let children = childrenValue as? [AXUIElement] {
+                queue.append(contentsOf: children)
+            }
+        }
+        cachedCaretElement = supportedCandidate
+        return supportedCandidate
+    }
+
+    private func descendantCaretElement(startingAt root: AXUIElement) -> AXUIElement? {
+        var queue: [(AXUIElement, Int)] = [(root, 0)]
+        var best: (element: AXUIElement, score: Int)?
+        var visited = 0
+        while !queue.isEmpty, visited < 600 {
+            let (element, depth) = queue.removeFirst()
+            visited += 1
+            let score = caretCapabilityScore(element) + depth
+            if score >= 100, score > (best?.score ?? -1) { best = (element, score) }
+            var childrenValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+               let children = childrenValue as? [AXUIElement] {
+                queue.append(contentsOf: children.map { ($0, depth + 1) })
+            }
+        }
+        return best?.element
+    }
+
+    private func caretCapabilityScore(_ element: AXUIElement) -> Int {
+        var attributes: CFArray?
+        var parameterized: CFArray?
+        guard AXUIElementCopyAttributeNames(element, &attributes) == .success,
+              AXUIElementCopyParameterizedAttributeNames(element, &parameterized) == .success,
+              let attributeNames = attributes as? [String],
+              let parameterNames = parameterized as? [String] else { return 0 }
+        var score = 0
+        if attributeNames.contains("AXSelectedTextMarkerRange"),
+           parameterNames.contains("AXBoundsForTextMarkerRange") { score = 220 }
+        if attributeNames.contains(kAXSelectedTextRangeAttribute as String),
+           parameterNames.contains(kAXBoundsForRangeParameterizedAttribute as String) { score = max(score, 180) }
+        var roleValue: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success,
+           let role = roleValue as? String,
+           [kAXTextAreaRole as String, kAXTextFieldRole as String].contains(role) { score += 40 }
+        if elementIsFocused(element) { score += 20 }
+        return score
+    }
+
+    private func elementIsFocused(_ element: AXUIElement) -> Bool {
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXFocusedAttribute as CFString, &focusedValue) == .success else { return false }
+        return focusedValue as? Bool == true
+    }
+
+    private func elementSupportsCaretBounds(_ element: AXUIElement) -> Bool {
+        var attributes: CFArray?
+        guard AXUIElementCopyAttributeNames(element, &attributes) == .success,
+              let names = attributes as? [String] else { return false }
+        return names.contains("AXSelectedTextMarkerRange") || names.contains(kAXSelectedTextRangeAttribute as String)
+    }
+
+    private func elementSupportsPreciseCaretBounds(_ element: AXUIElement) -> Bool {
+        caretCapabilityScore(element) >= 100
     }
 
     private func textMarkerCaretBounds(startingAt element: AXUIElement) -> CGRect? {
