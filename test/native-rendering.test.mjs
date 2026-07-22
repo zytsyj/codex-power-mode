@@ -15,14 +15,14 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.match(source, /private let beatRing = CAShapeLayer\(\)/);
   assert.match(source, /private func animateEventRhythm/);
   assert.match(source, /private func playBeatRing/);
-  assert.match(source, /private let choreography = CALayer\(\)/);
+  assert.match(source, /private let semanticEffects = CALayer\(\)/);
   assert.match(source, /private func playObserveCapture/);
   assert.match(source, /private func playActDrive/);
   assert.match(source, /private func playVerifyConvergence/);
   assert.match(source, /private func playWaitGates/);
   assert.match(source, /private func playRecoverFragments/);
   assert.match(source, /private func playCompleteRings/);
-  assert.match(source, /container\.insertSublayer\(choreography, above: beatRing\)/);
+  assert.match(source, /for effects in \[energyEffects, semanticEffects, comboEffects\]/);
   assert.match(source, /forKey: "evidence-track"/);
   assert.match(source, /layer\.compositingFilter = "screenBlendMode"/);
   assert.match(source, /private func animateParticleAlongPath/);
@@ -132,6 +132,13 @@ test("all seven energy tiers have distinct material, node, texture, and motion p
 test("semantic phase grammar stays independent from energy progress and completion outcomes remain distinct", async () => {
   const source = await readFile(overlaySource, "utf8");
 
+  assert.match(source, /private let energyEffects = CALayer\(\)/);
+  assert.match(source, /private let semanticEffects = CALayer\(\)/);
+  assert.match(source, /private let comboEffects = CALayer\(\)/);
+  assert.match(source, /semanticEffects\.sublayers\?\.forEach \{ \$0\.removeFromSuperlayer\(\) \}/);
+  assert.match(source, /private func updateSemanticContrast\(phase: String, tier: Int, color: NSColor\)/);
+  assert.match(source, /signatureBackdrop\.lineWidth = signature\.lineWidth \+ \(highEnergy \? 3\.2 : 2\.2\)/);
+  assert.match(source, /phaseRailBackdrop\.lineWidth = phaseRail\.lineWidth \+ \(highEnergy \? 2\.8 : 2\)/);
   assert.match(source, /configureRing\(energyRing, radius: 35\.5/);
   assert.match(source, /configureRing\(phaseRail, radius: 32\.2/);
   assert.match(source, /phaseRail\.lineDashPattern = phase == "observe" \? \[3, 5\]/);

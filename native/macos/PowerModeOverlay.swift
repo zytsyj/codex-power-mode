@@ -395,12 +395,14 @@ private final class OrbLayerRenderer {
     private let inner = CAGradientLayer()
     private let sheen = CAGradientLayer()
     private let tierAura = CAShapeLayer()
+    private let signatureBackdrop = CAShapeLayer()
     private let signature = CAShapeLayer()
     private let stageShell = CAShapeLayer()
     private let tierNodes = CAShapeLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
+    private let phaseRailBackdrop = CAShapeLayer()
     private let phaseRail = CAShapeLayer()
     private let beatRing = CAShapeLayer()
     private let comboTrack = CAShapeLayer()
@@ -414,7 +416,9 @@ private final class OrbLayerRenderer {
     private let typingValue = CATextLayer()
     private let connectionDot = CALayer()
     private let emitter = CAEmitterLayer()
-    private let choreography = CALayer()
+    private let energyEffects = CALayer()
+    private let semanticEffects = CALayer()
+    private let comboEffects = CALayer()
     private var comboAnimationGeneration = 0
     private var lastComboSignature = ""
     private var lastComboCount = 0
@@ -491,6 +495,13 @@ private final class OrbLayerRenderer {
         tierNodes.lineCap = .round
         body.addSublayer(tierNodes)
 
+        signatureBackdrop.frame = body.bounds
+        signatureBackdrop.fillColor = NSColor.clear.cgColor
+        signatureBackdrop.lineCap = .round
+        signatureBackdrop.lineJoin = .round
+        signatureBackdrop.opacity = 0
+        body.addSublayer(signatureBackdrop)
+
         signature.frame = body.bounds
         signature.fillColor = NSColor.clear.cgColor
         signature.lineCap = .round
@@ -518,6 +529,9 @@ private final class OrbLayerRenderer {
         configureRing(energyRing, radius: 35.5, width: 3.2)
         energyRing.lineCap = .round
         energyRing.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
+        configureRing(phaseRailBackdrop, radius: 32.2, width: 3.8)
+        phaseRailBackdrop.lineCap = .round
+        phaseRailBackdrop.opacity = 0
         configureRing(phaseRail, radius: 32.2, width: 1.45)
         phaseRail.lineCap = .round
         phaseRail.opacity = 0
@@ -543,9 +557,11 @@ private final class OrbLayerRenderer {
         emitter.emitterShape = .point
         emitter.renderMode = .additive
         container.insertSublayer(emitter, below: body)
-        choreography.frame = container.bounds
-        choreography.masksToBounds = false
-        container.insertSublayer(choreography, above: beatRing)
+        for effects in [energyEffects, semanticEffects, comboEffects] {
+            effects.frame = container.bounds
+            effects.masksToBounds = false
+            container.insertSublayer(effects, above: beatRing)
+        }
         updatePreferences()
     }
 
@@ -644,6 +660,7 @@ private final class OrbLayerRenderer {
             animateCorePhase(nextPhase)
             animateRhythmEntry(nextPhase, color: color)
         }
+        updateSemanticContrast(phase: nextPhase, tier: nextEnergyTier, color: color)
         if let event {
             if event.sessionTransition != nil { animateSessionTransition(color: color) }
             animateEventRhythm(event, phase: nextPhase, color: color)
@@ -896,7 +913,7 @@ private final class OrbLayerRenderer {
         let flareCount = rising ? min(arcade ? 7 : 5, 2 + crossings + next / 2) : 2
         for index in 0..<flareCount {
             let flare = CAShapeLayer()
-            flare.frame = choreography.bounds
+            flare.frame = energyEffects.bounds
             flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
             flare.fillColor = NSColor.clear.cgColor
             flare.strokeColor = (rising ? (index.isMultiple(of: 2) ? color : palette.secondary) : NSColor.systemOrange).cgColor
@@ -905,7 +922,7 @@ private final class OrbLayerRenderer {
             flare.shadowColor = flare.strokeColor
             flare.shadowOpacity = rising ? 0.95 : 0.58
             flare.shadowRadius = rising ? CGFloat(5 + next) : 3
-            choreography.addSublayer(flare)
+            energyEffects.addSublayer(flare)
             let group = CAAnimationGroup()
             let scale = CAKeyframeAnimation(keyPath: "transform.scale")
             scale.values = rising ? [0.68, 0.62, 0.9, 1.7 + Double(index) * 0.22] : [1.24, 1.08, 0.82]
@@ -922,7 +939,7 @@ private final class OrbLayerRenderer {
         }
         if rising {
             let seal = CAShapeLayer()
-            seal.frame = choreography.bounds
+            seal.frame = energyEffects.bounds
             seal.path = CGPath(ellipseIn: CGRect(x: 15, y: 15, width: 62, height: 62), transform: nil)
             seal.fillColor = NSColor.clear.cgColor
             seal.strokeColor = palette.secondary.cgColor
@@ -931,7 +948,7 @@ private final class OrbLayerRenderer {
             seal.shadowColor = palette.secondary.cgColor
             seal.shadowOpacity = next >= 5 ? 1 : 0.72
             seal.shadowRadius = CGFloat(4 + next)
-            choreography.addSublayer(seal)
+            energyEffects.addSublayer(seal)
             let establish = CAAnimationGroup()
             let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
             draw.values = [0, 0, 0.72, 1, 1]
@@ -1084,7 +1101,7 @@ private final class OrbLayerRenderer {
         comboRing.add(pulse, forKey: "combo-growth")
         comboValue.add(pulse, forKey: "combo-value-growth")
         let wave = CAShapeLayer()
-        wave.frame = choreography.bounds
+        wave.frame = comboEffects.bounds
         wave.path = CGPath(ellipseIn: CGRect(x: 1.5, y: 1.5, width: 89, height: 89), transform: nil)
         wave.fillColor = NSColor.clear.cgColor
         wave.strokeColor = color.cgColor
@@ -1092,7 +1109,7 @@ private final class OrbLayerRenderer {
         wave.shadowColor = color.cgColor
         wave.shadowOpacity = strong ? 0.9 : 0.58
         wave.shadowRadius = strong ? 8 : 4
-        choreography.addSublayer(wave)
+        comboEffects.addSublayer(wave)
         let group = CAAnimationGroup()
         let scale = CABasicAnimation(keyPath: "transform.scale")
         scale.fromValue = 0.9
@@ -1232,6 +1249,7 @@ private final class OrbLayerRenderer {
         phaseRail.removeAnimation(forKey: "phase-dash")
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        signatureBackdrop.path = coreSignaturePath(phase, completion: completion)
         signature.path = coreSignaturePath(phase, completion: completion)
         signature.strokeColor = color.withAlphaComponent(phase == "idle" ? 0.28 : 0.82).cgColor
         signature.shadowColor = color.cgColor
@@ -1255,6 +1273,8 @@ private final class OrbLayerRenderer {
             : phase == "recover" ? [5, 3]
             : phase == "complete" ? [18, 2]
             : nil
+        signatureBackdrop.lineDashPattern = signature.lineDashPattern
+        phaseRailBackdrop.lineDashPattern = phaseRail.lineDashPattern
         CATransaction.commit()
         guard !reducedMotion, phase != "idle" else { return }
         let animation: CAAnimation
@@ -1310,6 +1330,35 @@ private final class OrbLayerRenderer {
             dash.repeatCount = .infinity
             phaseRail.add(dash, forKey: "phase-dash")
         }
+    }
+
+    private func updateSemanticContrast(phase: String, tier: Int, color: NSColor) {
+        let highEnergy = tier >= 5
+        let peakEnergy = tier >= 7
+        let active = phase != "idle"
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        signature.strokeColor = color.withAlphaComponent(active ? 0.98 : 0.28).cgColor
+        signature.lineWidth = phase == "complete"
+            ? (arcade ? 2.3 : 1.95)
+            : (arcade ? 2.05 : 1.7)
+        signature.shadowColor = color.cgColor
+        signature.shadowOpacity = active ? (highEnergy ? 1 : arcade ? 0.72 : 0.48) : 0.1
+        signature.shadowRadius = highEnergy ? (peakEnergy ? 7 : 5.5) : arcade ? 4.5 : 2.8
+        signatureBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.74 : 0.5).cgColor
+        signatureBackdrop.lineWidth = signature.lineWidth + (highEnergy ? 3.2 : 2.2)
+        signatureBackdrop.opacity = active ? 1 : 0.2
+        phaseRail.strokeColor = color.cgColor
+        phaseRail.lineWidth = phase == "wait" || phase == "recover" ? (highEnergy ? 2.25 : 1.8) : (highEnergy ? 1.8 : 1.45)
+        phaseRail.shadowOpacity = active ? (highEnergy ? 0.95 : arcade ? 0.72 : 0.46) : 0
+        phaseRail.shadowRadius = highEnergy ? 5.5 : arcade ? 4 : 2.4
+        phaseRailBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.68 : 0.42).cgColor
+        phaseRailBackdrop.lineWidth = phaseRail.lineWidth + (highEnergy ? 2.8 : 2)
+        phaseRailBackdrop.opacity = active ? 0.9 : 0
+        semantic.shadowColor = NSColor.black.cgColor
+        semantic.shadowOpacity = active ? (highEnergy ? 0.95 : 0.62) : 0
+        semantic.shadowRadius = highEnergy ? 3.5 : 2
+        CATransaction.commit()
     }
 
     private func coreSignaturePath(_ phase: String, completion: String? = nil) -> CGPath {
@@ -1619,7 +1668,7 @@ private final class OrbLayerRenderer {
 
     private func playSemanticChoreography(phase: String, color: NSColor) {
         guard !reducedMotion, phase != "idle" else { return }
-        choreography.sublayers?.forEach { $0.removeFromSuperlayer() }
+        semanticEffects.sublayers?.forEach { $0.removeFromSuperlayer() }
         switch phase {
         case "observe": playObserveCapture(color: color)
         case "act": playActDrive(color: color)
@@ -1644,7 +1693,7 @@ private final class OrbLayerRenderer {
         layer.shadowRadius = arcade ? 4.5 : 2.8
         layer.compositingFilter = "screenBlendMode"
         layer.opacity = 0
-        choreography.addSublayer(layer)
+        semanticEffects.addSublayer(layer)
         return layer
     }
 
@@ -1764,7 +1813,7 @@ private final class OrbLayerRenderer {
             let lock = CGPoint(x: 46, y: 46)
             if index < (arcade ? 5 : 3) {
                 let track = CAShapeLayer()
-                track.frame = choreography.bounds
+                track.frame = semanticEffects.bounds
                 let path = CGMutablePath()
                 path.move(to: start)
                 path.addLine(to: align)
@@ -1777,7 +1826,7 @@ private final class OrbLayerRenderer {
                 track.shadowColor = color.cgColor
                 track.shadowOpacity = arcade ? 0.75 : 0.4
                 track.shadowRadius = arcade ? 4 : 2
-                choreography.addSublayer(track)
+                semanticEffects.addSublayer(track)
                 let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
                 draw.values = [0, 1, 1]
                 draw.keyTimes = [0, 0.64, 1]
@@ -1837,7 +1886,7 @@ private final class OrbLayerRenderer {
         let colors: [NSColor] = arcade ? [.systemGreen, .systemPurple, .systemCyan] : [.systemGreen]
         for (index, color) in colors.enumerated() {
             let ring = CAShapeLayer()
-            ring.frame = choreography.bounds
+            ring.frame = semanticEffects.bounds
             ring.path = CGPath(ellipseIn: CGRect(x: 10, y: 10, width: 72, height: 72), transform: nil)
             ring.fillColor = NSColor.clear.cgColor
             ring.strokeColor = color.cgColor
@@ -1846,7 +1895,7 @@ private final class OrbLayerRenderer {
             ring.shadowOpacity = arcade ? 0.9 : 0.55
             ring.shadowRadius = arcade ? 8 : 5
             ring.opacity = 0
-            choreography.addSublayer(ring)
+            semanticEffects.addSublayer(ring)
             let opacity = CAKeyframeAnimation(keyPath: "opacity")
             opacity.values = [0, 0.95, 0.5, 0]
             opacity.keyTimes = [0, 0.12, 0.48, 1]

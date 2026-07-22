@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Isolated Energy, semantic-state, and Combo choreography layers so simultaneous events no longer erase one another; high Energy now adds dark contrast underlays and stronger phase-colored signatures, rails, and glyph shadows so every state remains legible through Critical and Peak effects.
 - Lengthened Energy tier crossings into a readable fill-hold, compression, breakthrough, tier-seal, and settling rhythm; higher tiers now scale their impact width, alternating accent rings, glow, rotation, and aftershock density while Focus remains restrained and Arcade escalates further.
 - Split cursor feedback into restrained upward Spark shards and a dual-line Neon caret with orbiting glow particles; Typing Combo stages now shift the palette and trigger larger milestone rings at 5/10/20/40/80/120/200 without increasing steady-state layer load.
 - Restored cursor effects by enabling Codex's deep Chromium accessibility tree, traversing its navigation/row relations, collapsing the selected text-marker range to its real endpoint, accepting zero-width insertion rectangles, invalidating stale composer nodes, and strengthening the true-caret pulse without a fixed-position fallback.
