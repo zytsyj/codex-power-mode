@@ -35,6 +35,17 @@ private func idleGraceIsActive(now: Date, settledAt: Date?, delay: TimeInterval)
     return now < settledAt.addingTimeInterval(delay)
 }
 
+private func isUsableCaretBounds(_ bounds: CGRect) -> Bool {
+    guard !bounds.isNull,
+          bounds.origin.x.isFinite, bounds.origin.y.isFinite,
+          bounds.width.isFinite, bounds.height.isFinite,
+          bounds.width >= 0, bounds.height >= 0 else { return false }
+    // Chromium commonly exposes a collapsed insertion range as a zero-width
+    // rectangle. CGRect.isEmpty rejects that valid caret even when its height
+    // is the exact editor line height.
+    return bounds.width > 0 || bounds.height > 0
+}
+
 private func runPlacementGeometrySelfTest() {
     let view = CGRect(x: 0, y: 0, width: 900, height: 700)
     precondition(resolvedHudPlacementBounds(viewBounds: view, visibleBounds: nil) == CGRect(x: 12, y: 12, width: 876, height: 676))
@@ -54,6 +65,8 @@ private func runPlacementGeometrySelfTest() {
     precondition(!idleGraceIsActive(now: settledAt, settledAt: settledAt, delay: 0))
     precondition(idleGraceIsActive(now: settledAt.addingTimeInterval(1.9), settledAt: settledAt, delay: 2))
     precondition(!idleGraceIsActive(now: settledAt.addingTimeInterval(2), settledAt: settledAt, delay: 2))
+    precondition(isUsableCaretBounds(CGRect(x: 120, y: 240, width: 0, height: 19)))
+    precondition(!isUsableCaretBounds(.zero))
     fputs("HUD placement, inactive behavior, and auto-hide self-test passed\n", stdout)
 }
 
@@ -67,24 +80,7 @@ private func runEnergyRenderQA(directory: String) {
         ("arcade", "arcade", false),
         ("reduced", "focus", true)
     ]
-    func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, filename: String) {
-        let preferences = PowerModePreferences(environment: [:])
-        preferences.setPreset(variant.preset)
-        if variant.reduced { preferences.toggleReducedMotion() }
-        let host = CALayer()
-        host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
-        host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
-        let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
-        renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
-        let completionJSON = completion.map { ",\"completion\":\"\($0)\"" } ?? ""
-        let stateJSON = "{\"phase\":\"\(phase)\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Semantic QA\",\"sessionId\":\"qa\"\(completionJSON)}"
-        guard let state = try? JSONDecoder().decode(PowerState.self, from: Data(stateJSON.utf8)) else { return }
-        renderer.apply(
-            state: state,
-            presentation: (phase: phase, status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
-            label: phase.uppercased()
-        )
-        renderer.setVisible(true, animated: false)
+    func writeFrame(host: CALayer, filename: String) {
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil,
             pixelsWide: 180,
@@ -103,6 +99,26 @@ private func runEnergyRenderQA(directory: String) {
         NSGraphicsContext.restoreGraphicsState()
         let file = destination.appendingPathComponent(filename)
         if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
+    }
+    func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, filename: String) {
+        let preferences = PowerModePreferences(environment: [:])
+        preferences.setPreset(variant.preset)
+        if variant.reduced { preferences.toggleReducedMotion() }
+        let host = CALayer()
+        host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+        host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+        let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
+        renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
+        let completionJSON = completion.map { ",\"completion\":\"\($0)\"" } ?? ""
+        let stateJSON = "{\"phase\":\"\(phase)\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Semantic QA\",\"sessionId\":\"qa\"\(completionJSON)}"
+        guard let state = try? JSONDecoder().decode(PowerState.self, from: Data(stateJSON.utf8)) else { return }
+        renderer.apply(
+            state: state,
+            presentation: (phase: phase, status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
+            label: phase.uppercased()
+        )
+        renderer.setVisible(true, animated: false)
+        writeFrame(host: host, filename: filename)
     }
     for variant in variants {
         for dark in [false, true] {
@@ -131,6 +147,19 @@ private func runEnergyRenderQA(directory: String) {
                     completion: completion,
                     filename: "complete-\(variant.name)-\(theme)-\(completion).png"
                 )
+            }
+            for cursorEffect in ["spark", "neon"] {
+                let preferences = PowerModePreferences(environment: [:])
+                preferences.setPreset(variant.preset)
+                preferences.setCursorEffect(cursorEffect)
+                if variant.reduced { preferences.toggleReducedMotion() }
+                let host = CALayer()
+                host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+                host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+                let typing = TypingFeedbackRenderer(hostLayer: host, preferences: preferences)
+                typing.layout(in: host.bounds, beside: CGRect(x: 120, y: 60, width: 60, height: 60))
+                typing.emitCursorEffect(at: CGPoint(x: 90, y: 90))
+                writeFrame(host: host, filename: "cursor-\(variant.name)-\(theme)-\(cursorEffect).png")
             }
         }
     }
@@ -1966,10 +1995,32 @@ private final class TypingFeedbackRenderer {
               !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
         let neon = (preferences.settings.cursorEffect ?? "spark") == "neon"
         let color = neon ? NSColor(calibratedRed: 0.95, green: 0.28, blue: 1, alpha: 1) : NSColor.systemCyan
-        let count = neon ? 8 : 4
+        let count = neon ? 10 : 6
+        let caretPulse = CAShapeLayer()
+        caretPulse.frame = effects.bounds
+        caretPulse.path = CGPath(ellipseIn: CGRect(x: point.x - 5, y: point.y - 9, width: 10, height: 18), transform: nil)
+        caretPulse.fillColor = NSColor.clear.cgColor
+        caretPulse.strokeColor = color.withAlphaComponent(neon ? 0.96 : 0.78).cgColor
+        caretPulse.lineWidth = neon ? 2.2 : 1.5
+        caretPulse.shadowColor = color.cgColor
+        caretPulse.shadowOpacity = 1
+        caretPulse.shadowRadius = neon ? 8 : 4
+        effects.addSublayer(caretPulse)
+        let pulseScale = CABasicAnimation(keyPath: "transform.scale")
+        pulseScale.fromValue = 0.55
+        pulseScale.toValue = neon ? 1.85 : 1.5
+        let pulseFade = CABasicAnimation(keyPath: "opacity")
+        pulseFade.fromValue = 1
+        pulseFade.toValue = 0
+        let pulse = CAAnimationGroup()
+        pulse.animations = [pulseScale, pulseFade]
+        pulse.duration = neon ? 0.46 : 0.34
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        caretPulse.add(pulse, forKey: "caret-pulse")
+        DispatchQueue.main.asyncAfter(deadline: .now() + pulse.duration + 0.03) { [weak caretPulse] in caretPulse?.removeFromSuperlayer() }
         for index in 0..<count {
             let spark = CALayer()
-            let size: CGFloat = neon ? 4 : 3
+            let size: CGFloat = neon ? 4.8 : 3.8
             spark.bounds = CGRect(x: 0, y: 0, width: size, height: size)
             spark.cornerRadius = size / 2
             spark.position = point
@@ -1988,7 +2039,7 @@ private final class TypingFeedbackRenderer {
             fade.toValue = 0
             let group = CAAnimationGroup()
             group.animations = [move, fade]
-            group.duration = neon ? 0.42 : 0.28
+            group.duration = neon ? 0.48 : 0.36
             group.timingFunction = CAMediaTimingFunction(name: .easeOut)
             spark.add(group, forKey: "cursor-spark")
             DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.03) { [weak spark] in spark?.removeFromSuperlayer() }
@@ -4269,12 +4320,23 @@ private final class TypingComboMonitor {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.bundleIdentifier == codexBundleIdentifier else { return nil }
         let application = AXUIElementCreateApplication(app.processIdentifier)
-        guard let focused = caretElement(in: application) else { return nil }
-        if let markerBounds = textMarkerCaretBounds(startingAt: focused) {
-            return screenPoint(for: markerBounds)
+        if let cachedCaretElement,
+           let cachedBounds = caretBounds(startingAt: cachedCaretElement) {
+            return screenPoint(for: cachedBounds)
         }
-        guard let selectedBounds = selectedTextCaretBounds(for: focused) else { return nil }
-        return screenPoint(for: selectedBounds)
+        // Codex can replace the Chromium editor node after send, task switch,
+        // or composer resize. A stale AX node must never suppress a fresh walk.
+        cachedCaretElement = nil
+        guard let focused = caretElement(in: application) else { return nil }
+        guard let bounds = caretBounds(startingAt: focused) else {
+            cachedCaretElement = nil
+            return nil
+        }
+        return screenPoint(for: bounds)
+    }
+
+    private func caretBounds(startingAt element: AXUIElement) -> CGRect? {
+        textMarkerCaretBounds(startingAt: element) ?? selectedTextCaretBounds(for: element)
     }
 
     private func caretElement(in application: AXUIElement) -> AXUIElement? {
@@ -4388,7 +4450,7 @@ private final class TypingComboMonitor {
                 let boundsValue,
                 CFGetTypeID(boundsValue) == AXValueGetTypeID() {
                     var bounds = CGRect.zero
-                    if AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), !bounds.isNull, !bounds.isEmpty {
+                    if AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), isUsableCaretBounds(bounds) {
                         return bounds
                     }
                 }
@@ -4425,7 +4487,7 @@ private final class TypingComboMonitor {
         let boundsValue,
         CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return nil }
         var bounds = CGRect.zero
-        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), !bounds.isNull, !bounds.isEmpty else { return nil }
+        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &bounds), isUsableCaretBounds(bounds) else { return nil }
         return bounds
     }
 

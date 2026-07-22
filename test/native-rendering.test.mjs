@@ -73,6 +73,11 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.doesNotMatch(source, /focusedElementFallback/);
   assert.match(source, /private final class TypingFeedbackRenderer/);
   assert.match(source, /private func caretScreenPoint\(\) -> CGPoint\?/);
+  assert.match(source, /private func isUsableCaretBounds/);
+  assert.match(source, /bounds\.width > 0 \|\| bounds\.height > 0/);
+  assert.match(source, /cachedCaretElement = nil/);
+  assert.match(source, /private func caretBounds\(startingAt element: AXUIElement\)/);
+  assert.match(source, /forKey: "caret-pulse"/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
   assert.match(source, /stageShell\.path = CGPath\(ellipseIn:/);
   assert.match(source, /forKey: "typing-lifetime"/);
@@ -110,6 +115,7 @@ test("all seven energy tiers have distinct material, node, texture, and motion p
   assert.match(source, /for phase in \["observe", "act", "verify", "wait", "recover", "complete"\]/);
   assert.match(source, /for momentum in \[45, 580, 960\]/);
   assert.match(source, /for completion in \["verified", "unverified", "cancelled", "no-change"\]/);
+  assert.match(source, /for cursorEffect in \["spark", "neon"\]/);
 });
 
 test("semantic phase grammar stays independent from energy progress and completion outcomes remain distinct", async () => {

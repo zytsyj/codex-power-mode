@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Restored cursor effects for Chromium's zero-width insertion ranges, invalidated stale composer accessibility nodes after task changes, and strengthened the true-caret pulse without introducing a fixed-position fallback.
 - Separated semantic state grammar from the Energy progress ring with an independent inner rail, preserving Observe, Act, Verify, Wait, Recover, and four Complete outcomes across low, middle, and high Energy tiers.
 - Expanded native render QA into a state-by-Energy matrix covering light/dark, Focus, Arcade, Reduce Motion, and verified, unverified, cancelled, or no-change completion silhouettes.
 - Separated all seven Energy tiers with dedicated two-color materials, ring textures, node counts, glow depths, orbit directions, and breathing cadences while retaining one circular orb silhouette.
