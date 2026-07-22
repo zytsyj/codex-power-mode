@@ -40,6 +40,16 @@ export const initialState = Object.freeze({
 });
 
 export const ENERGY_MAX = 999;
+export const ENERGY_STAGES = Object.freeze([
+  Object.freeze({ name: "idle", lower: 0, upper: 0 }),
+  Object.freeze({ name: "awakening", lower: 1, upper: 99 }),
+  Object.freeze({ name: "charging", lower: 100, upper: 249 }),
+  Object.freeze({ name: "driving", lower: 250, upper: 449 }),
+  Object.freeze({ name: "high-energy", lower: 450, upper: 699 }),
+  Object.freeze({ name: "overload", lower: 700, upper: 899 }),
+  Object.freeze({ name: "critical", lower: 900, upper: 998 }),
+  Object.freeze({ name: "verified-peak", lower: 999, upper: 999 })
+]);
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 const clampEnergy = (value) => clamp(value, 0, ENERGY_MAX);
 export const COMBO_DECAY_MS = 12_000;
@@ -108,15 +118,27 @@ export function comboDisplayStatus(state, now = Date.now()) {
 }
 
 export function energyLevel(momentum = 0) {
+  return energyStage(momentum).name;
+}
+
+export function energyStage(momentum = 0) {
   const value = clampEnergy(momentum);
-  if (value <= 0) return "idle";
-  if (value < 100) return "awakening";
-  if (value < 250) return "charging";
-  if (value < 450) return "driving";
-  if (value < 700) return "high-energy";
-  if (value < 900) return "overload";
-  if (value < ENERGY_MAX) return "critical";
-  return "verified-peak";
+  const stage = ENERGY_STAGES.findLast((candidate) => value >= candidate.lower) ?? ENERGY_STAGES[0];
+  if (stage.upper <= stage.lower) return { ...stage, value, progress: value >= stage.upper ? 1 : 0 };
+  return {
+    ...stage,
+    value,
+    progress: clamp((value - stage.lower) / (stage.upper - stage.lower), 0, 1)
+  };
+}
+
+export function typingChargeForCombo(combo = 0) {
+  const count = Math.max(0, Math.min(200, Number.isFinite(combo) ? Math.floor(combo) : 0));
+  if (count >= 40) return 90;
+  if (count >= 20) return 55;
+  if (count >= 10) return 32;
+  if (count >= 5) return 16;
+  return count > 0 ? 6 : 0;
 }
 
 export function comboStage(state, now = Date.now()) {
@@ -271,6 +293,14 @@ export function reduceState(previous = initialState, event) {
     state.energyUpdatedAt = event.timestamp;
     state.lastActivitySignature = activitySignature(event);
     advanceCombo(state, event, 1, COMBO_HOLD_MS[state.phase] ?? 0, startsNewTurn);
+  } else if (event.type === "input-charge") {
+    state.phase = "observe";
+    state.status = "working";
+    state.currentActivity = "Understanding request";
+    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + typingChargeForCombo(event.inputCombo)));
+    state.lastActivityAt = event.timestamp;
+    state.energyUpdatedAt = event.timestamp;
+    state.completion = null;
   } else if (event.type === "permission-request") {
     state.phase = "wait";
     state.status = "needs-attention";

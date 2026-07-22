@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import QuartzCore
 
@@ -90,6 +91,7 @@ private struct PowerEvent: Decodable {
     let type: String
     let timestamp: String?
     let preview: Bool?
+    let sessionId: String?
     let sessionSource: String?
     let addedLines: Int?
     let removedLines: Int?
@@ -99,6 +101,7 @@ private struct PowerEvent: Decodable {
     let success: Bool?
     let phase: String?
     let toolGroup: String?
+    let inputCombo: Int?
     let state: PowerState?
     let sessionTransition: SessionTransition?
 }
@@ -122,6 +125,7 @@ private struct OverlaySettings: Codable, Equatable {
     var activitySource: String? = "focused"
     var effectIntensity: String?
     var showCombo: Bool?
+    var typingCombo: Bool?
     var positionX: Double?
     var positionY: Double?
     var endpoint = "http://127.0.0.1:4737/api/stream"
@@ -182,6 +186,7 @@ private final class PowerModePreferences {
         mutate { $0.inactiveBehavior = value }
     }
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
+    func toggleTypingCombo() { mutate { $0.typingCombo = !($0.typingCombo ?? false) } }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
     func resetPosition() { mutate { $0.positionX = nil; $0.positionY = nil; $0.edge = "smart" } }
 
@@ -248,6 +253,7 @@ private final class OrbLayerRenderer {
     private let inner = CAGradientLayer()
     private let sheen = CAGradientLayer()
     private let signature = CAShapeLayer()
+    private let stageShell = CAShapeLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -255,10 +261,12 @@ private final class OrbLayerRenderer {
     private let comboTrack = CAShapeLayer()
     private let comboRing = CAShapeLayer()
     private let mixOrbit = CAShapeLayer()
+    private let typingOrbit = CAShapeLayer()
     private let semantic = CATextLayer()
     private let value = CATextLayer()
     private let activity = CATextLayer()
     private let comboValue = CATextLayer()
+    private let typingValue = CATextLayer()
     private let connectionDot = CALayer()
     private let emitter = CAEmitterLayer()
     private let choreography = CALayer()
@@ -267,6 +275,7 @@ private final class OrbLayerRenderer {
     private var lastComboCount = 0
     private var lastComboStage = "idle"
     private var lastEnergyTier = 0
+    private var lastEnergyValue = 0
     private var phase = "idle"
     private var rhythmGeneration = 0
     private var reducedMotion = false
@@ -319,6 +328,12 @@ private final class OrbLayerRenderer {
         sheen.opacity = 0.1
         body.addSublayer(sheen)
 
+        stageShell.frame = body.bounds
+        stageShell.fillColor = NSColor.clear.cgColor
+        stageShell.lineCap = .round
+        stageShell.lineJoin = .round
+        body.addSublayer(stageShell)
+
         signature.frame = body.bounds
         signature.fillColor = NSColor.clear.cgColor
         signature.lineCap = .round
@@ -337,6 +352,10 @@ private final class OrbLayerRenderer {
         configureRing(mixOrbit, radius: 46, width: 1.2)
         mixOrbit.lineDashPattern = [2, 7]
         mixOrbit.opacity = 0
+        configureRing(typingOrbit, radius: 39.5, width: 2)
+        typingOrbit.lineCap = .round
+        typingOrbit.lineDashPattern = [3, 4]
+        typingOrbit.opacity = 0
         configureRing(energyTrack, radius: 35.5, width: 2.2)
         energyTrack.strokeColor = NSColor.white.withAlphaComponent(0.09).cgColor
         configureRing(energyRing, radius: 35.5, width: 3.2)
@@ -348,6 +367,8 @@ private final class OrbLayerRenderer {
 
         configureText(semantic, frame: CGRect(x: 38, y: 69, width: 16, height: 12), size: 8, weight: .semibold)
         configureText(comboValue, frame: CGRect(x: 28, y: 59, width: 36, height: 11), size: 7.5, weight: .bold)
+        configureText(typingValue, frame: CGRect(x: 14, y: 75, width: 64, height: 10), size: 6.4, weight: .bold)
+        typingValue.opacity = 0
         configureText(value, frame: CGRect(x: 14, y: 35, width: 64, height: 29), size: 24, weight: .bold)
         configureText(activity, frame: CGRect(x: 12, y: 23, width: 68, height: 12), size: 7.2, weight: .semibold)
 
@@ -430,27 +451,30 @@ private final class OrbLayerRenderer {
         halo.shadowColor = color.cgColor
         inner.colors = [color.withAlphaComponent(0.18).cgColor, color.withAlphaComponent(0.055).cgColor, NSColor.clear.cgColor]
         inner.borderColor = color.withAlphaComponent(0.18).cgColor
-        energyRing.strokeColor = color.cgColor
+        let nextEnergyTier = energyTier(presentation.momentum)
+        let stageColor = energyStageColor(tier: nextEnergyTier, phaseColor: color)
+        energyRing.strokeColor = stageColor.cgColor
         if event?.sessionTransition != nil, !reducedMotion {
             let fade = CATransition()
             fade.type = .fade
             fade.duration = 0.72
             value.add(fade, forKey: "session-value-crossfade")
         }
-        energyRing.strokeEnd = CGFloat(max(0, min(999, presentation.momentum))) / 999
+        energyRing.strokeEnd = energyStageProgress(presentation.momentum)
         value.string = "\(presentation.momentum)"
         activity.string = label
         activity.foregroundColor = NSColor.white.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.78).cgColor
         semantic.string = phaseGlyph(nextPhase, completion: state.completion)
         semantic.foregroundColor = color.cgColor
         CATransaction.commit()
-        updateEnergyStyle(presentation.momentum, color: color)
+        updateEnergyStyle(presentation.momentum, color: stageColor)
+        updateEnergyStageShape(tier: nextEnergyTier, color: stageColor)
         updateMixOrbit(state, color: color)
-        let nextEnergyTier = energyTier(presentation.momentum)
-        if nextEnergyTier != lastEnergyTier {
-            animateEnergyTierChange(from: lastEnergyTier, to: nextEnergyTier, color: color)
-            lastEnergyTier = nextEnergyTier
+        if nextEnergyTier != lastEnergyTier, event?.sessionTransition == nil {
+            animateEnergyTierChange(from: lastEnergyValue, to: presentation.momentum, color: stageColor)
         }
+        lastEnergyTier = nextEnergyTier
+        lastEnergyValue = presentation.momentum
         updateCombo(state, color: color, event: event)
         if phase != nextPhase {
             phase = nextPhase
@@ -474,6 +498,66 @@ private final class OrbLayerRenderer {
         energyRing.shadowColor = color.cgColor
         energyRing.shadowOpacity = momentum >= 700 ? 0.68 : momentum >= 250 ? 0.46 : 0.24
         energyRing.shadowRadius = momentum >= 900 ? 9 : momentum >= 700 ? 7 : momentum >= 250 ? 5 : 3
+    }
+
+    private func energyStageProgress(_ momentum: Int) -> CGFloat {
+        let value = max(0, min(999, momentum))
+        let tier = energyTier(value)
+        let bounds: [(Int, Int)] = [(0, 0), (1, 99), (100, 249), (250, 449), (450, 699), (700, 899), (900, 998), (999, 999)]
+        let range = bounds[tier]
+        guard range.1 > range.0 else { return value >= range.1 && value > 0 ? 1 : 0 }
+        return CGFloat(value - range.0) / CGFloat(range.1 - range.0)
+    }
+
+    private func energyStageColor(tier: Int, phaseColor: NSColor) -> NSColor {
+        let accents: [NSColor] = [
+            .systemGray,
+            NSColor(calibratedRed: 0.28, green: 0.76, blue: 0.95, alpha: 1),
+            NSColor(calibratedRed: 0.34, green: 0.86, blue: 0.70, alpha: 1),
+            NSColor(calibratedRed: 0.58, green: 0.53, blue: 1.00, alpha: 1),
+            NSColor(calibratedRed: 0.94, green: 0.42, blue: 0.92, alpha: 1),
+            NSColor(calibratedRed: 1.00, green: 0.55, blue: 0.20, alpha: 1),
+            NSColor(calibratedRed: 1.00, green: 0.26, blue: 0.36, alpha: 1),
+            NSColor(calibratedRed: 0.36, green: 1.00, blue: 0.62, alpha: 1)
+        ]
+        return phaseColor.blended(withFraction: tier >= 5 ? 0.72 : 0.52, of: accents[tier]) ?? accents[tier]
+    }
+
+    private func polygonPath(center: CGPoint = CGPoint(x: 46, y: 46), radius: CGFloat, sides: Int, rotation: CGFloat = -.pi / 2) -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<sides {
+            let angle = rotation + CGFloat(index) * 2 * .pi / CGFloat(sides)
+            let point = CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+            index == 0 ? path.move(to: point) : path.addLine(to: point)
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    private func updateEnergyStageShape(tier: Int, color: NSColor) {
+        let coreInsets: [CGFloat] = [18, 16, 14.5, 13, 11.5, 10, 8.5, 7]
+        let inset = coreInsets[tier]
+        let coreFrame = CGRect(x: inset, y: inset, width: 92 - inset * 2, height: 92 - inset * 2)
+        core.frame = coreFrame
+        core.cornerRadius = tier <= 2 ? coreFrame.width / 2 : tier == 3 ? 22 : tier == 4 ? 17 : 13
+        core.borderWidth = tier >= 6 ? 2.2 : tier >= 4 ? 1.5 : 1
+        core.borderColor = color.withAlphaComponent(tier >= 5 ? 0.7 : 0.34).cgColor
+        inner.frame = coreFrame.insetBy(dx: tier >= 5 ? 7 : 5, dy: tier >= 5 ? 7 : 5)
+        inner.cornerRadius = tier <= 2 ? inner.frame.width / 2 : max(9, core.cornerRadius - 5)
+        stageShell.opacity = tier == 0 ? 0 : 1
+        stageShell.strokeColor = color.withAlphaComponent(tier >= 5 ? 0.92 : 0.62).cgColor
+        stageShell.lineWidth = tier >= 6 ? 2.3 : tier >= 4 ? 1.7 : 1.15
+        stageShell.lineDashPattern = tier == 2 ? [3, 5] : tier == 5 ? [8, 3] : tier == 6 ? [3, 2] : nil
+        let sides = tier <= 2 ? 24 : tier == 3 ? 6 : tier == 4 ? 8 : tier == 5 ? 10 : tier == 6 ? 12 : 16
+        stageShell.path = polygonPath(radius: tier >= 6 ? 30 : tier >= 4 ? 28 : 25, sides: sides, rotation: tier == 4 ? -.pi / 8 : -.pi / 2)
+        stageShell.shadowColor = color.cgColor
+        stageShell.shadowOpacity = tier >= 5 ? 0.76 : tier >= 3 ? 0.42 : 0.18
+        stageShell.shadowRadius = tier >= 6 ? 8 : tier >= 4 ? 5 : 2
+        ticks.opacity = tier >= 3 ? Float(min(0.92, 0.22 + Double(tier) * 0.1)) : 0
+        ticks.strokeColor = color.withAlphaComponent(0.72).cgColor
+        ticks.lineDashPattern = tier >= 6 ? [1, 3] : tier >= 4 ? [3, 5] : [2, 8]
+        halo.shadowRadius = tier >= 6 ? 24 : tier >= 4 ? 19 : 14
+        halo.shadowOpacity = tier >= 6 ? 0.62 : tier >= 4 ? 0.42 : 0.26
     }
 
     private func updateMixOrbit(_ state: PowerState, color: NSColor) {
@@ -509,13 +593,29 @@ private final class OrbLayerRenderer {
         return 7
     }
 
-    private func animateEnergyTierChange(from previous: Int, to next: Int, color: NSColor) {
-        guard previous > 0, next > 0, !reducedMotion else { return }
+    private func animateEnergyTierChange(from previousValue: Int, to nextValue: Int, color: NSColor) {
+        let previous = energyTier(previousValue)
+        let next = energyTier(nextValue)
+        guard previousValue > 0, nextValue > 0, previous != next, !reducedMotion else { return }
         let rising = next > previous
+        let crossings = max(1, abs(next - previous))
+        let oldProgress = energyStageProgress(previousValue)
+        let newProgress = energyStageProgress(nextValue)
+        var ringValues: [CGFloat] = [oldProgress]
+        for _ in 0..<crossings {
+            ringValues.append(rising ? 1 : 0)
+            ringValues.append(rising ? 0 : 1)
+        }
+        ringValues.append(newProgress)
+        let ring = CAKeyframeAnimation(keyPath: "strokeEnd")
+        ring.values = ringValues
+        ring.duration = min(2.4, 0.56 * Double(crossings) + 0.2)
+        ring.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        energyRing.add(ring, forKey: rising ? "stage-fill-reset" : "stage-drain-restore")
         let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
-        pulse.values = rising ? [1, 1.04, 1.2, 0.97, 1] : [1, 0.94, 1.06, 1]
+        pulse.values = rising ? [1, 1.08, 1.28, 0.88, 1.08, 1] : [1, 0.84, 1.1, 0.9, 1]
         pulse.keyTimes = rising ? [0, 0.18, 0.46, 0.76, 1] : [0, 0.34, 0.68, 1]
-        pulse.duration = rising ? 0.7 : 0.5
+        pulse.duration = rising ? min(1.6, 0.72 + Double(crossings) * 0.18) : min(1.25, 0.58 + Double(crossings) * 0.14)
         pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         body.add(pulse, forKey: "energy-tier-body")
         let flare = CAShapeLayer()
@@ -523,7 +623,7 @@ private final class OrbLayerRenderer {
         flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
         flare.fillColor = NSColor.clear.cgColor
         flare.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
-        flare.lineWidth = rising ? CGFloat(1.6 + Double(next) * 0.34) : 1.8
+        flare.lineWidth = rising ? CGFloat(2.2 + Double(next) * 0.46) : 2.3
         flare.lineDashPattern = rising ? nil : [4, 5]
         flare.shadowColor = flare.strokeColor
         flare.shadowOpacity = rising ? 0.9 : 0.55
@@ -537,10 +637,96 @@ private final class OrbLayerRenderer {
         opacity.values = [0, 1, 0]
         opacity.keyTimes = [0, 0.2, 1]
         group.animations = [scale, opacity]
-        group.duration = rising ? 0.82 : 0.58
+        group.duration = rising ? min(1.6, 0.82 + Double(crossings) * 0.16) : min(1.2, 0.62 + Double(crossings) * 0.12)
         group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
         flare.add(group, forKey: rising ? "energy-breakthrough" : "energy-vent")
         DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.05) { [weak flare] in flare?.removeFromSuperlayer() }
+    }
+
+    func updateTypingCombo(count: Int, progress: CGFloat, pulse: Bool = false) {
+        guard count > 0 else {
+            typingOrbit.opacity = 0
+            typingValue.opacity = 0
+            typingValue.string = ""
+            return
+        }
+        let color = NSColor(calibratedRed: 0.24, green: 0.88, blue: 1.00, alpha: 1)
+        typingOrbit.opacity = 1
+        typingOrbit.strokeColor = color.cgColor
+        typingOrbit.shadowColor = color.cgColor
+        typingOrbit.shadowOpacity = 0.66
+        typingOrbit.shadowRadius = count >= 20 ? 8 : 4
+        typingOrbit.strokeEnd = progress
+        typingValue.opacity = 1
+        typingValue.foregroundColor = color.cgColor
+        typingValue.string = "INPUT ×\(count)"
+        guard pulse, !reducedMotion else { return }
+        let hit = CAKeyframeAnimation(keyPath: "transform.scale")
+        hit.values = count % 10 == 0 ? [1, 1.26, 0.94, 1] : [1, 1.1, 1]
+        hit.duration = count % 10 == 0 ? 0.34 : 0.16
+        typingValue.add(hit, forKey: "typing-hit")
+        typingOrbit.add(hit, forKey: "typing-orbit-hit")
+    }
+
+    func playTypingInjection(count: Int) {
+        guard count > 0 else { return }
+        let color = NSColor(calibratedRed: 0.24, green: 0.88, blue: 1.00, alpha: 1)
+        typingValue.string = "×\(count)"
+        typingOrbit.opacity = 0
+        guard !reducedMotion else {
+            typingValue.opacity = 0
+            return
+        }
+        let streamCount = min(10, max(4, count / 4))
+        for index in 0..<streamCount {
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(streamCount) - .pi / 2
+            let start = CGPoint(x: 46 + cos(angle) * 43, y: 46 + sin(angle) * 43)
+            let spark = CALayer()
+            spark.bounds = CGRect(x: 0, y: 0, width: count >= 20 ? 5 : 3.5, height: count >= 20 ? 5 : 3.5)
+            spark.cornerRadius = spark.bounds.width / 2
+            spark.position = start
+            spark.backgroundColor = color.cgColor
+            spark.shadowColor = color.cgColor
+            spark.shadowOpacity = 0.95
+            spark.shadowRadius = 5
+            choreography.addSublayer(spark)
+            let path = CGMutablePath()
+            path.move(to: start)
+            path.addCurve(
+                to: CGPoint(x: 46, y: 46),
+                control1: CGPoint(x: 46 + cos(angle + 0.9) * 33, y: 46 + sin(angle + 0.9) * 33),
+                control2: CGPoint(x: 46 + cos(angle + 1.8) * 16, y: 46 + sin(angle + 1.8) * 16)
+            )
+            let move = CAKeyframeAnimation(keyPath: "position")
+            move.path = path
+            move.duration = 0.48 + Double(index) * 0.035
+            move.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0.15
+            fade.duration = move.duration
+            let group = CAAnimationGroup()
+            group.animations = [move, fade]
+            group.duration = move.duration
+            spark.add(group, forKey: "typing-stream")
+            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.04) { [weak spark] in spark?.removeFromSuperlayer() }
+        }
+        let absorb = CAKeyframeAnimation(keyPath: "transform.scale")
+        absorb.values = [1, 0.82, count >= 20 ? 1.34 : 1.2, 0.96, 1]
+        absorb.keyTimes = [0, 0.36, 0.58, 0.82, 1]
+        absorb.duration = 0.82
+        body.add(absorb, forKey: "typing-absorb")
+        typingValue.opacity = 0
+        let collapse = CAAnimationGroup()
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 1.25
+        scale.toValue = 0.35
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        collapse.animations = [scale, fade]
+        collapse.duration = 0.5
+        typingValue.add(collapse, forKey: "typing-collapse")
     }
 
     private func updateCombo(_ state: PowerState, color: NSColor, event: PowerEvent?) {
@@ -1510,6 +1696,9 @@ private final class PowerModeView: NSView {
     private var effectGeneration = 0
     private var positioning = false
     private var positioningHint = ""
+    private var typingComboCount = 0
+    private var typingComboLastAt: Date?
+    private var typingComboExpiresAt: Date?
     private var dragOffset: CGPoint?
     private var dragPosition: CGPoint?
     private let isoDateFormatter: ISO8601DateFormatter = {
@@ -1518,6 +1707,7 @@ private final class PowerModeView: NSView {
         return formatter
     }()
     var onPositioningFinished: (() -> Void)?
+    var onTypingCharge: ((Int, String) -> Void)?
     private var reducedMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || preferences.settings.reducedMotion }
     private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
     private var effectIntensity: CGFloat {
@@ -1581,6 +1771,8 @@ private final class PowerModeView: NSView {
         orbRenderer.layout(in: currentHudRect(now: now))
         orbRenderer.setConnected(streamConnected == true)
         orbRenderer.apply(state: state, presentation: presentation, label: localizedOrbActivity(presentation), event: event)
+        let typingProgress = typingComboProgress(now: now)
+        orbRenderer.updateTypingCombo(count: typingProgress > 0 ? typingComboCount : 0, progress: typingProgress)
         orbRenderer.setVisible(shouldShowHUD(now: now))
     }
 
@@ -1839,7 +2031,44 @@ private final class PowerModeView: NSView {
         if !usesCompositorRenderer { invalidateVisuals() }
     }
 
+    func handleTypingHit(count: Int, lastAt: Date, expiresAt: Date) {
+        typingComboCount = count
+        typingComboLastAt = lastAt
+        typingComboExpiresAt = expiresAt
+        hudExpandedUntil = max(hudExpandedUntil, expiresAt)
+        refreshCompositor()
+        orbRenderer.updateTypingCombo(count: count, progress: 1, pulse: true)
+        scheduleTick(highFrequency: false)
+    }
+
+    private func typingComboProgress(now: Date = Date()) -> CGFloat {
+        guard preferences.settings.typingCombo == true,
+              typingComboCount > 0,
+              let lastAt = typingComboLastAt,
+              let expiresAt = typingComboExpiresAt,
+              now < expiresAt else { return 0 }
+        let duration = max(0.1, expiresAt.timeIntervalSince(lastAt))
+        return CGFloat(max(0, min(1, expiresAt.timeIntervalSince(now) / duration)))
+    }
+
+    private func consumeTypingCombo(for event: PowerEvent) {
+        guard event.preview != true,
+              event.type == "activity-start",
+              event.toolGroup == "prompt",
+              typingComboProgress() > 0,
+              typingComboCount > 0,
+              let sessionId = event.sessionId, !sessionId.isEmpty else { return }
+        let count = typingComboCount
+        typingComboCount = 0
+        typingComboLastAt = nil
+        typingComboExpiresAt = nil
+        orbRenderer.playTypingInjection(count: count)
+        hudExpandedUntil = Date().addingTimeInterval(2.4)
+        onTypingCharge?(count, sessionId)
+    }
+
     func handle(_ event: PowerEvent) {
+        consumeTypingCombo(for: event)
         let eventAt = event.timestamp.flatMap(isoDateFormatter.date(from:))
         let previousEnergyLevel = energyLevel(state.momentum ?? 0).name
         if let nextState = event.state {
@@ -2099,6 +2328,7 @@ private final class PowerModeView: NSView {
         switch event.type {
         case "activity-start":
             return event.phase == "verify" ? "verify" : event.phase == "act" ? "act" : "focus"
+        case "input-charge": return "focus"
         case "permission-request": return "wait"
         case "edit": return "act"
         case "edit-failure": return "recover"
@@ -2123,6 +2353,7 @@ private final class PowerModeView: NSView {
         case "activity-start":
             if event.toolGroup == "prompt" { return preferences.text("UNDERSTANDING REQUEST", "正在理解需求") }
             return event.phase == "observe" ? preferences.text("READING CONTEXT", "正在读取上下文") : event.phase == "verify" ? preferences.text("BUILDING EVIDENCE", "正在建立验证证据") : preferences.text("STARTING TOOL", "正在执行工具")
+        case "input-charge": return preferences.text("INPUT COMBO ABSORBED", "输入连击已注能") + "  ×\(event.inputCombo ?? 0)"
         case "permission-request": return preferences.text("WAITING FOR YOUR APPROVAL", "等待你的授权")
         case "edit": return preferences.text("CHANGE APPLIED", "修改已应用") + "  +\(event.addedLines ?? 0)  −\(event.removedLines ?? 0)"
         case "edit-failure": return preferences.text("CHANGE COULD NOT BE APPLIED", "修改应用失败")
@@ -2181,6 +2412,7 @@ private final class PowerModeView: NSView {
     private func localizedOrbActivity(_ presentation: (phase: String, status: String, momentum: Int, idle: Bool, settled: Bool, returning: Bool, settledAt: Date?)? = nil) -> String {
         let snapshot = presentation ?? presentationSnapshot()
         if positioning { return preferences.text("DRAG", "拖动") }
+        if typingComboProgress() > 0 { return preferences.text("TYPING", "输入中") }
         if streamConnected == false { return preferences.text("RECONNECT", "重连中") }
         if snapshot.idle || snapshot.phase == "idle" { return preferences.text("IDLE", "待机") }
         if state.status == "needs-attention" || snapshot.phase == "wait" { return preferences.text("APPROVAL", "等待授权") }
@@ -2297,6 +2529,7 @@ private final class PowerModeView: NSView {
 
     private func shouldShowHUD(now: Date) -> Bool {
         guard preferences.settings.enabled else { return false }
+        if typingComboProgress(now: now) > 0 { return true }
         if positioning || streamConnected != true { return true }
         if preferences.settings.idleBehavior != "hide" { return true }
         if state.phase == "wait" || state.status == "needs-attention" { return true }
@@ -2783,7 +3016,12 @@ private final class PowerModeView: NSView {
         ticks.stroke()
 
         let momentum = presentation.momentum
-        let progress = CGFloat(momentum) / 100
+        let ranges: [(Int, Int)] = [(0, 0), (1, 99), (100, 249), (250, 449), (450, 699), (700, 899), (900, 998), (999, 999)]
+        let rank = energyRank(energyLevel(momentum).name)
+        let stageRange = ranges[rank]
+        let progress = stageRange.1 > stageRange.0
+            ? CGFloat(momentum - stageRange.0) / CGFloat(stageRange.1 - stageRange.0)
+            : momentum > 0 ? 1 : 0
         let energy = energyLevel(momentum)
         let energyPulse = reducedMotion ? CGFloat(1) : 0.88 + 0.12 * sin(shakePhase * energy.rhythm)
         let tierMarks = energy.name == "charging" ? 4 : energy.name == "driving" ? 6 : energy.name == "high-energy" ? 8 : energy.name == "overload" ? 10 : energy.name == "critical" || energy.name == "verified-peak" ? 12 : 0
@@ -3421,6 +3659,20 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
         session = nil
     }
 
+    func postTypingCharge(inputCombo: Int, sessionId: String) {
+        guard inputCombo > 0, !sessionId.isEmpty else { return }
+        let endpoint = url.deletingLastPathComponent().appendingPathComponent("typing-charge")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "inputCombo": min(200, inputCombo),
+            "sessionId": sessionId
+        ])
+        URLSession.shared.dataTask(with: request).resume()
+    }
+
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         if connectedAt == nil { connectedAt = Date() }
         updateConnection(true)
@@ -3459,6 +3711,68 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
         guard connected != next else { return }
         connected = next
         Task { @MainActor [weak self] in self?.onConnectionChange?(next) }
+    }
+}
+
+@MainActor
+private final class TypingComboMonitor {
+    private weak var view: PowerModeView?
+    private let preferences: PowerModePreferences
+    private var monitor: Any?
+    private var count = 0
+    private var lastHit = Date.distantPast
+    private let comboWindow: TimeInterval = 1.35
+    private let codexBundleIdentifier = "com.openai.codex"
+
+    init(view: PowerModeView, preferences: PowerModePreferences) {
+        self.view = view
+        self.preferences = preferences
+        preferencesChanged(promptForPermission: true)
+    }
+
+    var permissionGranted: Bool { AXIsProcessTrusted() }
+
+    func preferencesChanged(promptForPermission: Bool = true) {
+        stop()
+        guard preferences.settings.typingCombo == true else { return }
+        if promptForPermission, !AXIsProcessTrusted() {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
+        guard AXIsProcessTrusted() else { return }
+        monitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            Task { @MainActor in self?.handle(event) }
+        }
+    }
+
+    func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        count = 0
+        lastHit = .distantPast
+    }
+
+    private func handle(_ event: NSEvent) {
+        guard preferences.settings.typingCombo == true,
+              isCodexComposerFocused(),
+              ![36, 48, 53, 76, 123, 124, 125, 126].contains(Int(event.keyCode)) else { return }
+        let now = Date()
+        count = now.timeIntervalSince(lastHit) <= comboWindow ? min(200, count + 1) : 1
+        lastHit = now
+        view?.handleTypingHit(count: count, lastAt: now, expiresAt: now.addingTimeInterval(comboWindow))
+    }
+
+    private func isCodexComposerFocused() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier == codexBundleIdentifier else { return false }
+        let application = AXUIElementCreateApplication(app.processIdentifier)
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused else { return false }
+        var roleValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(focused as! AXUIElement, kAXRoleAttribute as CFString, &roleValue) == .success,
+              let role = roleValue as? String else { return false }
+        return role == kAXTextAreaRole as String
     }
 }
 
@@ -3563,6 +3877,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     private var window: NSPanel?
     private var stream: EventStream?
     private var tracker: CodexWindowTracker?
+    private var typingMonitor: TypingComboMonitor?
     private var preferences: PowerModePreferences?
     private var statusItem: NSStatusItem?
     private var positioning = false
@@ -3607,6 +3922,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         preferences.onChange = { [weak self, weak powerView] in
             powerView?.preferencesChanged()
             self?.tracker?.preferencesChanged()
+            self?.typingMonitor?.preferencesChanged()
             self?.rebuildMenu()
         }
         installStatusItem()
@@ -3621,11 +3937,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         client.onConnectionChange = { [weak view] connected in view?.setStreamConnected(connected) }
         client.start()
         stream = client
+        powerView.onTypingCharge = { [weak client] count, sessionId in
+            client?.postTypingCharge(inputCombo: count, sessionId: sessionId)
+        }
+        typingMonitor = TypingComboMonitor(view: powerView, preferences: preferences)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self, name: NSApplication.didChangeScreenParametersNotification, object: nil)
         removeMouseMonitors()
+        typingMonitor?.stop()
         stream?.stop()
     }
 
@@ -3709,6 +4030,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         combo.target = self
         combo.state = (preferences.settings.showCombo ?? true) ? .on : .off
         menu.addItem(combo)
+        let typing = NSMenuItem(title: preferences.text("Typing Combo", "输入连击"), action: #selector(toggleTypingCombo), keyEquivalent: "")
+        typing.target = self
+        typing.state = (preferences.settings.typingCombo ?? false) ? .on : .off
+        typing.toolTip = typingMonitor?.permissionGranted == true
+            ? preferences.text("Counts input rhythm only; never stores text", "只统计输入节奏，不保存文字")
+            : preferences.text("Requires macOS Accessibility permission", "需要 macOS 辅助功能权限")
+        menu.addItem(typing)
         menu.addItem(submenu(
             title: preferences.text("Activity source", "动态来源"),
             choices: [
@@ -3821,6 +4149,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
     @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
     @objc private func toggleCombo() { preferences?.toggleCombo() }
+    @objc private func toggleTypingCombo() { preferences?.toggleTypingCombo() }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
     @objc private func selectAutoHideDelay(_ sender: NSMenuItem) {

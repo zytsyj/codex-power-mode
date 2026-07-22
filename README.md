@@ -8,6 +8,8 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses a `0–999` Energy scale for useful progress, Confidence for verification evidence, and Risk for change scope; only evidence-backed completion reaches the verified peak.
+- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. Every tier changes the orb's size, shell geometry, nodes, glow, and core shape.
+- Optionally counts local typing rhythm in the focused Codex composer. Sending a real prompt collapses `INPUT ×N` into an authenticated, bounded Energy injection without reading, storing, or transmitting text.
 - Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.
 - Supports Focus (hold the current conversation), Global (follow the latest conversation with isolated state), and Mix (one shared Energy/Combo pool for all Codex app conversations).
@@ -61,7 +63,7 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 
 `npm run status` reports service health, the native overlay PID and launch configuration, `hudDisplay` for the state currently shown after settling/decay, `taskState` for the last raw task state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
 
-The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Status & connection** separates the current HUD display from the raw task state and lists the last real event, task origin, following policy, connection health, and full session identity. **Activity source** offers Focus, Global, and Mix: Focus protects the current conversation, Global follows the latest conversation while keeping each score isolated, and Mix combines every Codex app conversation into one shared Energy and Combo pool. **Effect intensity** independently controls particle density and impact without changing the Focus/Arcade rhythm, and **Show Combo** can remove the Combo ring without spending high-frequency redraws on its hidden decay. **Idle behavior** can keep a quiet orb or hide the HUD; when hiding is selected, **Auto-hide delay** chooses whether it disappears immediately or leaves the settled Idle orb visible for 2 or 6 seconds. **When Codex is inactive** separately controls whether the HUD hides, stays at the last Codex anchor, or follows the active app. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json` and survive overlay restarts.
+The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Status & connection** separates the current HUD display from the raw task state and lists the last real event, task origin, following policy, connection health, and full session identity. **Activity source** offers Focus, Global, and Mix: Focus protects the current conversation, Global follows the latest conversation while keeping each score isolated, and Mix combines every Codex app conversation into one shared Energy and Combo pool. **Effect intensity** independently controls particle density and impact without changing the Focus/Arcade rhythm, and **Show Combo** can remove the agent Combo ring without spending high-frequency redraws on its hidden decay. **Typing Combo** is a separate opt-in feature that requests macOS Accessibility access, activates only for the focused Codex text area, and records only a capped count and timestamp. **Idle behavior** can keep a quiet orb or hide the HUD; when hiding is selected, **Auto-hide delay** chooses whether it disappears immediately or leaves the settled Idle orb visible for 2 or 6 seconds. **When Codex is inactive** separately controls whether the HUD hides, stays at the last Codex anchor, or follows the active app. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json` and survive overlay restarts.
 
 Optional environment variables:
 
@@ -71,6 +73,7 @@ Optional environment variables:
 - `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
 - `CODEX_POWER_MODE_INTENSITY=low|normal|high`: tune effect density independently of the semantic preset.
 - `CODEX_POWER_MODE_SHOW_COMBO=0`: hide the Combo bar and its decay animation.
+- `CODEX_POWER_MODE_TYPING_COMBO=1`: enable the macOS-only input rhythm Combo. Accessibility permission is required; text and key values are never stored or sent.
 - `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
   The HUD automatically scales down when needed to stay inside narrow Codex windows.
 - `CODEX_POWER_MODE_IDLE`: `hide` (default) or `orb`.
@@ -109,10 +112,12 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
-- Energy spans Wake, Charge, Drive, High, Overload, Critical, and the verified `999` Peak. Every crossover changes ring weight and glow and fires a one-shot breakthrough or vent animation.
+- Energy spans Wake, Charge, Drive, High, Overload, Critical, and the verified `999` Peak. The ring fills within the current tier, resets after a breakthrough, reverses on decay, and each tier has a different core and shell silhouette.
 - Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
 
 ## Combo semantics
+
+- Typing Combo is local and separate from the agent Combo below. A real `UserPromptSubmit` consumes it into a capped `6/16/32/55/90` Energy charge; it cannot create the verified `999` peak.
 
 - A new Codex tool step starts or extends Combo; edits add one link and successful verification adds two. Every increase pulses the ring, while tier crossings create a larger expansion.
 - Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 12 seconds.

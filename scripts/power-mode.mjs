@@ -244,7 +244,7 @@ async function buildNativeOverlay() {
   if (binaryTime >= sourceTime) return;
   const result = spawnSync("xcrun", [
     "swiftc", "-swift-version", "5", "-parse-as-library", "-O", source,
-    "-framework", "AppKit", "-framework", "Foundation",
+    "-framework", "AppKit", "-framework", "Foundation", "-framework", "ApplicationServices",
     "-o", nativeBinary
   ], { cwd: root, encoding: "utf8" });
   if (result.status === 0) return;
@@ -276,7 +276,7 @@ async function buildNativeOverlay() {
       "-sdk", sdk,
       "-target", `${architecture}-apple-macosx13.0`,
       "-swift-version", "5", "-parse-as-library", "-O", source,
-      "-framework", "AppKit", "-framework", "Foundation",
+      "-framework", "AppKit", "-framework", "Foundation", "-framework", "ApplicationServices",
       "-o", nativeBinary
     ], {
       cwd: root,
@@ -383,6 +383,8 @@ if (command === "start") {
   await playPreview(events, 850);
 } else if (command === "showcase") {
   const events = [
+    { type: "activity-start", phase: "observe", toolGroup: "prompt" },
+    { type: "input-charge", phase: "observe", toolGroup: "prompt", inputCombo: 18 },
     { type: "activity-start", phase: "observe", toolGroup: "search" },
     { type: "activity-start", phase: "act", toolGroup: "change" },
     { type: "edit", addedLines: 14, removedLines: 3, addedChars: 420, removedChars: 72 },

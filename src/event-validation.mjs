@@ -1,5 +1,5 @@
 const EVENT_TYPES = new Set([
-  "connected", "activity-start", "permission-request", "edit", "edit-failure", "verification", "turn-stop"
+  "connected", "activity-start", "input-charge", "permission-request", "edit", "edit-failure", "verification", "turn-stop"
 ]);
 const PHASES = new Set(["observe", "act", "verify", "wait", "recover", "complete", "idle"]);
 const SENSITIVE_KEYS = ["prompt", "command", "code", "patch", "tool_input", "tool_response"];
@@ -28,6 +28,10 @@ export function validateIncomingEvent(value) {
       return `Invalid ${key}`;
     }
   }
+  if (value.inputCombo !== undefined && (!Number.isInteger(value.inputCombo) || value.inputCombo < 1 || value.inputCombo > 200)) {
+    return "Invalid inputCombo";
+  }
+  if (value.type === "input-charge" && value.inputCombo === undefined) return "Missing inputCombo";
   if (value.success !== undefined && typeof value.success !== "boolean") return "Invalid verification result";
   return null;
 }

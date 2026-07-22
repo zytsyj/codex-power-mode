@@ -14,6 +14,7 @@ const valid = {
 test("event validation accepts reduced lifecycle events", () => {
   assert.equal(validateIncomingEvent(valid), null);
   assert.equal(validateIncomingEvent({ ...valid, type: "edit", addedLines: 2, removedLines: 1 }), null);
+  assert.equal(validateIncomingEvent({ ...valid, type: "input-charge", inputCombo: 10 }), null);
 });
 
 test("event validation rejects sensitive and malformed input", () => {
@@ -22,4 +23,6 @@ test("event validation rejects sensitive and malformed input", () => {
   assert.match(validateIncomingEvent({ ...valid, timestamp: "not-a-date" }), /timestamp/);
   assert.match(validateIncomingEvent({ ...valid, addedLines: -1 }), /addedLines/);
   assert.match(validateIncomingEvent({ ...valid, preview: true }), /demo session/);
+  assert.match(validateIncomingEvent({ ...valid, type: "input-charge" }), /inputCombo/);
+  assert.match(validateIncomingEvent({ ...valid, type: "input-charge", inputCombo: 201 }), /inputCombo/);
 });

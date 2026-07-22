@@ -317,6 +317,41 @@ test("mix mode streams one shared pool across Codex conversations", async () => 
   }
 });
 
+test("typing charge atomically augments the submitted desktop session without prompt text", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-server-typing-"));
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    await postEvent(dataDir, port, {
+      type: "activity-start", phase: "observe", toolGroup: "prompt",
+      sessionId: "typing-session", sessionSource: "desktop", timestamp: new Date(1_000).toISOString(),
+      state: { sessionId: "typing-session", sessionSource: "desktop", phase: "observe", status: "working", momentum: 14 }
+    });
+    const response = await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/typing-charge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId: "typing-session", inputCombo: 10 })
+    });
+    assert.equal(response.status, 202);
+    const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
+    const history = await readFile(path.join(dataDir, "events.ndjson"), "utf8");
+    assert.equal(state.momentum, 46);
+    assert.equal(state.combo, 0);
+    assert.equal(health.activity.realEventsReceived, 1);
+    assert.match(history, /"inputCombo":10/);
+    assert.doesNotMatch(history, /prompt|command|code|patch/i);
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("transient previews do not alter real state, ownership, or activity diagnostics", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-preview-"));
   const port = await freePort();

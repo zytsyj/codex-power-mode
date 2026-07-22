@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity } from "../src/state.mjs";
+import { comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, energyStage, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity, typingChargeForCombo } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -21,6 +21,36 @@ test("prompt submission immediately enters understanding", () => {
   assert.equal(state.currentActivity, "Understanding request");
   assert.equal(state.momentum, 14);
   assert.equal(state.combo, 1);
+});
+
+test("energy stage progress refills inside every tier", () => {
+  assert.deepEqual(energyStage(99), { name: "awakening", lower: 1, upper: 99, value: 99, progress: 1 });
+  assert.equal(energyStage(100).name, "charging");
+  assert.equal(energyStage(100).progress, 0);
+  assert.equal(energyStage(249).progress, 1);
+  assert.equal(energyStage(250).name, "driving");
+  assert.equal(energyStage(250).progress, 0);
+  assert.equal(energyStage(999).name, "verified-peak");
+  assert.equal(energyStage(999).progress, 1);
+});
+
+test("typing Combo injects a bounded tiered charge without advancing agent Combo", () => {
+  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [6, 16, 32, 55, 90, 90]);
+  const prior = { ...initialState, momentum: 95, combo: 3, sessionId: "s" };
+  const state = reduceState(prior, {
+    type: "input-charge", inputCombo: 10, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
+  });
+  assert.equal(state.momentum, 127);
+  assert.equal(state.combo, 3);
+  assert.equal(state.phase, "observe");
+  assert.equal(state.currentActivity, "Understanding request");
+});
+
+test("typing charge cannot claim the evidence-backed peak", () => {
+  const state = reduceState({ ...initialState, momentum: 980, sessionId: "s" }, {
+    type: "input-charge", inputCombo: 200, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
+  });
+  assert.equal(state.momentum, 998);
 });
 
 test("rapid identical observe activity is coalesced without hiding phase changes", () => {

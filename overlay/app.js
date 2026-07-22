@@ -332,17 +332,25 @@ function energyLevelAt(momentum) {
   return "verified-peak";
 }
 
+function energyProgressAt(momentum) {
+  const value = Math.max(0, Math.min(999, momentum));
+  const ranges = [[0, 0], [1, 99], [100, 249], [250, 449], [450, 699], [700, 899], [900, 998], [999, 999]];
+  const [lower, upper] = ranges[energyRankAt(energyLevelAt(value))];
+  if (upper <= lower) return value > 0 ? 1 : 0;
+  return Math.max(0, Math.min(1, (value - lower) / (upper - lower)));
+}
+
 function energyRankAt(level) {
   return { idle: 0, awakening: 1, charging: 2, driving: 3, "high-energy": 4, overload: 5, critical: 6, "verified-peak": 7 }[level] ?? 0;
 }
 
-function reactToEnergyTransition(level) {
+function reactToEnergyTransition(level, rising = true) {
   if (reducedMotion || level === "idle") return;
   const start = reactorOrigin();
   const color = ["overload", "critical", "verified-peak"].includes(level) ? "#ffd66b" : ["driving", "high-energy"].includes(level) ? "#a987ff" : "#75dfff";
-  document.body.classList.remove(...["awakening", "charging", "driving", "high-energy", "overload", "critical", "verified-peak"].map((name) => `energy-upgrade-${name}`));
+  document.body.classList.remove(...["awakening", "charging", "driving", "high-energy", "overload", "critical", "verified-peak"].flatMap((name) => [`energy-upgrade-${name}`, `energy-downgrade-${name}`]));
   void document.body.offsetWidth;
-  document.body.classList.add(`energy-upgrade-${level}`);
+  document.body.classList.add(`${rising ? "energy-upgrade" : "energy-downgrade"}-${level}`);
   if (level === "awakening") {
     ring(color, preset === "arcade" ? .42 : .24, start);
   } else if (level === "charging") {
@@ -441,13 +449,15 @@ function renderPresentation(now = Date.now()) {
   document.body.dataset.activity = presented.currentActivity === "Understanding request" ? "understanding" : "context";
   document.body.dataset.energyLevel = energyLevel;
   if (energyLevel !== visualEnergyLevel) {
-    if ((visualEnergyLevel !== null && energyRankAt(energyLevel) > energyRankAt(visualEnergyLevel)) || (previewMode && visualEnergyLevel === null)) reactToEnergyTransition(energyLevel);
+    const switchedTask = Date.now() < sessionTransitionUntil;
+    if (!switchedTask && visualEnergyLevel !== null) reactToEnergyTransition(energyLevel, energyRankAt(energyLevel) > energyRankAt(visualEnergyLevel));
+    else if (previewMode && visualEnergyLevel === null) reactToEnergyTransition(energyLevel, true);
     visualEnergyLevel = energyLevel;
   }
   document.body.dataset.verificationReward = presented.verificationReward ?? "none";
   document.body.dataset.phaseTempo = settledTempo ? "settled" : "alert";
   elements.momentum.textContent = momentum;
-  elements["momentum-meter"].style.setProperty("--progress", `${momentum / 999 * 360}deg`);
+  elements["momentum-meter"].style.setProperty("--progress", `${energyProgressAt(momentum) * 360}deg`);
   elements["power-label"].textContent = orbActivityCopy(presented);
 }
 
@@ -573,6 +583,10 @@ function react(event) {
       scan(color);
       if (preset === "arcade") scheduleEffect(130, generation, () => scan(color));
     }
+  } else if (event.type === "input-charge") {
+    burst("#65e9f4", Math.min(100, 30 + (event.inputCombo ?? 0) * 2), 1.05, "inward", start);
+    ring("#65e9f4", preset === "arcade" ? 1.65 : .9, start);
+    scheduleEffect(180, generation, () => ring("#a886ff", preset === "arcade" ? 1.15 : .58, start));
   } else if (event.type === "activity-start" && phase === "verify") {
     burst(color, 38, .62, "evidence", start); ring(color, .48, start);
     if (preset === "arcade") scheduleEffect(180, generation, () => ring(color, .34, start));

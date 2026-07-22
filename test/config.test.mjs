@@ -22,6 +22,7 @@ test("native config reports defaults used by the overlay", () => {
     activitySource: "focused",
     effectIntensity: "normal",
     showCombo: true,
+    typingCombo: false,
     positionX: null,
     positionY: null
   });
@@ -40,6 +41,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
     CODEX_POWER_MODE_INTENSITY: "high",
     CODEX_POWER_MODE_SHOW_COMBO: "0",
+    CODEX_POWER_MODE_TYPING_COMBO: "1",
     CODEX_POWER_MODE_ENABLED: "0"
   }), {
     schemaVersion: 1,
@@ -55,6 +57,7 @@ test("native config normalizes environment overrides", () => {
     activitySource: "global",
     effectIntensity: "high",
     showCombo: false,
+    typingCombo: true,
     positionX: null,
     positionY: null
   });
@@ -77,6 +80,7 @@ test("native config preserves settings unless an environment override is provide
     activitySource: "global",
     effectIntensity: "low",
     showCombo: false,
+    typingCombo: true,
     positionX: 0.42,
     positionY: 0.66
   };
@@ -135,6 +139,7 @@ test("native config adds display defaults without resetting older schema-one set
   assert.equal(upgraded.idleBehavior, "orb");
   assert.equal(upgraded.effectIntensity, "normal");
   assert.equal(upgraded.showCombo, true);
+  assert.equal(upgraded.typingCombo, false);
   assert.equal(upgraded.inactiveBehavior, "hide");
   assert.equal(upgraded.autoHideDelay, 2);
 });

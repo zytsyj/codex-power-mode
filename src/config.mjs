@@ -56,6 +56,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const showCombo = hasValue(environment, "CODEX_POWER_MODE_SHOW_COMBO")
     ? environment.CODEX_POWER_MODE_SHOW_COMBO !== "0"
     : settings.showCombo !== false;
+  const typingCombo = hasValue(environment, "CODEX_POWER_MODE_TYPING_COMBO")
+    ? environment.CODEX_POWER_MODE_TYPING_COMBO !== "0"
+    : settings.typingCombo === true;
   return {
     schemaVersion: 1,
     preset: preset === "arcade" ? "arcade" : "focus",
@@ -70,6 +73,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     activitySource: ACTIVITY_SOURCES.has(activitySource) ? activitySource : "focused",
     effectIntensity: EFFECT_INTENSITIES.has(effectIntensity) ? effectIntensity : "normal",
     showCombo,
+    typingCombo,
     positionX: storedNumber(settings.positionX),
     positionY: storedNumber(settings.positionY)
   };

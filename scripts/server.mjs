@@ -11,7 +11,7 @@ import { validateIncomingEvent } from "../src/event-validation.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { pluginIdentity } from "../src/service-identity.mjs";
 import { createSessionArbiter } from "../src/session-arbiter.mjs";
-import { readSessionState, readState, recordMixedEventResult, writeStateSnapshot } from "../src/storage.mjs";
+import { readSessionState, readState, recordMixedEventResult, recordSessionEventResult, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const identity = await pluginIdentity(root);
@@ -32,6 +32,27 @@ const clients = new Set();
 const activity = createActivityTracker();
 const sessionArbiter = createSessionArbiter(await readState(dataDir));
 const nativeConfigFile = path.join(dataDir, "native", "overlay-config.json");
+
+async function processEvent(incoming, { recordActivity = true } = {}) {
+  const { state: ignoredState, ...event } = incoming;
+  if (recordActivity) activity.record(event);
+  const previousSession = sessionArbiter.snapshot().activeSessionId;
+  const mode = await activitySource();
+  const decision = sessionArbiter.consider(event, { mode });
+  const sessionTransition = decision.switched && previousSession && previousSession !== event.sessionId
+    ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
+    : null;
+  if (decision.displayed) {
+    const state = mode === "mix"
+      ? (await recordMixedEventResult(dataDir, event)).state
+      : recordActivity
+        ? await readSessionState(dataDir, event.sessionId)
+        : (await recordSessionEventResult(dataDir, event)).state;
+    await writeStateSnapshot(dataDir, state);
+    broadcast({ ...event, state, ...(sessionTransition ? { sessionTransition } : {}) });
+  }
+  return { ...decision, sessionTransition };
+}
 
 async function activitySource() {
   try {
@@ -122,23 +143,23 @@ async function handleRequest(request, response) {
       broadcast(incoming);
       return sendJson(response, 202, { accepted: true, displayed: true, preview: true });
     }
-    const { state: ignoredState, ...event } = incoming;
-    activity.record(event);
-    const previousSession = sessionArbiter.snapshot().activeSessionId;
-    const mode = await activitySource();
-    const decision = sessionArbiter.consider(event, { mode });
-    const sessionTransition = decision.switched && previousSession && previousSession !== event.sessionId
-      ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
-      : null;
-    if (decision.displayed) {
-      const state = mode === "mix"
-        ? (await recordMixedEventResult(dataDir, event)).state
-        : await readSessionState(dataDir, event.sessionId);
-      await writeStateSnapshot(dataDir, state);
-      const displayedEvent = { ...event, state, ...(sessionTransition ? { sessionTransition } : {}) };
-      broadcast(displayedEvent);
-    }
-    return sendJson(response, 202, { accepted: true, ...decision, sessionTransition });
+    const decision = await processEvent(incoming);
+    return sendJson(response, 202, { accepted: true, ...decision });
+  }
+  if (url.pathname === "/api/typing-charge" && request.method === "POST") {
+    const body = await readBody(request);
+    const incoming = {
+      type: "input-charge",
+      id: `typing-${Date.now()}-${randomBytes(4).toString("hex")}`,
+      timestamp: new Date().toISOString(),
+      sessionId: body.sessionId,
+      sessionSource: "desktop",
+      inputCombo: body.inputCombo
+    };
+    const validationError = validateIncomingEvent(incoming);
+    if (validationError) return sendJson(response, 400, { error: validationError });
+    const decision = await processEvent(incoming, { recordActivity: false });
+    return sendJson(response, 202, { accepted: true, ...decision });
   }
 
   const requested = url.pathname === "/" ? "index.html" : url.pathname.slice(1);

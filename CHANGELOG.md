@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reworked Energy as a per-tier refill loop: the ring fills, breaks through, resets at the next tier, and reverses through a drain/restore sequence on decay.
+- Gave all seven Energy tiers different core sizes, rounded/polygonal shells, node density, line weight, glow, and high-tier instability so tier changes are visible without reading the number.
+- Added an opt-in macOS Typing Combo limited to the focused Codex composer, with a short lifetime ring and milestone pulses that never capture or persist text.
+- Consumed Typing Combo only after a real `UserPromptSubmit`, then animated its collapse into the orb and applied a bounded authenticated Energy injection without advancing the agent Combo or allowing an unverified `999` peak.
 - Expanded Energy to `0–999` with seven visible tiers, real-time inactivity decay, stage breakthrough/vent animations, and an evidence-backed verified peak.
 - Added Combo growth pulses, five count stages, a critical double warning, relink recovery, and an explicit compositor-driven fracture on natural or forced disconnect.
 - Added Mix activity mode, combining all Codex desktop conversations into one Energy/Combo pool while retaining isolated Focus and latest-task Global behavior.
