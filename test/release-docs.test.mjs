@@ -16,6 +16,7 @@ test("public-release documentation exists while publication remains explicitly b
     "docs/DEPENDENCIES.md",
     "docs/INSTALLATION.md",
     "docs/MEDIA.md",
+    "docs/PERFORMANCE.md",
     "docs/PRIVACY.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/TROUBLESHOOTING.md"
@@ -31,6 +32,18 @@ test("public-release documentation exists while publication remains explicitly b
   assert.match(readme, /not open source yet/);
   assert.match(checklist, /Choose and approve an open-source license/);
   assert.match(checklist, /owner explicitly authorizes publication/);
+});
+
+test("performance baseline is reproducible and keeps final GPU acceptance explicit", async () => {
+  const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const performance = await readFile(path.join(root, "docs/PERFORMANCE.md"), "utf8");
+  const sampler = await readFile(path.join(root, "scripts/performance-rc.mjs"), "utf8");
+
+  assert.equal(packageManifest.scripts["perf:rc"], "node scripts/performance-rc.mjs --output .power-mode/performance-rc.json");
+  assert.match(performance, /synthetic, isolated preview events/i);
+  assert.match(performance, /All automated budgets passed/);
+  assert.match(performance, /Instruments-based GPU\/energy inspection/);
+  assert.match(sampler, /process identity changed during sampling/);
 });
 
 test("checked-in media is generated, privacy-safe, and documented", async () => {

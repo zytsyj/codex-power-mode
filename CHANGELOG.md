@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a reproducible macOS RC performance sampler, regression budgets, and documented single-machine baseline covering idle, the complete semantic lifecycle, Typing Combo, and Energy breakthroughs without touching real task data.
 - Added compact reproducible Focus and Arcade GIF storyboards composed entirely from privacy-safe synthetic native frames with macOS system tooling.
 - Added first-party privacy-safe light/dark preview media, README visual and control summaries, media provenance, and a reproducible native QA rendering command.
 - Added verified private-install, upgrade, Accessibility, troubleshooting, reset, purge, and uninstall guidance with automated documentation gates.
