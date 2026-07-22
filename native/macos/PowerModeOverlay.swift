@@ -2197,9 +2197,19 @@ private final class PowerModeView: NSView {
         guard event.preview != true,
               event.type == "activity-start",
               event.toolGroup == "prompt",
-              typingComboProgress() > 0,
-              typingComboCount > 0,
               let sessionId = event.sessionId, !sessionId.isEmpty else { return }
+        consumeTypingCombo(sessionId: sessionId)
+    }
+
+    func handleTypingSubmit() {
+        consumeTypingCombo(sessionId: state.sessionId)
+    }
+
+    private func consumeTypingCombo(sessionId: String?) {
+        guard typingComboCount > 0,
+              let lastAt = typingComboLastAt,
+              Date().timeIntervalSince(lastAt) <= 4,
+              let sessionId, !sessionId.isEmpty else { return }
         let count = typingComboCount
         typingComboCount = 0
         typingComboLastAt = nil
@@ -3864,7 +3874,7 @@ private final class TypingComboMonitor {
     private var monitor: Any?
     private var count = 0
     private var lastHit = Date.distantPast
-    private let comboWindow: TimeInterval = 1.35
+    private let comboWindow: TimeInterval = 2.0
     private let codexBundleIdentifier = "com.openai.codex"
 
     init(view: PowerModeView, preferences: PowerModePreferences) {
@@ -3896,10 +3906,14 @@ private final class TypingComboMonitor {
     }
 
     private func handle(_ event: NSEvent) {
-        guard preferences.settings.typingCombo == true,
-              isCodexFrontmost(),
-              event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
-              ![36, 48, 51, 53, 76, 117, 123, 124, 125, 126].contains(Int(event.keyCode)) else { return }
+        guard preferences.settings.typingCombo == true, isCodexFrontmost() else { return }
+        let keyCode = Int(event.keyCode)
+        if [36, 76].contains(keyCode) {
+            if !event.modifierFlags.contains(.shift) { view?.handleTypingSubmit() }
+            return
+        }
+        guard event.modifierFlags.intersection([.command, .control, .function]).isEmpty,
+              ![48, 51, 53, 117, 123, 124, 125, 126].contains(keyCode) else { return }
         let now = Date()
         count = now.timeIntervalSince(lastHit) <= comboWindow ? min(200, count + 1) : 1
         lastHit = now
@@ -3923,10 +3937,10 @@ private final class TypingComboMonitor {
         let application = AXUIElementCreateApplication(app.processIdentifier)
         var focusedValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
-              let focused = focusedValue as! AXUIElement? else { return nil }
+              let focused = focusedValue as! AXUIElement? else { return fallbackComposerPoint(for: app) }
         var rangeValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(focused, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
-              let rangeValue else { return nil }
+              let rangeValue else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
         var boundsValue: CFTypeRef?
         guard AXUIElementCopyParameterizedAttributeValue(
             focused,
@@ -3935,13 +3949,47 @@ private final class TypingComboMonitor {
             &boundsValue
         ) == .success,
         let boundsValue,
-        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return nil }
+        CFGetTypeID(boundsValue) == AXValueGetTypeID() else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
         var quartzRect = CGRect.zero
-        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &quartzRect) else { return nil }
+        guard AXValueGetValue(boundsValue as! AXValue, .cgRect, &quartzRect) else { return focusedElementFallback(focused) ?? fallbackComposerPoint(for: app) }
         let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
             ?? NSScreen.main?.frame.maxY
             ?? 0
         return CGPoint(x: quartzRect.maxX + 8, y: mainTop - quartzRect.maxY + 5)
+    }
+
+    private func focusedElementFallback(_ element: AXUIElement) -> CGPoint? {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
+              let positionValue, let sizeValue else { return nil }
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
+        let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
+            ?? NSScreen.main?.frame.maxY
+            ?? 0
+        return CGPoint(x: position.x + min(size.width - 18, 34), y: mainTop - position.y - size.height / 2)
+    }
+
+    private func fallbackComposerPoint(for app: NSRunningApplication) -> CGPoint? {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
+        let mainTop = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.maxY
+            ?? NSScreen.main?.frame.maxY
+            ?? 0
+        for info in windows {
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int,
+                  pid == Int(app.processIdentifier),
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  layer == 0,
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  frame.width > 500, frame.height > 400 else { continue }
+            return CGPoint(x: frame.minX + frame.width * 0.27, y: mainTop - frame.maxY + 54)
+        }
+        return nil
     }
 }
 
