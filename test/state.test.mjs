@@ -151,6 +151,10 @@ test("a completed turn becomes idle only after combo feedback and returns moment
   assert.ok(returning.momentum > 0 && returning.momentum < state.momentum);
   const settled = presentationSnapshot(state, at(27));
   assert.equal(settled.momentum, 0);
+  assert.equal(settled.combo, 0);
+  assert.equal(settled.comboStatus, "idle");
+  assert.equal(settled.comboExpiresAt, null);
+  assert.ok(state.combo > 0);
   assert.equal(settled.settled, true);
   assert.equal(state.bestMomentum, settled.bestMomentum);
 });

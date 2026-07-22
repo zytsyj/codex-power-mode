@@ -7,7 +7,9 @@ const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
 const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
-const storedNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const storedNumber = (value) => value === null || value === undefined || value === ""
+  ? null
+  : Number.isFinite(Number(value)) ? Number(value) : null;
 
 export function servicePortFromEnvironment(environment = {}) {
   const parsedPort = Number(environment.CODEX_POWER_MODE_PORT);

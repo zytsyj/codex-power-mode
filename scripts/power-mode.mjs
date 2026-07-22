@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import {
   serviceEndpointFromEnvironment
 } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
+import { isNativeOverlayCommand } from "../src/native-process.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
 import { initialState, reduceState } from "../src/state.mjs";
 import { powerModeStatus } from "../src/status.mjs";
@@ -24,6 +25,7 @@ const nativeDir = path.join(dataDir, "native");
 const nativeBinary = path.join(nativeDir, "codex-power-mode-overlay");
 const nativePidFile = path.join(nativeDir, "overlay.pid");
 const nativeConfigFile = path.join(nativeDir, "overlay-config.json");
+const nativeStartLockFile = path.join(nativeDir, "overlay-start.lock");
 
 async function serviceHealth() {
   try {
@@ -175,9 +177,53 @@ async function processIsAlive(pid) {
 async function currentNativePid() {
   try {
     const pid = Number((await readFile(nativePidFile, "utf8")).trim());
-    return await processIsAlive(pid) ? pid : null;
+    return await nativeProcessMatches(pid) ? pid : null;
   } catch {
     return null;
+  }
+}
+
+async function nativeProcessMatches(pid) {
+  if (!(await processIsAlive(pid))) return false;
+  const processInfo = spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" });
+  return processInfo.status === 0 && isNativeOverlayCommand(processInfo.stdout, nativeBinary);
+}
+
+async function withNativeStartLock(operation) {
+  await mkdir(nativeDir, { recursive: true });
+  let handle;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    try {
+      handle = await open(nativeStartLockFile, "wx");
+      await handle.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }));
+      break;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      try {
+        const [contents, info] = await Promise.all([readFile(nativeStartLockFile, "utf8"), stat(nativeStartLockFile)]);
+        let ownerPid = null;
+        try {
+          ownerPid = Number.parseInt(JSON.parse(contents).pid, 10);
+        } catch {
+          // A process can exit after creating the lock but before writing its identity.
+        }
+        const ownerIsAlive = Number.isInteger(ownerPid) && ownerPid > 0 && await processIsAlive(ownerPid);
+        if (Date.now() - info.mtimeMs >= 10_000 && !ownerIsAlive) {
+          await unlink(nativeStartLockFile);
+          continue;
+        }
+      } catch (lockError) {
+        if (lockError.code === "ENOENT") continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  if (!handle) throw new Error("Could not acquire Power Mode native startup lock");
+  try {
+    return await operation();
+  } finally {
+    await handle.close();
+    await unlink(nativeStartLockFile).catch(() => {});
   }
 }
 
@@ -237,39 +283,57 @@ async function buildNativeOverlay() {
   }
 }
 
+async function nativeOverlayBuildIsCurrent() {
+  const source = path.join(root, "native/macos/PowerModeOverlay.swift");
+  const [sourceTime, binaryTime] = await Promise.all([
+    stat(source).then((info) => info.mtimeMs),
+    stat(nativeBinary).then((info) => info.mtimeMs).catch(() => 0)
+  ]);
+  return binaryTime >= sourceTime;
+}
+
 async function startNative() {
   await start();
-  const existing = await currentNativePid();
-  const streamEndpoint = nativeStreamEndpointFromEnvironment(process.env);
-  const currentConfiguration = await readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => ({}));
-  const nextConfiguration = {
-    ...nativeConfigFromEnvironment(process.env, currentConfiguration),
-    endpoint: streamEndpoint
-  };
-  if (existing && JSON.stringify(currentConfiguration) === JSON.stringify(nextConfiguration)) {
-    process.stdout.write(`Native overlay already running (PID ${existing})\n`);
-    return;
-  }
-  if (existing) {
-    process.kill(existing, "SIGTERM");
-    for (let attempt = 0; attempt < 20 && await processIsAlive(existing); attempt += 1) {
+  await withNativeStartLock(async () => {
+    const existing = await currentNativePid();
+    const streamEndpoint = nativeStreamEndpointFromEnvironment(process.env);
+    const currentConfiguration = await readFile(nativeConfigFile, "utf8").then(JSON.parse).catch(() => ({}));
+    const nextConfiguration = {
+      ...nativeConfigFromEnvironment(process.env, currentConfiguration),
+      endpoint: streamEndpoint
+    };
+    if (existing && JSON.stringify(currentConfiguration) === JSON.stringify(nextConfiguration) && await nativeOverlayBuildIsCurrent()) {
+      process.stdout.write(`Native overlay already running (PID ${existing})\n`);
+      return;
+    }
+    if (existing) {
+      process.kill(existing, "SIGTERM");
+      for (let attempt = 0; attempt < 20 && await processIsAlive(existing); attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+    await buildNativeOverlay();
+    await writeFile(nativeConfigFile, `${JSON.stringify(nextConfiguration, null, 2)}\n`);
+    const child = spawn(nativeBinary, [], {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        CODEX_POWER_MODE_URL: streamEndpoint,
+        CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
+      }
+    });
+    child.unref();
+    await writeFile(nativePidFile, `${child.pid}\n`);
+    for (let attempt = 0; attempt < 40 && !(await nativeProcessMatches(child.pid)); attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
-  }
-  await buildNativeOverlay();
-  await writeFile(nativeConfigFile, `${JSON.stringify(nextConfiguration, null, 2)}\n`);
-  const child = spawn(nativeBinary, [], {
-    detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      CODEX_POWER_MODE_URL: streamEndpoint,
-      CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
+    if (!(await nativeProcessMatches(child.pid))) {
+      await unlink(nativePidFile).catch(() => {});
+      throw new Error("Native overlay did not become ready after launch");
     }
+    process.stdout.write(`Native overlay started (PID ${child.pid})\n`);
   });
-  child.unref();
-  await writeFile(nativePidFile, `${child.pid}\n`);
-  process.stdout.write(`Native overlay started (PID ${child.pid})\n`);
 }
 
 async function stopNative() {

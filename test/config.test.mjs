@@ -84,6 +84,18 @@ test("native config preserves settings unless an environment override is provide
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_PRESET: "focus" }, stored).preset, "focus");
 });
 
+test("native config preserves an unset custom position across restarts", () => {
+  const restarted = nativeConfigFromEnvironment({}, {
+    schemaVersion: 1,
+    edge: "top-right",
+    positionX: null,
+    positionY: null
+  });
+  assert.equal(restarted.edge, "top-right");
+  assert.equal(restarted.positionX, null);
+  assert.equal(restarted.positionY, null);
+});
+
 test("native config migrates the old inactive-window toggle into an explicit policy", () => {
   const visible = nativeConfigFromEnvironment({}, { schemaVersion: 1, followWhenInactive: true });
   const hidden = nativeConfigFromEnvironment({}, { schemaVersion: 1, followWhenInactive: false });

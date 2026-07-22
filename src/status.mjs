@@ -10,7 +10,7 @@ export function powerModeStatus({ health, nativePid, nativeConfiguration, state,
     hudDisplay: {
       ...presentation,
       energyLevel: energyLevel(presentation.momentum),
-      comboStage: comboStage(state)
+      comboStage: comboStage(presentation)
     },
     taskState: state
   };

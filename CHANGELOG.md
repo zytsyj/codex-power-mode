@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 - 2026-07-22
+
+- Marked the current private build as the first self-use stable baseline after connection, lifecycle, Combo, semantic animation, positioning, settings, and performance milestones passed release regression.
+- Serialized native HUD startup so concurrent Codex task launches cannot race into duplicate overlays.
+- Validated PID ownership before reusing or stopping a native HUD, preventing a stale PID file from targeting an unrelated process after macOS reuses an identifier.
+- Waited for the newly launched native process to become identifiable before releasing the startup lock, closing the final concurrent-launch window found by an eight-way stress test.
+- Preserved an unset custom position as `null` across restarts instead of coercing it to the bottom-left coordinate, eliminating position drift during upgrades.
+- Normalized settled HUD diagnostics to `Combo 0 / Idle` while preserving the completed task's raw Combo and historical best values separately.
+- Passed isolated concurrent launch, stale-PID safety, forced service restart, automatic stream reconnection, settings preservation, and real Codex Desktop lifecycle checks.
+
 ## 0.6.23 - 2026-07-21
 
 - Split Act and Verify into different visual grammars across native and browser HUDs: Act now drives left-to-right through a thrust axis, while Verify closes four lock brackets onto a central verdict marker.

@@ -7,8 +7,9 @@ test("status output distinguishes HUD display from raw task state", () => {
     phase: "complete",
     status: "complete",
     momentum: 22,
-    combo: 0,
-    comboStatus: "idle",
+    combo: 6,
+    comboStatus: "complete",
+    comboExpiresAt: "2026-07-21T14:00:10.000Z",
     turnStoppedAt: "2026-07-21T14:00:00.000Z",
     sessionId: "session-a",
     sessionSource: "desktop"
@@ -23,6 +24,10 @@ test("status output distinguishes HUD display from raw task state", () => {
 
   assert.equal(snapshot.hudDisplay.phase, "idle");
   assert.equal(snapshot.hudDisplay.momentum, 0);
+  assert.equal(snapshot.hudDisplay.combo, 0);
+  assert.equal(snapshot.hudDisplay.comboStatus, "idle");
+  assert.equal(snapshot.hudDisplay.comboStage, "idle");
+  assert.equal(snapshot.taskState.combo, 6);
   assert.equal(snapshot.taskState.phase, "complete");
   assert.equal(snapshot.taskState.momentum, 22);
   assert.equal(Object.hasOwn(snapshot, "presentation"), false);
