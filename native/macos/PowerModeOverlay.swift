@@ -238,8 +238,10 @@ private final class OrbLayerRenderer {
     private let preferences: PowerModePreferences
     private let container = CALayer()
     private let halo = CALayer()
+    private let body = CALayer()
     private let core = CALayer()
     private let inner = CAGradientLayer()
+    private let sheen = CAGradientLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -274,6 +276,10 @@ private final class OrbLayerRenderer {
         halo.shadowOffset = .zero
         container.addSublayer(halo)
 
+        body.frame = container.bounds
+        body.masksToBounds = false
+        container.addSublayer(body)
+
         core.frame = CGRect(x: 10, y: 10, width: 72, height: 72)
         core.cornerRadius = 36
         core.backgroundColor = NSColor(calibratedWhite: 0.035, alpha: 0.95).cgColor
@@ -283,7 +289,7 @@ private final class OrbLayerRenderer {
         core.shadowOpacity = 0.32
         core.shadowRadius = 10
         core.shadowOffset = CGSize(width: 0, height: -3)
-        container.addSublayer(core)
+        body.addSublayer(core)
 
         inner.frame = CGRect(x: 15, y: 15, width: 62, height: 62)
         inner.cornerRadius = 31
@@ -292,7 +298,16 @@ private final class OrbLayerRenderer {
         inner.endPoint = CGPoint(x: 1, y: 0)
         inner.locations = [0, 0.55, 1]
         inner.borderWidth = 0.6
-        container.addSublayer(inner)
+        body.addSublayer(inner)
+
+        sheen.frame = CGRect(x: 15, y: 15, width: 62, height: 62)
+        sheen.cornerRadius = 31
+        sheen.colors = [NSColor.clear.cgColor, NSColor.white.withAlphaComponent(0.2).cgColor, NSColor.clear.cgColor]
+        sheen.locations = [0.28, 0.5, 0.72]
+        sheen.startPoint = CGPoint(x: 0, y: 0.75)
+        sheen.endPoint = CGPoint(x: 1, y: 0.25)
+        sheen.opacity = 0.1
+        body.addSublayer(sheen)
 
         configureRing(ticks, radius: 42, width: 1)
         ticks.opacity = 0
@@ -325,7 +340,7 @@ private final class OrbLayerRenderer {
         emitter.emitterPosition = CGPoint(x: 46, y: 46)
         emitter.emitterShape = .point
         emitter.renderMode = .additive
-        container.insertSublayer(emitter, below: core)
+        container.insertSublayer(emitter, below: body)
         choreography.frame = container.bounds
         choreography.masksToBounds = false
         container.insertSublayer(choreography, above: beatRing)
@@ -407,10 +422,12 @@ private final class OrbLayerRenderer {
         if phase != nextPhase {
             phase = nextPhase
             animateSemanticPhase(nextPhase)
+            animateCorePhase(nextPhase)
             animateRhythmEntry(nextPhase, color: color)
         }
         if let event {
             animateEventRhythm(event, phase: nextPhase, color: color)
+            animateCoreEvent(nextPhase)
             playSemanticChoreography(phase: nextPhase, color: color)
             emitFeedback(for: event, phase: nextPhase, color: color)
         }
@@ -512,6 +529,151 @@ private final class OrbLayerRenderer {
             animation = settle
         }
         semantic.add(animation, forKey: "semantic-phase")
+    }
+
+    private func animateCorePhase(_ phase: String) {
+        inner.removeAnimation(forKey: "inner-phase")
+        sheen.removeAnimation(forKey: "sheen-phase")
+        core.removeAnimation(forKey: "core-light")
+        guard !reducedMotion, phase != "idle" else {
+            sheen.opacity = phase == "idle" ? 0.045 : 0.1
+            return
+        }
+        sheen.opacity = 0.1
+        let innerScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        let innerOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        let sheenX = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        let sheenOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        let times: [NSNumber]
+        let duration: CFTimeInterval
+        switch phase {
+        case "observe":
+            innerScale.values = [1.04, 0.93, 0.93, 1.02, 1.04]
+            innerOpacity.values = [0.58, 0.94, 0.76, 0.62, 0.58]
+            sheenX.values = [-8, 3, 3, -5, -8]
+            sheenOpacity.values = [0.05, 0.26, 0.14, 0.07, 0.05]
+            times = [0, 0.2, 0.4, 0.74, 1]
+            duration = arcade ? 1.65 : 2.4
+        case "act":
+            innerScale.values = [1, 0.95, 1.035, 1, 1]
+            innerOpacity.values = [0.62, 0.78, 0.92, 0.66, 0.62]
+            sheenX.values = [-12, -8, 12, 4, -12]
+            sheenOpacity.values = [0.04, 0.1, 0.3, 0.08, 0.04]
+            times = [0, 0.12, 0.32, 0.5, 1]
+            duration = arcade ? 0.72 : 1.05
+        case "verify":
+            innerScale.values = [1.07, 0.9, 0.9, 1.015, 1.07]
+            innerOpacity.values = [0.56, 0.9, 0.96, 0.68, 0.56]
+            sheenX.values = [-5, 0, 0, 5, -5]
+            sheenOpacity.values = [0.04, 0.16, 0.34, 0.08, 0.04]
+            times = [0, 0.16, 0.36, 0.56, 1]
+            duration = arcade ? 0.95 : 1.32
+        case "wait":
+            innerScale.values = [1, 1.045, 1, 1.045, 1, 1]
+            innerOpacity.values = [0.5, 0.9, 0.54, 0.82, 0.5, 0.5]
+            sheenX.values = [0, 2, 0, 2, 0, 0]
+            sheenOpacity.values = [0.03, 0.2, 0.04, 0.16, 0.03, 0.03]
+            times = [0, 0.1, 0.2, 0.32, 0.44, 1]
+            duration = arcade ? 1.45 : 2.05
+        case "recover":
+            innerScale.values = [1, 0.9, 1.04, 0.96, 1, 1]
+            innerOpacity.values = [0.46, 0.82, 0.58, 0.76, 0.52, 0.46]
+            sheenX.values = [0, 8, -6, 4, 0, 0]
+            sheenOpacity.values = [0.03, 0.26, 0.08, 0.2, 0.05, 0.03]
+            times = [0, 0.12, 0.26, 0.4, 0.56, 1]
+            duration = arcade ? 0.92 : 1.3
+        default:
+            innerScale.values = [0.92, 1.08, 1]
+            innerOpacity.values = [0.88, 1, 0.62]
+            sheenX.values = [-10, 10, 0]
+            sheenOpacity.values = [0.05, 0.42, 0.08]
+            times = [0, 0.48, 1]
+            duration = arcade ? 0.88 : 1.08
+        }
+        for animation in [innerScale, innerOpacity, sheenX, sheenOpacity] { animation.keyTimes = times }
+        let innerGroup = CAAnimationGroup()
+        innerGroup.animations = [innerScale, innerOpacity]
+        innerGroup.duration = duration
+        innerGroup.repeatCount = phase == "complete" ? 1 : .infinity
+        innerGroup.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.78, 0.2, 1)
+        inner.add(innerGroup, forKey: "inner-phase")
+        let sheenGroup = CAAnimationGroup()
+        sheenGroup.animations = [sheenX, sheenOpacity]
+        sheenGroup.duration = duration
+        sheenGroup.repeatCount = phase == "complete" ? 1 : .infinity
+        sheenGroup.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.78, 0.2, 1)
+        sheen.add(sheenGroup, forKey: "sheen-phase")
+        let light = CAKeyframeAnimation(keyPath: "shadowOpacity")
+        light.values = phase == "wait" ? [0.28, 0.48, 0.28, 0.42, 0.28, 0.28] : [0.28, 0.42, 0.31, 0.28]
+        light.keyTimes = phase == "wait" ? [0, 0.1, 0.2, 0.32, 0.44, 1] : [0, 0.24, 0.52, 1]
+        light.duration = duration
+        light.repeatCount = phase == "complete" ? 1 : .infinity
+        core.add(light, forKey: "core-light")
+    }
+
+    private func animateCoreEvent(_ phase: String) {
+        guard !reducedMotion else { return }
+        let scaleX = CAKeyframeAnimation(keyPath: "transform.scale.x")
+        let scaleY = CAKeyframeAnimation(keyPath: "transform.scale.y")
+        let translation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        let rotation = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        let times: [NSNumber]
+        let duration: CFTimeInterval
+        switch phase {
+        case "observe":
+            scaleX.values = [1, 0.94, 0.94, 1.025, 1]
+            scaleY.values = [1, 0.94, 0.94, 1.025, 1]
+            translation.values = [0, 0, 0, 0, 0]
+            rotation.values = [0, -0.025, 0.02, 0, 0]
+            times = [0, 0.18, 0.42, 0.72, 1]
+            duration = arcade ? 0.76 : 0.98
+        case "act":
+            scaleX.values = [1, 0.9, 1.12, 0.98, 1.04, 1]
+            scaleY.values = [1, 1.07, 0.91, 1.025, 0.98, 1]
+            translation.values = [0, 2.5, -3.5, 1, 0, 0]
+            rotation.values = [0, 0.035, -0.025, 0.012, 0, 0]
+            times = [0, 0.12, 0.3, 0.48, 0.67, 1]
+            duration = arcade ? 0.62 : 0.84
+        case "verify":
+            scaleX.values = [1, 0.91, 0.91, 1.055, 1.055, 1]
+            scaleY.values = [1, 0.91, 0.91, 1.055, 1.055, 1]
+            translation.values = [0, 0, 0, 0, 0, 0]
+            rotation.values = [0, -0.035, 0.035, 0, 0, 0]
+            times = [0, 0.13, 0.34, 0.53, 0.7, 1]
+            duration = arcade ? 0.82 : 1.04
+        case "wait":
+            scaleX.values = [1, 1.055, 1, 1.045, 1, 1]
+            scaleY.values = [1, 1.055, 1, 1.045, 1, 1]
+            translation.values = [0, 0, 0, 0, 0, 0]
+            rotation.values = [0, 0, 0, 0, 0, 0]
+            times = [0, 0.12, 0.23, 0.36, 0.48, 1]
+            duration = arcade ? 1.05 : 1.35
+        case "recover":
+            scaleX.values = [1, 0.9, 1.05, 0.95, 1.02, 1]
+            scaleY.values = [1, 1.04, 0.94, 1.03, 0.99, 1]
+            translation.values = [0, -2.5, 2, -1.2, 0.5, 0]
+            rotation.values = [0, -0.09, 0.065, -0.035, 0.012, 0]
+            times = [0, 0.14, 0.3, 0.46, 0.66, 1]
+            duration = arcade ? 0.82 : 1.06
+        default:
+            scaleX.values = [1, 0.86, 1.16, 0.98, 1.04, 1]
+            scaleY.values = [1, 0.86, 1.16, 0.98, 1.04, 1]
+            translation.values = [0, 0, 0, 0, 0, 0]
+            rotation.values = [0, -0.025, 0.02, 0, 0, 0]
+            times = [0, 0.18, 0.48, 0.7, 0.84, 1]
+            duration = arcade ? 0.9 : 1.16
+        }
+        for animation in [scaleX, scaleY, translation, rotation] { animation.keyTimes = times }
+        let group = CAAnimationGroup()
+        group.animations = [scaleX, scaleY, translation, rotation]
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(controlPoints: 0.18, 0.82, 0.18, 1)
+        body.add(group, forKey: "body-event")
+        let flash = CAKeyframeAnimation(keyPath: "opacity")
+        flash.values = phase == "complete" ? [0.08, 0.62, 0.18, 0.1] : [0.08, 0.3, 0.1]
+        flash.keyTimes = phase == "complete" ? [0, 0.45, 0.74, 1] : [0, 0.36, 1]
+        flash.duration = duration
+        sheen.add(flash, forKey: "sheen-event")
     }
 
     private func animateRhythmEntry(_ phase: String, color: NSColor) {

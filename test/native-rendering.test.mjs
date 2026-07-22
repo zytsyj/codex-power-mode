@@ -28,6 +28,10 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.match(source, /private func animateParticleAlongPath/);
   assert.match(source, /position\.calculationMode = \.paced/);
   assert.match(source, /position\.rotationMode = \.rotateAuto/);
+  assert.match(source, /private let body = CALayer\(\)/);
+  assert.match(source, /private let sheen = CAGradientLayer\(\)/);
+  assert.match(source, /private func animateCorePhase/);
+  assert.match(source, /private func animateCoreEvent/);
   assert.match(source, /pulse\.keyTimes = \[0, 0\.1, 0\.2, 0\.32, 0\.44, 1\]/);
   assert.match(source, /private func hudBaseSize\(expanded: Bool\? = nil\) -> CGSize \{ CGSize\(width: 92, height: 92\) \}/);
   assert.match(source, /effectIntensity > 1\.2 \? 30 : 45/);
