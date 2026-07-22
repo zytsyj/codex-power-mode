@@ -33,6 +33,16 @@ It also records aggregate installed-service health, HUD connection, Accessibilit
 | Language | English/Chinese strings compile; automatic/English/Chinese preference persistence | English, Chinese, and automatic selection reviewed in the live menu/HUD |
 | Lifecycle maintenance | Isolated install/upgrade and real service-reconnect checks | Clean install, upgrade, stop, permission revocation, and uninstall on the final support range |
 
+## Recoverable hands-on session
+
+Start a local acceptance checkpoint before changing menu settings:
+
+```sh
+npm run acceptance:interaction -- begin
+```
+
+Record only a predefined observation, for example `npm run acceptance:interaction -- record cursor-spark passed`, and inspect progress with `npm run acceptance:interaction -- status`. The report accepts no free-form notes and stays in Power Mode's private persistent plugin-data directory, never the repository or versioned plugin cache. Finish with `npm run acceptance:interaction -- restore`; it atomically restores the exact baseline display settings and restarts only the native HUD. Starting a session never marks an item passed automatically.
+
 ## Current limitation
 
 The first matrix was generated on Apple silicon with macOS 26.5. It proves renderer coverage and the current machine's local health, not the final supported macOS, hardware, display, or Codex version range. Those ranges remain intentionally undocumented until hands-on RC testing is complete.

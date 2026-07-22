@@ -26,6 +26,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [x] Enforce the native 1/2/4/8/16/30-second retry schedule and 10-second stable-connection reset with a Swift self-test in macOS CI.
 - [x] Verify native settings save/reload, validation, position reset, language, idle, inactive-app, motion, Combo, and cursor preferences against an isolated temporary file in macOS CI.
 - [x] Add a read-only Hook runtime inventory and test the candidate retention plan without deleting installed versions.
+- [x] Add a recoverable hands-on interaction checkpoint that preserves settings and never auto-passes visual checks.
 - [x] Run `npm run stability:reconnect` on the installed RC build and confirm the live 1/2/4-second rejection cadence, recovery, single instances, and unchanged settings.
 - [x] Generate and validate the 234-frame native compatibility matrix with `npm run compatibility:rc` on the initial RC machine.
 - [ ] Verify the full [installation and maintenance](INSTALLATION.md) flow on a clean account, including start/stop, settings reset, data purge, package removal, and Accessibility revocation.
