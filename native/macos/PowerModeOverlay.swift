@@ -2062,7 +2062,6 @@ private final class OrbLayerRenderer {
 private final class TypingFeedbackRenderer {
     private let preferences: PowerModePreferences
     private let root = CALayer()
-    private let comboShell = CAShapeLayer()
     private let comboGlow = CATextLayer()
     private let comboValue = CATextLayer()
     private let lifetimeTrack = CALayer()
@@ -2077,57 +2076,46 @@ private final class TypingFeedbackRenderer {
         root.masksToBounds = false
         effects.masksToBounds = false
         root.addSublayer(effects)
-        comboShell.bounds = CGRect(x: 0, y: 0, width: 104, height: 54)
-        comboShell.path = CGPath(ellipseIn: comboShell.bounds.insetBy(dx: 3, dy: 7), transform: nil)
-        comboShell.fillColor = NSColor.clear.cgColor
-        comboShell.lineWidth = 1.4
-        comboShell.lineCap = .round
-        comboShell.lineDashPattern = [10, 5]
-        comboShell.opacity = 0
-        root.addSublayer(comboShell)
         for label in [comboGlow, comboValue] {
-            label.bounds = CGRect(x: 0, y: 0, width: 124, height: 62)
+            label.bounds = CGRect(x: 0, y: 0, width: 92, height: 50)
             label.alignmentMode = .center
             label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-            label.font = NSFont.monospacedSystemFont(ofSize: 34, weight: .black)
-            label.fontSize = 34
+            label.font = NSFont.monospacedSystemFont(ofSize: 30, weight: .black)
+            label.fontSize = 30
             label.string = ""
             root.addSublayer(label)
         }
         comboGlow.foregroundColor = NSColor(calibratedRed: 0.18, green: 0.88, blue: 1, alpha: 0.28).cgColor
         comboGlow.shadowColor = NSColor.systemCyan.cgColor
         comboGlow.shadowOpacity = 1
-        comboGlow.shadowRadius = 14
+        comboGlow.shadowRadius = 9
         comboValue.foregroundColor = NSColor.white.cgColor
         comboValue.shadowColor = NSColor.systemCyan.cgColor
         comboValue.shadowOpacity = 0.9
-        comboValue.shadowRadius = 5
-        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 92, height: 6)
-        lifetimeTrack.cornerRadius = 3
-        lifetimeTrack.backgroundColor = NSColor(calibratedWhite: 0.02, alpha: 0.76).cgColor
-        lifetimeTrack.borderColor = NSColor.white.withAlphaComponent(0.16).cgColor
-        lifetimeTrack.borderWidth = 0.8
-        lifetimeTrack.shadowColor = NSColor.black.cgColor
-        lifetimeTrack.shadowOpacity = 0.5
-        lifetimeTrack.shadowRadius = 4
+        comboValue.shadowRadius = 3
+        lifetimeTrack.bounds = CGRect(x: 0, y: 0, width: 64, height: 3)
+        lifetimeTrack.cornerRadius = 1.5
+        lifetimeTrack.backgroundColor = NSColor.systemCyan.withAlphaComponent(0.14).cgColor
+        lifetimeTrack.borderWidth = 0
+        lifetimeTrack.shadowOpacity = 0
         root.addSublayer(lifetimeTrack)
         lifetimeFill.bounds = lifetimeTrack.bounds
         lifetimeFill.anchorPoint = CGPoint(x: 0, y: 0.5)
-        lifetimeFill.position = CGPoint(x: -46, y: 3)
-        lifetimeFill.cornerRadius = 3
+        lifetimeFill.position = CGPoint(x: -32, y: 1.5)
+        lifetimeFill.cornerRadius = 1.5
         lifetimeFill.startPoint = CGPoint(x: 0, y: 0.5)
         lifetimeFill.endPoint = CGPoint(x: 1, y: 0.5)
         lifetimeFill.shadowColor = NSColor.systemCyan.cgColor
         lifetimeFill.shadowOpacity = 0.9
-        lifetimeFill.shadowRadius = 6
+        lifetimeFill.shadowRadius = 3
         lifetimeTrack.addSublayer(lifetimeFill)
-        lifetimeCap.bounds = CGRect(x: 0, y: 0, width: 7, height: 7)
-        lifetimeCap.position = CGPoint(x: 88.5, y: 3)
-        lifetimeCap.cornerRadius = 3.5
+        lifetimeCap.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
+        lifetimeCap.position = CGPoint(x: 62, y: 1.5)
+        lifetimeCap.cornerRadius = 2
         lifetimeCap.backgroundColor = NSColor.white.cgColor
         lifetimeCap.shadowColor = NSColor.white.cgColor
         lifetimeCap.shadowOpacity = 1
-        lifetimeCap.shadowRadius = 5
+        lifetimeCap.shadowRadius = 3
         lifetimeFill.addSublayer(lifetimeCap)
         setVisible(false)
         hostLayer.addSublayer(root)
@@ -2137,15 +2125,14 @@ private final class TypingFeedbackRenderer {
         root.frame = bounds
         effects.frame = bounds
         let placeLeft = hud.midX > bounds.midX
-        let proposedX = placeLeft ? hud.minX - 66 : hud.maxX + 66
+        let proposedX = placeLeft ? hud.minX - 48 : hud.maxX + 48
         comboAnchor = CGPoint(
-            x: min(bounds.maxX - 70, max(bounds.minX + 70, proposedX)),
-            y: min(bounds.maxY - 44, max(bounds.minY + 44, hud.midY))
+            x: min(bounds.maxX - 50, max(bounds.minX + 50, proposedX)),
+            y: min(bounds.maxY - 36, max(bounds.minY + 36, hud.midY))
         )
         comboGlow.position = comboAnchor
         comboValue.position = comboAnchor
-        comboShell.position = comboAnchor
-        lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 27)
+        lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 21)
     }
 
     func update(count: Int, progress: CGFloat, pulse: Bool = false) {
@@ -2160,11 +2147,7 @@ private final class TypingFeedbackRenderer {
         comboValue.string = label
         comboValue.foregroundColor = palette.primary.cgColor
         comboValue.shadowColor = palette.secondary.cgColor
-        comboShell.strokeColor = palette.secondary.withAlphaComponent(0.72).cgColor
-        comboShell.shadowColor = palette.primary.cgColor
-        comboShell.shadowOpacity = preferences.settings.preset == "arcade" ? 0.9 : 0.62
-        comboShell.shadowRadius = preferences.settings.preset == "arcade" ? 10 : 7
-        lifetimeTrack.borderColor = palette.primary.withAlphaComponent(0.34).cgColor
+        lifetimeTrack.backgroundColor = palette.secondary.withAlphaComponent(0.16).cgColor
         lifetimeFill.colors = [palette.secondary.cgColor, palette.primary.cgColor, NSColor.white.cgColor]
         lifetimeFill.shadowColor = palette.primary.cgColor
         lifetimeCap.backgroundColor = palette.primary.cgColor
@@ -2178,7 +2161,6 @@ private final class TypingFeedbackRenderer {
         hit.duration = count % 10 == 0 ? 0.4 : 0.18
         comboValue.add(hit, forKey: "typing-combo-hit")
         comboGlow.add(hit, forKey: "typing-combo-glow-hit")
-        comboShell.add(hit, forKey: "typing-combo-shell-hit")
     }
 
     private func typingPalette(for count: Int) -> (primary: NSColor, secondary: NSColor) {
@@ -2362,7 +2344,7 @@ private final class TypingFeedbackRenderer {
         guard count > 0 else { return }
         let source = comboAnchor
         let color = typingPalette(for: count).primary
-        for layer in [comboShell, comboGlow, comboValue, lifetimeTrack] {
+        for layer in [comboGlow, comboValue, lifetimeTrack] {
             let collapse = CAAnimationGroup()
             let scale = CAKeyframeAnimation(keyPath: "transform.scale")
             scale.values = [1, 1.18, 0.12]
@@ -2439,7 +2421,6 @@ private final class TypingFeedbackRenderer {
 
     private func setVisible(_ visible: Bool) {
         let opacity: Float = visible ? 1 : 0
-        comboShell.opacity = opacity
         comboGlow.opacity = opacity
         comboValue.opacity = opacity
         lifetimeTrack.opacity = opacity

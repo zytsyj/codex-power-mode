@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Restyled Typing Combo as a brighter orb-matched energy readout: the number and thicker gradient lifetime rail now advance together through cyan, mint, violet, pink, and gold tiers, with a warm critical drain and clearer hit pulses.
+- Restyled Typing Combo as a compact orb-matched energy readout: the floating number and short gradient lifetime line advance together through cyan, mint, violet, pink, and gold tiers, with a warm critical drain and clearer hit pulses but no enclosing badge or heavy track.
 - Raised semantic-state transitions from merely legible to attention-leading: Energy material now briefly ducks behind a larger staged signature reveal, the phase rail draws itself on, the center glyph punches in, and persistent outlines and activity labels are heavier and brighter without increasing steady-state particle load.
 - Isolated Energy, semantic-state, and Combo choreography layers so simultaneous events no longer erase one another; high Energy now adds dark contrast underlays and stronger phase-colored signatures, rails, and glyph shadows so every state remains legible through Critical and Peak effects.
 - Lengthened Energy tier crossings into a readable fill-hold, compression, breakthrough, tier-seal, and settling rhythm; higher tiers now scale their impact width, alternating accent rings, glow, rotation, and aftershock density while Focus remains restrained and Arcade escalates further.
