@@ -14,8 +14,10 @@ test("public-release documentation exists while publication remains explicitly b
     "THIRD_PARTY_NOTICES.md",
     "docs/ARCHITECTURE.md",
     "docs/DEPENDENCIES.md",
+    "docs/INSTALLATION.md",
     "docs/PRIVACY.md",
-    "docs/RELEASE_CHECKLIST.md"
+    "docs/RELEASE_CHECKLIST.md",
+    "docs/TROUBLESHOOTING.md"
   ];
   await Promise.all(required.map((filename) => readFile(path.join(root, filename), "utf8")));
 
@@ -28,6 +30,20 @@ test("public-release documentation exists while publication remains explicitly b
   assert.match(readme, /not open source yet/);
   assert.match(checklist, /Choose and approve an open-source license/);
   assert.match(checklist, /owner explicitly authorizes publication/);
+});
+
+test("installation guide preserves the private release and safe maintenance boundaries", async () => {
+  const installation = await readFile(path.join(root, "docs/INSTALLATION.md"), "utf8");
+  const troubleshooting = await readFile(path.join(root, "docs/TROUBLESHOOTING.md"), "utf8");
+
+  assert.match(installation, /codex plugin add codex-power-mode@personal/);
+  assert.match(installation, /Start a new Codex task after installation/);
+  assert.match(installation, /reset:settings -- --yes/);
+  assert.match(installation, /purge:data -- --yes/);
+  assert.match(installation, /codex plugin remove codex-power-mode@personal/);
+  assert.match(installation, /public installation channel.*explicitly approved/i);
+  assert.match(troubleshooting, /Version mismatch or duplicate HUD/);
+  assert.match(troubleshooting, /Neither command publishes, updates, or changes repository visibility/);
 });
 
 test("dependency inventory matches the zero-package private baseline", async () => {

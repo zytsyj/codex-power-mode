@@ -22,7 +22,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [ ] Reconfirm `docs/DEPENDENCIES.md`, upstream CI-action licenses, and `THIRD_PARTY_NOTICES.md`; document every newly bundled dependency or asset.
 - [ ] Decide whether public CI actions must be pinned to immutable commit SHAs.
 - [ ] Run `npm run doctor` after a fresh install and an upgrade.
-- [ ] Verify start/stop, settings reset, data purge, and plugin removal instructions on a clean account.
+- [ ] Verify the full [installation and maintenance](INSTALLATION.md) flow on a clean account, including start/stop, settings reset, data purge, package removal, and Accessibility revocation.
 - [ ] Verify loopback binding, authentication, origin validation, payload limits, and diagnostic redaction.
 - [ ] Record idle, decay, and burst CPU/GPU behavior on the supported macOS range.
 - [ ] Confirm the release archive contains no runtime state, compiled local binary, logs, secrets, personal paths, or private-repository metadata.
@@ -30,6 +30,6 @@ The repository must remain private until the owner explicitly authorizes publica
 ## Documentation and media
 
 - [ ] Capture current light/dark screenshots and short Focus/Arcade demonstrations.
-- [ ] Review README, architecture, privacy, security, troubleshooting, contribution, and maintenance documentation.
+- [ ] Review README, installation, architecture, privacy, security, troubleshooting, contribution, and maintenance documentation.
 - [ ] Add supported macOS and Codex version ranges after final compatibility testing.
 - [ ] Prepare release notes and a known-limitations section.

@@ -4,7 +4,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 > Private incubation project. The repository is intentionally not open source yet.
 
-Documentation: [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
+Documentation: [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ## Current v0.8.0 private stable
 
