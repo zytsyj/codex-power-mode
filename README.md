@@ -10,7 +10,7 @@ An agent activity feedback layer designed for Codex. Power Mode turns observing,
 
 Power Mode reads Codex lifecycle signals—not keystrokes or code volume—and turns them into a compact semantic rhythm. Useful edits build Energy, consecutive agent steps build Combo, verification creates evidence-backed rewards, and inactivity visibly decays back to Idle. Everything stays local and the runtime has zero third-party packages.
 
-Documentation: [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Performance](docs/PERFORMANCE.md) · [Stability](docs/STABILITY.md) · [Compatibility](docs/COMPATIBILITY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Media](docs/MEDIA.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
+Documentation: [Installation](docs/INSTALLATION.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Performance](docs/PERFORMANCE.md) · [Stability](docs/STABILITY.md) · [Compatibility](docs/COMPATIBILITY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Media](docs/MEDIA.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ## At a glance
 
@@ -29,7 +29,9 @@ Typing Combo and Reduce Motion are shown below. Both are generated from the same
 | --- | --- |
 | ![Gold Typing Combo on a dark background](docs/media/typing-combo-dark.png) | ![Reduced Motion Recover on a light background](docs/media/reduced-light-recover.png) |
 
-## Current v0.8.0 private stable
+## Current v0.8.0 private Release Candidate
+
+The current build is suitable for ongoing personal testing, but it is not a public stable release. Automated lifecycle, rendering, recovery, privacy, and single-machine performance checks are in place. Final publication still depends on hands-on interaction acceptance, a real trusted Hook run after the latest install, Instruments GPU/energy inspection, compatibility testing across the declared support range, and owner decisions listed in the [release checklist](docs/RELEASE_CHECKLIST.md).
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses a `0–999` Energy scale for useful progress, Confidence for verification evidence, and Risk for change scope; only evidence-backed completion reaches the verified peak.
@@ -175,11 +177,12 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Combo progresses through Ignite (`1–4×`), Link (`5–9×`), Accel (`10–19×`), Heat (`20–39×`), and Extreme (`40×+`). Its critical cadence emits a double warning near expiry, then the outer ring visibly fractures once after a break.
 - Passing checks use three reward tiers: restrained confirmation without a recent edit, green Boost when evidence backs the latest change, and a gold Record beat when that evidence also sets a personal best.
 
-## Roadmap
+## Known limitations
 
-- Focus, Arcade, Review, and Accessible visual presets.
-- More granular tool-family feedback and long-running task milestones.
-- Multi-task and subagent presence.
-- Native overlays for Windows and Linux.
-- Optional sound and richer accessibility controls.
-- Signed releases and public-source readiness review.
+- Power Mode supports the Codex desktop app on macOS only. Codex CLI, VS Code, subagents, Windows, and Linux are intentionally outside the current product boundary.
+- The latest installed Hook is verified only when a new trusted Codex desktop task naturally emits lifecycle activity. Preview commands and synthetic render tests never count as real Hook acceptance.
+- The current performance numbers are an Apple-silicon single-machine baseline. Full Xcode Instruments GPU/Energy Log inspection and a final supported macOS/Codex range remain open RC gates.
+- Typing Combo and cursor-local effects require optional macOS Accessibility permission. Core lifecycle feedback works without that permission.
+- The project remains private and `UNLICENSED`; no permission to redistribute or publish has been granted yet.
+
+See the [FAQ](docs/FAQ.md) for expected behavior and the [release checklist](docs/RELEASE_CHECKLIST.md) for the remaining public-readiness gates.

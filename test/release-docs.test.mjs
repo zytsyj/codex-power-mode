@@ -36,6 +36,20 @@ test("public-release documentation exists while publication remains explicitly b
   assert.match(checklist, /owner explicitly authorizes publication/);
 });
 
+test("README and FAQ describe the private RC without unsupported platform promises", async () => {
+  const readme = await readFile(path.join(root, "README.md"), "utf8");
+  const faq = await readFile(path.join(root, "docs/FAQ.md"), "utf8");
+
+  assert.match(readme, /private Release Candidate/);
+  assert.match(readme, /Codex desktop app on macOS only/);
+  assert.match(readme, /project remains private and `UNLICENSED`/);
+  assert.match(readme, /\[FAQ\]\(docs\/FAQ\.md\)/);
+  assert.doesNotMatch(readme, /Native overlays for Windows and Linux/);
+  assert.match(faq, /does not persist prompts, code, key values, command text, authentication data, or cursor coordinates/i);
+  assert.match(faq, /Demo, showcase, replay, direct HTTP requests, and synthetic tests intentionally do not satisfy this gate/);
+  assert.match(faq, /repository remains private and `UNLICENSED`/);
+});
+
 test("compatibility evidence separates synthetic coverage from real and manual acceptance", async () => {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const compatibility = await readFile(path.join(root, "docs/COMPATIBILITY.md"), "utf8");
