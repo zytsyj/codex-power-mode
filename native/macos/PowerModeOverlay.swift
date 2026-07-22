@@ -242,6 +242,7 @@ private final class OrbLayerRenderer {
     private let core = CALayer()
     private let inner = CAGradientLayer()
     private let sheen = CAGradientLayer()
+    private let signature = CAShapeLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -308,6 +309,14 @@ private final class OrbLayerRenderer {
         sheen.endPoint = CGPoint(x: 1, y: 0.25)
         sheen.opacity = 0.1
         body.addSublayer(sheen)
+
+        signature.frame = body.bounds
+        signature.fillColor = NSColor.clear.cgColor
+        signature.lineCap = .round
+        signature.lineJoin = .round
+        signature.lineWidth = 1.6
+        signature.opacity = 0
+        body.addSublayer(signature)
 
         configureRing(ticks, radius: 42, width: 1)
         ticks.opacity = 0
@@ -421,6 +430,7 @@ private final class OrbLayerRenderer {
         updateCombo(state, color: color)
         if phase != nextPhase {
             phase = nextPhase
+            updateCoreSignature(nextPhase, color: color)
             animateSemanticPhase(nextPhase)
             animateCorePhase(nextPhase)
             animateRhythmEntry(nextPhase, color: color)
@@ -531,6 +541,140 @@ private final class OrbLayerRenderer {
         semantic.add(animation, forKey: "semantic-phase")
     }
 
+    private func updateCoreSignature(_ phase: String, color: NSColor) {
+        signature.removeAllAnimations()
+        energyRing.removeAnimation(forKey: "phase-dash")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        signature.path = coreSignaturePath(phase)
+        signature.strokeColor = color.withAlphaComponent(phase == "idle" ? 0.28 : 0.82).cgColor
+        signature.shadowColor = color.cgColor
+        signature.shadowOpacity = phase == "idle" ? 0.1 : arcade ? 0.72 : 0.42
+        signature.shadowRadius = arcade ? 4.5 : 2.5
+        signature.lineWidth = arcade ? 1.9 : 1.55
+        signature.opacity = phase == "idle" ? 0.36 : 1
+        energyRing.lineDashPattern = phase == "observe" ? [3, 5]
+            : phase == "act" ? [14, 3]
+            : phase == "verify" ? [7, 3]
+            : phase == "wait" ? [2, 7]
+            : phase == "recover" ? [5, 3]
+            : nil
+        CATransaction.commit()
+        guard !reducedMotion, phase != "idle" else { return }
+        let animation: CAAnimation
+        switch phase {
+        case "observe":
+            let rotate = CABasicAnimation(keyPath: "transform.rotation.z")
+            rotate.fromValue = 0
+            rotate.toValue = CGFloat.pi * 2
+            rotate.duration = arcade ? 2.6 : 3.8
+            rotate.repeatCount = .infinity
+            animation = rotate
+        case "act":
+            let drive = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            drive.values = [-2, 3.5, 0, 0]
+            drive.keyTimes = [0, 0.3, 0.5, 1]
+            drive.duration = arcade ? 0.72 : 1.05
+            drive.repeatCount = .infinity
+            animation = drive
+        case "verify":
+            let lock = CAKeyframeAnimation(keyPath: "transform.scale")
+            lock.values = [1.08, 0.88, 1.02, 1.02]
+            lock.keyTimes = [0, 0.28, 0.52, 1]
+            lock.duration = arcade ? 0.95 : 1.32
+            lock.repeatCount = .infinity
+            animation = lock
+        case "wait":
+            let gate = CAKeyframeAnimation(keyPath: "opacity")
+            gate.values = [0.42, 1, 0.46, 0.9, 0.42, 0.42]
+            gate.keyTimes = [0, 0.1, 0.2, 0.32, 0.44, 1]
+            gate.duration = arcade ? 1.45 : 2.05
+            gate.repeatCount = .infinity
+            animation = gate
+        case "recover":
+            let repair = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            repair.values = [-0.11, 0.075, -0.045, 0, 0]
+            repair.keyTimes = [0, 0.2, 0.38, 0.56, 1]
+            repair.duration = arcade ? 0.92 : 1.3
+            repair.repeatCount = .infinity
+            animation = repair
+        default:
+            let finish = CAKeyframeAnimation(keyPath: "transform.scale")
+            finish.values = [0.76, 1.16, 0.96, 1]
+            finish.keyTimes = [0, 0.46, 0.72, 1]
+            finish.duration = arcade ? 0.88 : 1.08
+            animation = finish
+        }
+        signature.add(animation, forKey: "signature-phase")
+        if ["observe", "act", "recover"].contains(phase) {
+            let dash = CABasicAnimation(keyPath: "lineDashPhase")
+            dash.fromValue = 0
+            dash.toValue = phase == "act" ? -34 : -16
+            dash.duration = phase == "act" ? 0.72 : 1.6
+            dash.repeatCount = .infinity
+            energyRing.add(dash, forKey: "phase-dash")
+        }
+    }
+
+    private func coreSignaturePath(_ phase: String) -> CGPath {
+        let path = CGMutablePath()
+        let center = CGPoint(x: 46, y: 46)
+        switch phase {
+        case "observe":
+            for start in stride(from: CGFloat(12), to: 360, by: 90) {
+                path.addArc(center: center, radius: 25, startAngle: start * .pi / 180, endAngle: (start + 58) * .pi / 180, clockwise: false)
+            }
+            path.addEllipse(in: CGRect(x: 41, y: 41, width: 10, height: 10))
+        case "act":
+            for offset in [CGFloat(0), 8] {
+                path.move(to: CGPoint(x: 15 + offset, y: 34))
+                path.addLine(to: CGPoint(x: 27 + offset, y: 46))
+                path.addLine(to: CGPoint(x: 15 + offset, y: 58))
+            }
+            path.move(to: CGPoint(x: 57, y: 39))
+            path.addLine(to: CGPoint(x: 73, y: 39))
+            path.addLine(to: CGPoint(x: 80, y: 46))
+            path.addLine(to: CGPoint(x: 73, y: 53))
+            path.addLine(to: CGPoint(x: 57, y: 53))
+        case "verify":
+            for (x, y, dx, dy) in [(21.0, 21.0, 1.0, 1.0), (71.0, 21.0, -1.0, 1.0), (21.0, 71.0, 1.0, -1.0), (71.0, 71.0, -1.0, -1.0)] {
+                let px = CGFloat(x), py = CGFloat(y), sx = CGFloat(dx), sy = CGFloat(dy)
+                path.move(to: CGPoint(x: px + sx * 11, y: py))
+                path.addLine(to: CGPoint(x: px, y: py))
+                path.addLine(to: CGPoint(x: px, y: py + sy * 11))
+            }
+        case "wait":
+            for x in [CGFloat(22), 70] {
+                path.move(to: CGPoint(x: x, y: 25))
+                path.addLine(to: CGPoint(x: x, y: 67))
+            }
+            path.move(to: CGPoint(x: 22, y: 31))
+            path.addLine(to: CGPoint(x: 29, y: 31))
+            path.move(to: CGPoint(x: 63, y: 31))
+            path.addLine(to: CGPoint(x: 70, y: 31))
+            path.move(to: CGPoint(x: 22, y: 61))
+            path.addLine(to: CGPoint(x: 29, y: 61))
+            path.move(to: CGPoint(x: 63, y: 61))
+            path.addLine(to: CGPoint(x: 70, y: 61))
+        case "recover":
+            for (start, end) in [(10.0, 64.0), (91.0, 145.0), (172.0, 226.0), (253.0, 326.0)] {
+                path.addArc(center: center, radius: 26, startAngle: CGFloat(start) * .pi / 180, endAngle: CGFloat(end) * .pi / 180, clockwise: false)
+            }
+            path.move(to: CGPoint(x: 31, y: 23))
+            path.addLine(to: CGPoint(x: 39, y: 36))
+            path.addLine(to: CGPoint(x: 35, y: 43))
+            path.addLine(to: CGPoint(x: 49, y: 61))
+        case "complete":
+            path.addArc(center: center, radius: 26, startAngle: 0.12, endAngle: 5.7, clockwise: false)
+            path.move(to: CGPoint(x: 58, y: 28))
+            path.addLine(to: CGPoint(x: 64, y: 34))
+            path.addLine(to: CGPoint(x: 76, y: 21))
+        default:
+            path.addEllipse(in: CGRect(x: 22, y: 22, width: 48, height: 48))
+        }
+        return path
+    }
+
     private func animateCorePhase(_ phase: String) {
         inner.removeAnimation(forKey: "inner-phase")
         sheen.removeAnimation(forKey: "sheen-phase")
@@ -628,15 +772,15 @@ private final class OrbLayerRenderer {
             times = [0, 0.18, 0.42, 0.72, 1]
             duration = arcade ? 0.76 : 0.98
         case "act":
-            scaleX.values = [1, 0.9, 1.12, 0.98, 1.04, 1]
-            scaleY.values = [1, 1.07, 0.91, 1.025, 0.98, 1]
-            translation.values = [0, 2.5, -3.5, 1, 0, 0]
+            scaleX.values = [1, 0.87, 1.18, 0.96, 1.06, 1]
+            scaleY.values = [1, 1.09, 0.88, 1.04, 0.97, 1]
+            translation.values = [0, 3, -4.5, 1.5, 0, 0]
             rotation.values = [0, 0.035, -0.025, 0.012, 0, 0]
             times = [0, 0.12, 0.3, 0.48, 0.67, 1]
             duration = arcade ? 0.62 : 0.84
         case "verify":
-            scaleX.values = [1, 0.91, 0.91, 1.055, 1.055, 1]
-            scaleY.values = [1, 0.91, 0.91, 1.055, 1.055, 1]
+            scaleX.values = [1, 0.86, 0.86, 1.08, 1.08, 1]
+            scaleY.values = [1, 0.86, 0.86, 1.08, 1.08, 1]
             translation.values = [0, 0, 0, 0, 0, 0]
             rotation.values = [0, -0.035, 0.035, 0, 0, 0]
             times = [0, 0.13, 0.34, 0.53, 0.7, 1]
@@ -649,15 +793,15 @@ private final class OrbLayerRenderer {
             times = [0, 0.12, 0.23, 0.36, 0.48, 1]
             duration = arcade ? 1.05 : 1.35
         case "recover":
-            scaleX.values = [1, 0.9, 1.05, 0.95, 1.02, 1]
-            scaleY.values = [1, 1.04, 0.94, 1.03, 0.99, 1]
-            translation.values = [0, -2.5, 2, -1.2, 0.5, 0]
-            rotation.values = [0, -0.09, 0.065, -0.035, 0.012, 0]
+            scaleX.values = [1, 0.86, 1.09, 0.92, 1.03, 1]
+            scaleY.values = [1, 1.07, 0.9, 1.05, 0.98, 1]
+            translation.values = [0, -3.5, 3, -1.8, 0.7, 0]
+            rotation.values = [0, -0.14, 0.1, -0.055, 0.018, 0]
             times = [0, 0.14, 0.3, 0.46, 0.66, 1]
             duration = arcade ? 0.82 : 1.06
         default:
-            scaleX.values = [1, 0.86, 1.16, 0.98, 1.04, 1]
-            scaleY.values = [1, 0.86, 1.16, 0.98, 1.04, 1]
+            scaleX.values = [1, 0.82, 1.22, 0.96, 1.06, 1]
+            scaleY.values = [1, 0.82, 1.22, 0.96, 1.06, 1]
             translation.values = [0, 0, 0, 0, 0, 0]
             rotation.values = [0, -0.025, 0.02, 0, 0, 0]
             times = [0, 0.18, 0.48, 0.7, 0.84, 1]
