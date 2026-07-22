@@ -15,6 +15,7 @@ import { isNativeOverlayCommand } from "../src/native-process.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
 import { initialState, reduceState } from "../src/state.mjs";
 import { powerModeStatus } from "../src/status.mjs";
+import { powerModeDoctor, renderDoctorReport } from "../src/doctor.mjs";
 import { readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -401,10 +402,34 @@ async function status() {
   return powerModeStatus({ health, nativePid, nativeConfiguration, state, endpoint });
 }
 
+function processCounts() {
+  if (process.platform === "win32") return { serverProcessCount: 1, nativeProcessCount: 0 };
+  const listing = spawnSync("ps", ["-axo", "command="], { encoding: "utf8" });
+  const commands = listing.status === 0 ? listing.stdout.split(/\r?\n/).filter(Boolean) : [];
+  return {
+    serverProcessCount: commands.filter(isPowerModeServerCommand).length,
+    nativeProcessCount: commands.filter((value) => isNativeOverlayCommand(value, nativeBinary)).length
+  };
+}
+
+async function doctor() {
+  const report = powerModeDoctor({
+    status: await status(),
+    identity,
+    expectedDataDir: dataDir,
+    platform: process.platform,
+    ...processCounts()
+  });
+  process.stdout.write(process.argv.includes("--json") ? `${JSON.stringify(report, null, 2)}\n` : renderDoctorReport(report));
+  if (report.overall === "fail") process.exitCode = 1;
+}
+
 if (command === "start") {
   await start();
 } else if (command === "status") {
   process.stdout.write(`${JSON.stringify(await status(), null, 2)}\n`);
+} else if (command === "doctor") {
+  await doctor();
 } else if (command === "demo") {
   const events = [
     { type: "activity-start", phase: "observe", toolGroup: "search" },
@@ -456,6 +481,6 @@ if (command === "start") {
 } else if (command === "native-stop") {
   await stopNative();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|energy-showcase|replay|status> [--open]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|energy-showcase|replay|status|doctor> [--open|--json]\n");
   process.exitCode = 2;
 }

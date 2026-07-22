@@ -53,6 +53,7 @@ For the native macOS overlay:
 npm run native
 npm run demo
 npm run status
+npm run doctor
 npm run native:stop
 ```
 
@@ -63,6 +64,8 @@ On macOS, the Codex `SessionStart` hook automatically ensures both the event ser
 `UserPromptSubmit` moves the HUD into Observe immediately after a message is sent, with “Understanding your request” feedback before the first tool call. Power Mode records the lifecycle transition but never stores the prompt text.
 
 `npm run status` reports service health, the native overlay PID and launch configuration, `hudDisplay` for the state currently shown after settling/decay, `taskState` for the last raw task state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
+
+`npm run doctor` gives a short, non-technical health report for the service, native HUD, installed version, data directory, duplicate processes, event-stream connection, and trusted Codex lifecycle hooks. Use `npm run doctor -- --json` for automation.
 
 The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Status & connection** separates the current HUD display from the raw task state and lists the last real event, task origin, following policy, connection health, and full session identity. **Activity source** offers Focus, Global, and Mix: Focus protects the current conversation, Global follows the latest conversation while keeping each score isolated, and Mix combines every Codex app conversation into one shared Energy and Combo pool. **Effect intensity** independently controls particle density and impact without changing the Focus/Arcade rhythm, and **Show Combo** can remove the agent Combo ring without spending high-frequency redraws on its hidden decay. **Typing Combo** is a separate opt-in feature that requests macOS Accessibility access, activates only while Codex is the foreground app, ignores control/navigation keys, and records only a capped count and timestamp. **Idle behavior** can keep a quiet orb or hide the HUD; when hiding is selected, **Auto-hide delay** chooses whether it disappears immediately or leaves the settled Idle orb visible for 2 or 6 seconds. **When Codex is inactive** separately controls whether the HUD hides, stays at the last Codex anchor, or follows the active app. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json` and survive overlay restarts.
 

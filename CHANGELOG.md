@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a concise `doctor` command with human-readable and JSON output for service/HUD health, version and data-directory consistency, duplicate instances, stream connection, and trusted Codex lifecycle activity.
 - Added a release-hygiene gate and matching root ignores so developer-specific home paths, private-key material, local state, service tokens, logs, and compiled overlay artifacts cannot accidentally enter a future public release.
 - Restyled Typing Combo as a prominent orb-matched energy readout: the floating number and balanced gradient lifetime line advance together through cyan, mint, violet, pink, and gold tiers, with a warm critical drain and clearer hit pulses but no enclosing badge or heavy track.
 - Raised semantic-state transitions from merely legible to attention-leading: Energy material now briefly ducks behind a larger staged signature reveal, the phase rail draws itself on, the center glyph punches in, and persistent outlines and activity labels are heavier and brighter without increasing steady-state particle load.
