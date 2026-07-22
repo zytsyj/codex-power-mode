@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an isolated RC security gate covering loopback binding, token permissions, API and browser-stream authentication, origin checks, JSON and size limits, recursive sensitive-field rejection, failure isolation, and privacy-safe doctor output; POST endpoints now reject non-JSON bodies and nested secret-bearing fields.
 - Reframed the README as a private Release Candidate, removed out-of-scope platform roadmap promises, documented current acceptance limits, and added a privacy-aware FAQ for lifecycle, visibility, task modes, Hook verification, Accessibility, performance, and publication status.
 - Added a native peak layer/animation budget self-test for simultaneous Energy breakthrough, semantic transition, Typing Combo, cursor milestone, and prompt injection choreography across Focus, Arcade, and Reduce Motion.
 - Added a recoverable real-interaction RC checklist that snapshots non-sensitive HUD settings, records only predefined manual outcomes, and atomically restores the baseline without automatically claiming visual acceptance.

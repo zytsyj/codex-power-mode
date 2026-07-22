@@ -19,6 +19,8 @@ test("event validation accepts reduced lifecycle events", () => {
 
 test("event validation rejects sensitive and malformed input", () => {
   assert.match(validateIncomingEvent({ ...valid, prompt: "secret" }), /Sensitive field/);
+  assert.match(validateIncomingEvent({ ...valid, metadata: { prompt: "nested secret" } }), /Sensitive field/);
+  assert.match(validateIncomingEvent({ ...valid, state: { diagnostics: [{ apiKey: "nested credential" }] } }), /Sensitive field/);
   assert.match(validateIncomingEvent({ ...valid, type: "unknown" }), /Unsupported/);
   assert.match(validateIncomingEvent({ ...valid, timestamp: "not-a-date" }), /timestamp/);
   assert.match(validateIncomingEvent({ ...valid, addedLines: -1 }), /addedLines/);

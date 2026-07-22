@@ -91,6 +91,11 @@ async function readBody(request) {
   }
 }
 
+function requestHasJsonContentType(request) {
+  const contentType = String(request.headers["content-type"] ?? "").toLowerCase();
+  return contentType === "application/json" || contentType.startsWith("application/json;");
+}
+
 function broadcast(event) {
   const frame = `data: ${JSON.stringify(event)}\n\n`;
   for (const client of clients) client.write(frame);
@@ -136,6 +141,7 @@ async function handleRequest(request, response) {
     return;
   }
   if (url.pathname === "/api/events" && request.method === "POST") {
+    if (!requestHasJsonContentType(request)) return sendJson(response, 415, { error: "JSON content type required" });
     const incoming = await readBody(request);
     const validationError = validateIncomingEvent(incoming);
     if (validationError) return sendJson(response, 400, { error: validationError });
@@ -147,6 +153,7 @@ async function handleRequest(request, response) {
     return sendJson(response, 202, { accepted: true, ...decision });
   }
   if (url.pathname === "/api/typing-charge" && request.method === "POST") {
+    if (!requestHasJsonContentType(request)) return sendJson(response, 415, { error: "JSON content type required" });
     const body = await readBody(request);
     const incoming = {
       type: "input-charge",

@@ -184,6 +184,13 @@ test("event service rejects unauthorized, cross-origin, and malformed API reques
     });
     assert.equal(malformed.status, 400);
 
+    const wrongMediaType = await fetch(`${endpoint}/api/events`, {
+      method: "POST",
+      headers: bearerHeaders(token, { "content-type": "text/plain" }),
+      body: JSON.stringify({ type: "activity-start" })
+    });
+    assert.equal(wrongMediaType.status, 415);
+
     const oversized = await fetch(`${endpoint}/api/events`, {
       method: "POST",
       headers: bearerHeaders(token, { "content-type": "application/json" }),
@@ -202,6 +209,17 @@ test("event service rejects unauthorized, cross-origin, and malformed API reques
       })
     });
     assert.equal(sensitive.status, 400);
+    const nestedSensitive = await authorizedFetch(dataDir, `${endpoint}/api/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "activity-start",
+        timestamp: new Date().toISOString(),
+        sessionId: "session-1",
+        metadata: { authorization: "must-not-enter-service" }
+      })
+    });
+    assert.equal(nestedSensitive.status, 400);
     assert.equal((await authorizedFetch(dataDir, `${endpoint}/api/health`)).status, 200);
     assert.equal(child.exitCode, null);
   } finally {

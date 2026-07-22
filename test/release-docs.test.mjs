@@ -50,6 +50,18 @@ test("README and FAQ describe the private RC without unsupported platform promis
   assert.match(faq, /repository remains private and `UNLICENSED`/);
 });
 
+test("security RC gate is isolated, privacy-safe, and documented", async () => {
+  const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const security = await readFile(path.join(root, "docs/SECURITY_AUDIT.md"), "utf8");
+  const runner = await readFile(path.join(root, "scripts/security-rc.mjs"), "utf8");
+
+  assert.equal(packageManifest.scripts["security:rc"], "node scripts/security-rc.mjs --output .power-mode/security-rc.json");
+  assert.match(security, /temporary Power Mode service on a random loopback port/);
+  assert.match(security, /sensitive keys are rejected recursively/i);
+  assert.match(runner, /realLifecycleEventsInjected: 0/);
+  assert.match(runner, /The report contains no prompts, code, commands, key values, cursor coordinates, tokens, task identifiers, local paths, ports, or process identifiers/);
+});
+
 test("compatibility evidence separates synthetic coverage from real and manual acceptance", async () => {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const compatibility = await readFile(path.join(root, "docs/COMPATIBILITY.md"), "utf8");

@@ -2,7 +2,27 @@ const EVENT_TYPES = new Set([
   "connected", "activity-start", "input-charge", "permission-request", "edit", "edit-failure", "verification", "turn-stop"
 ]);
 const PHASES = new Set(["observe", "act", "verify", "wait", "recover", "complete", "idle"]);
-const SENSITIVE_KEYS = ["prompt", "command", "code", "patch", "tool_input", "tool_response"];
+const SENSITIVE_KEYS = new Set([
+  "prompt", "command", "code", "patch", "tool_input", "tool_response",
+  "token", "authorization", "api_key", "apikey", "password", "secret"
+]);
+
+function nestedSensitiveKey(value) {
+  const pending = [value];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      for (const item of current) pending.push(item);
+      continue;
+    }
+    for (const [key, nestedValue] of Object.entries(current)) {
+      if (SENSITIVE_KEYS.has(key.toLowerCase())) return key;
+      if (nestedValue && typeof nestedValue === "object") pending.push(nestedValue);
+    }
+  }
+  return null;
+}
 
 function boundedString(value, maximum = 256) {
   return typeof value === "string" && value.length > 0 && value.length <= maximum;
@@ -20,9 +40,8 @@ export function validateIncomingEvent(value) {
   if (value.state !== undefined && (!value.state || typeof value.state !== "object" || Array.isArray(value.state))) {
     return "Invalid event state";
   }
-  for (const key of SENSITIVE_KEYS) {
-    if (Object.hasOwn(value, key)) return `Sensitive field is not accepted: ${key}`;
-  }
+  const sensitiveKey = nestedSensitiveKey(value);
+  if (sensitiveKey) return `Sensitive field is not accepted: ${sensitiveKey}`;
   for (const key of ["addedLines", "removedLines", "addedChars", "removedChars"]) {
     if (value[key] !== undefined && (!Number.isInteger(value[key]) || value[key] < 0 || value[key] > 1_000_000)) {
       return `Invalid ${key}`;
