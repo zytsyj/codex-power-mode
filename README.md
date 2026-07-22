@@ -99,7 +99,10 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 
 - All state stays on the local machine.
 - The HUD listens on `127.0.0.1` only.
+- Each installation creates a private `0600` service token. Hooks, diagnostics, and the native HUD authenticate every API and event-stream request.
+- The browser HUD receives a separate process-scoped, stream-only token through a same-origin bootstrap; cross-origin pages cannot subscribe to HUD state or post events.
 - Patch source text is reduced to line and character counts before persistence; command contents are not stored.
+- The local service rejects malformed lifecycle events, sensitive prompt/command fields, oversized payloads, and invalid JSON without interrupting Codex work.
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.

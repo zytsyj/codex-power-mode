@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { eventFromHook } from "../src/events.mjs";
+import { bearerHeaders, ensureServiceToken } from "../src/auth.mjs";
 import { serviceEndpointFromEnvironment } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { sessionSourceFromTranscript, shouldTrackSessionSource } from "../src/session-source.mjs";
@@ -11,13 +12,14 @@ async function readStdin() {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
-async function notifyServer(event, state) {
+async function notifyServer(event, state, dataDir) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 250);
   try {
+    const token = await ensureServiceToken(dataDir);
     await fetch(`${serviceEndpointFromEnvironment(process.env)}/api/events`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: bearerHeaders(token, { "content-type": "application/json" }),
       body: JSON.stringify({ ...event, state }),
       signal: controller.signal
     });
@@ -38,7 +40,7 @@ async function main() {
     const configuredWindow = Number.parseInt(process.env.CODEX_POWER_MODE_OBSERVE_THROTTLE_MS || "900", 10);
     const coalesceWindowMs = Number.isFinite(configuredWindow) ? Math.max(0, Math.min(5_000, configuredWindow)) : 900;
     const result = await recordSessionEventResult(dataDir, event, { coalesceWindowMs });
-    if (result.recorded) await notifyServer(event, result.state);
+    if (result.recorded) await notifyServer(event, result.state, dataDir);
   }
 }
 

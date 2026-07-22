@@ -10,6 +10,7 @@ import {
   serviceEndpointFromEnvironment
 } from "../src/config.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
+import { bearerHeaders, ensureServiceToken } from "../src/auth.mjs";
 import { isNativeOverlayCommand } from "../src/native-process.mjs";
 import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "../src/service-identity.mjs";
 import { initialState, reduceState } from "../src/state.mjs";
@@ -27,9 +28,16 @@ const nativePidFile = path.join(nativeDir, "overlay.pid");
 const nativeConfigFile = path.join(nativeDir, "overlay-config.json");
 const nativeStartLockFile = path.join(nativeDir, "overlay-start.lock");
 
+async function authenticatedHeaders(headers = {}) {
+  return bearerHeaders(await ensureServiceToken(dataDir), headers);
+}
+
 async function serviceHealth() {
   try {
-    const response = await fetch(`${endpoint}/api/health`, { signal: AbortSignal.timeout(250) });
+    const response = await fetch(`${endpoint}/api/health`, {
+      headers: await authenticatedHeaders(),
+      signal: AbortSignal.timeout(250)
+    });
     return response.ok ? await response.json() : null;
   } catch {
     return null;
@@ -113,7 +121,7 @@ async function broadcast(event) {
   if (!(await isRunning())) await start();
   await fetch(`${endpoint}/api/events`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: await authenticatedHeaders({ "content-type": "application/json" }),
     body: JSON.stringify(event)
   });
 }
@@ -320,6 +328,7 @@ async function startNative() {
       env: {
         ...process.env,
         CODEX_POWER_MODE_URL: streamEndpoint,
+        CODEX_POWER_MODE_TOKEN: await ensureServiceToken(dataDir),
         CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
       }
     });

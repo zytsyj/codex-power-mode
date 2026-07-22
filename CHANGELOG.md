@@ -2,6 +2,10 @@
 
 ## 0.8.0 - 2026-07-22
 
+- Added per-installation authentication for hooks, diagnostics, previews, and the native event stream, with a private `0600` token that remains outside the plugin package.
+- Isolated the browser HUD behind a same-origin bootstrap and a process-scoped stream-only token, removed permissive SSE cross-origin access, and rejected foreign browser origins.
+- Added strict lifecycle event validation and safe `400`/`413` responses so malformed JSON, oversized requests, sensitive fields, and invalid state signals cannot crash or poison the service.
+- Rebuilt displayed state from the hook-owned per-session snapshot instead of trusting state supplied in the HTTP request.
 - Marked the current private build as the first self-use stable baseline after connection, lifecycle, Combo, semantic animation, positioning, settings, and performance milestones passed release regression.
 - Serialized native HUD startup so concurrent Codex task launches cannot race into duplicate overlays.
 - Validated PID ownership before reusing or stopping a native HUD, preventing a stale PID file from targeting an unrelated process after macOS reuses an identifier.

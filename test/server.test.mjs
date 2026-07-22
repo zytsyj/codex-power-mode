@@ -7,8 +7,29 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { bearerHeaders, ensureServiceToken } from "../src/auth.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+async function authorizedFetch(dataDir, url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: bearerHeaders(await ensureServiceToken(dataDir), options.headers)
+  });
+}
+
+async function postEvent(dataDir, port, body) {
+  if (body.state && body.preview !== true) {
+    const sessionsDir = path.join(dataDir, "sessions");
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(path.join(sessionsDir, `${body.sessionId}.json`), JSON.stringify(body.state));
+  }
+  return authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
 
 async function freePort() {
   const probe = net.createServer();
@@ -52,8 +73,11 @@ test("event service exits cleanly while an SSE overlay is connected", async () =
 
   try {
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const token = await ensureServiceToken(dataDir);
     const connected = new Promise((resolve, reject) => {
-      request = http.get(`http://127.0.0.1:${port}/api/stream`, (response) => {
+      request = http.get(`http://127.0.0.1:${port}/api/stream`, {
+        headers: bearerHeaders(token)
+      }, (response) => {
         assert.equal(response.statusCode, 200);
         response.once("data", resolve);
       });
@@ -81,7 +105,7 @@ test("event service health identifies the running plugin build", async () => {
 
   try {
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
-    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    const response = await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`);
     const health = await response.json();
     const manifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
 
@@ -124,6 +148,69 @@ test("event service does not cache HUD assets during plugin updates", async () =
   }
 });
 
+test("event service rejects unauthorized, cross-origin, and malformed API requests without exiting", async () => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-security-"));
+  const port = await freePort();
+  const endpoint = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(root, "scripts/server.mjs"), "--port", String(port), "--data-dir", dataDir], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  try {
+    await waitForOutput(child.stdout, /Codex Power Mode HUD/);
+    const token = await ensureServiceToken(dataDir);
+    assert.equal((await fetch(`${endpoint}/api/health`)).status, 401);
+    assert.equal((await fetch(`${endpoint}/api/browser-token`)).status, 403);
+
+    const browserToken = await fetch(`${endpoint}/api/browser-token`, {
+      headers: { "sec-fetch-site": "same-origin", origin: endpoint }
+    });
+    assert.equal(browserToken.status, 200);
+    const browserStreamToken = (await browserToken.json()).token;
+    assert.match(browserStreamToken, /^[a-f0-9]{64}$/);
+    assert.notEqual(browserStreamToken, token);
+    assert.equal((await fetch(`${endpoint}/api/stream?token=${browserStreamToken}`)).status, 200);
+    assert.equal((await fetch(`${endpoint}/api/health?token=${browserStreamToken}`)).status, 401);
+
+    const crossOrigin = await fetch(`${endpoint}/api/health`, {
+      headers: bearerHeaders(token, { origin: "https://example.com" })
+    });
+    assert.equal(crossOrigin.status, 403);
+
+    const malformed = await fetch(`${endpoint}/api/events`, {
+      method: "POST",
+      headers: bearerHeaders(token, { "content-type": "application/json" }),
+      body: "{"
+    });
+    assert.equal(malformed.status, 400);
+
+    const oversized = await fetch(`${endpoint}/api/events`, {
+      method: "POST",
+      headers: bearerHeaders(token, { "content-type": "application/json" }),
+      body: JSON.stringify({ payload: "x".repeat(1_000_001) })
+    });
+    assert.equal(oversized.status, 413);
+
+    const sensitive = await authorizedFetch(dataDir, `${endpoint}/api/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "activity-start",
+        timestamp: new Date().toISOString(),
+        sessionId: "session-1",
+        prompt: "must-not-enter-service"
+      })
+    });
+    assert.equal(sensitive.status, 400);
+    assert.equal((await authorizedFetch(dataDir, `${endpoint}/api/health`)).status, 200);
+    assert.equal(child.exitCode, null);
+  } finally {
+    child.kill("SIGTERM");
+    await waitForExit(child).catch(() => child.kill("SIGKILL"));
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("event service records concurrent activity without replacing the active HUD session", async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), "codex-power-mode-arbitration-"));
   const port = await freePort();
@@ -131,11 +218,7 @@ test("event service records concurrent activity without replacing the active HUD
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"]
   });
-  const post = (body) => fetch(`http://127.0.0.1:${port}/api/events`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const post = (body) => postEvent(dataDir, port, body);
 
   try {
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
@@ -157,8 +240,8 @@ test("event service records concurrent activity without replacing the active HUD
     assert.equal((await first.json()).displayed, true);
     assert.equal((await second.json()).displayed, false);
 
-    const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
-    const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(state.sessionId, "conversation-a");
     assert.equal(state.momentum, 2);
     assert.equal(health.activity.realEventsReceived, 2);
@@ -182,8 +265,8 @@ test("event service records concurrent activity without replacing the active HUD
       currentSessionId: "conversation-b"
     });
 
-    const globalState = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
-    const globalHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    const globalState = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    const globalHealth = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(globalState.sessionId, "conversation-b");
     assert.equal(globalState.momentum, 4);
     assert.equal(globalHealth.activity.realEventsReceived, 3);
@@ -203,11 +286,7 @@ test("transient previews do not alter real state, ownership, or activity diagnos
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"]
   });
-  const post = (body) => fetch(`http://127.0.0.1:${port}/api/events`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  const post = (body) => postEvent(dataDir, port, body);
 
   try {
     await waitForOutput(child.stdout, /Codex Power Mode HUD/);
@@ -227,8 +306,8 @@ test("transient previews do not alter real state, ownership, or activity diagnos
     });
 
     assert.deepEqual(await previewResponse.json(), { accepted: true, displayed: true, preview: true });
-    const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
-    const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+    const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(state.sessionId, "real-task");
     assert.equal(state.momentum, 7);
     assert.equal(health.activity.eventsReceived, 1);

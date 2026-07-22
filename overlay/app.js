@@ -612,15 +612,20 @@ function react(event) {
 }
 
 if (!previewMode) {
-  const stream = new EventSource("/api/stream");
   setConnection(false, false);
-  stream.onopen = () => setConnection(true);
-  stream.onerror = () => setConnection(false);
-  stream.onmessage = ({ data }) => {
-    const event = JSON.parse(data);
-    if (event.type === "connected") render(event.state);
-    else react(event);
-  };
+  fetch("/api/browser-token")
+    .then((response) => response.ok ? response.json() : Promise.reject(new Error("Unauthorized")))
+    .then(({ token }) => {
+      const stream = new EventSource(`/api/stream?token=${encodeURIComponent(token)}`);
+      stream.onopen = () => setConnection(true);
+      stream.onerror = () => setConnection(false);
+      stream.onmessage = ({ data }) => {
+        const event = JSON.parse(data);
+        if (event.type === "connected") render(event.state);
+        else react(event);
+      };
+    })
+    .catch(() => setConnection(false));
 }
 
 addEventListener("resize", resize);

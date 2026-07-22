@@ -2022,6 +2022,7 @@ private final class PowerModeView: NSView {
 
 private final class EventStream: NSObject, URLSessionDataDelegate {
     private let url: URL
+    private let token: String
     private var session: URLSession?
     private var task: URLSessionDataTask?
     private var buffer = ""
@@ -2033,7 +2034,10 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
     var onEvent: (@MainActor (PowerEvent) -> Void)?
     var onConnectionChange: (@MainActor (Bool) -> Void)?
 
-    init(url: URL) { self.url = url }
+    init(url: URL, token: String) {
+        self.url = url
+        self.token = token
+    }
 
     func start() {
         stopped = false
@@ -2052,6 +2056,7 @@ private final class EventStream: NSObject, URLSessionDataDelegate {
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: queue)
         var request = URLRequest(url: url)
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         task = session?.dataTask(with: request)
         task?.resume()
     }
@@ -2261,7 +2266,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 
         let endpoint = environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream"
         guard let url = URL(string: endpoint), let view = panel.contentView as? PowerModeView else { return }
-        let client = EventStream(url: url)
+        let client = EventStream(url: url, token: environment["CODEX_POWER_MODE_TOKEN"] ?? "")
         client.onEvent = { [weak view] event in view?.handle(event) }
         client.onConnectionChange = { [weak view] connected in view?.setStreamConnected(connected) }
         client.start()

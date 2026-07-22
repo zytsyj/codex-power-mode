@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { servicePortFromEnvironment } from "../src/config.mjs";
 import { createActivityTracker } from "../src/activity.mjs";
+import { ensureServiceToken, isTrustedBrowserOrigin, requestHasServiceToken } from "../src/auth.mjs";
+import { validateIncomingEvent } from "../src/event-validation.mjs";
 import { powerModeDataDir } from "../src/paths.mjs";
 import { pluginIdentity } from "../src/service-identity.mjs";
 import { createSessionArbiter } from "../src/session-arbiter.mjs";
-import { readState, writeStateSnapshot } from "../src/storage.mjs";
+import { readSessionState, readState, writeStateSnapshot } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const identity = await pluginIdentity(root);
@@ -22,6 +25,9 @@ const port = servicePortFromEnvironment({
   CODEX_POWER_MODE_PORT: valueAfter("--port", process.env.CODEX_POWER_MODE_PORT)
 });
 const dataDir = path.resolve(valueAfter("--data-dir", powerModeDataDir()));
+const endpoint = `http://127.0.0.1:${port}`;
+const serviceToken = await ensureServiceToken(dataDir);
+const browserStreamToken = randomBytes(32).toString("hex");
 const clients = new Set();
 const activity = createActivityTracker();
 const sessionArbiter = createSessionArbiter(await readState(dataDir));
@@ -51,11 +57,17 @@ function sendJson(response, status, body) {
 
 async function readBody(request) {
   const chunks = [];
+  let size = 0;
   for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 1_000_000) throw Object.assign(new Error("Payload too large"), { statusCode: 413 });
     chunks.push(chunk);
-    if (Buffer.concat(chunks).length > 1_000_000) throw new Error("Payload too large");
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  } catch {
+    throw Object.assign(new Error("Invalid JSON"), { statusCode: 400 });
+  }
 }
 
 function broadcast(event) {
@@ -63,8 +75,20 @@ function broadcast(event) {
   for (const client of clients) client.write(frame);
 }
 
-const server = http.createServer(async (request, response) => {
+async function handleRequest(request, response) {
   const url = new URL(request.url, `http://${request.headers.host || "127.0.0.1"}`);
+  if (url.pathname === "/api/browser-token") {
+    if (!isTrustedBrowserOrigin(request, endpoint)) return sendJson(response, 403, { error: "Forbidden" });
+    return sendJson(response, 200, { token: browserStreamToken });
+  }
+  const serviceAuthorized = requestHasServiceToken(request, serviceToken);
+  const browserStreamAuthorized = url.pathname === "/api/stream" && requestHasServiceToken(request, browserStreamToken, url);
+  if (url.pathname.startsWith("/api/") && !serviceAuthorized && !browserStreamAuthorized) {
+    return sendJson(response, 401, { error: "Unauthorized" });
+  }
+  if (request.headers.origin && request.headers.origin !== endpoint) {
+    return sendJson(response, 403, { error: "Forbidden origin" });
+  }
   if (url.pathname === "/api/health") {
     return sendJson(response, 200, {
       ok: true,
@@ -83,8 +107,7 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(200, {
       "content-type": "text/event-stream",
       "cache-control": "no-cache",
-      connection: "keep-alive",
-      "access-control-allow-origin": "*"
+      connection: "keep-alive"
     });
     response.write(`data: ${JSON.stringify({ type: "connected", state: await readState(dataDir) })}\n\n`);
     clients.add(response);
@@ -92,11 +115,14 @@ const server = http.createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/api/events" && request.method === "POST") {
-    const event = await readBody(request);
-    if (event.preview === true && event.sessionId === "demo") {
-      broadcast(event);
+    const incoming = await readBody(request);
+    const validationError = validateIncomingEvent(incoming);
+    if (validationError) return sendJson(response, 400, { error: validationError });
+    if (incoming.preview === true) {
+      broadcast(incoming);
       return sendJson(response, 202, { accepted: true, displayed: true, preview: true });
     }
+    const { state: ignoredState, ...event } = incoming;
     activity.record(event);
     const previousSession = sessionArbiter.snapshot().activeSessionId;
     const decision = sessionArbiter.consider(event, { mode: await activitySource() });
@@ -104,8 +130,10 @@ const server = http.createServer(async (request, response) => {
       ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
       : null;
     if (decision.displayed) {
-      if (event.state) await writeStateSnapshot(dataDir, event.state);
-      broadcast(sessionTransition ? { ...event, sessionTransition } : event);
+      const state = await readSessionState(dataDir, event.sessionId);
+      await writeStateSnapshot(dataDir, state);
+      const displayedEvent = { ...event, state, ...(sessionTransition ? { sessionTransition } : {}) };
+      broadcast(displayedEvent);
     }
     return sendJson(response, 202, { accepted: true, ...decision, sessionTransition });
   }
@@ -126,6 +154,15 @@ const server = http.createServer(async (request, response) => {
   } catch {
     sendJson(response, 404, { error: "Not found" });
   }
+}
+
+const server = http.createServer((request, response) => {
+  handleRequest(request, response).catch((error) => {
+    if (response.headersSent) return response.destroy(error);
+    sendJson(response, error.statusCode ?? 500, {
+      error: error.statusCode ? error.message : "Internal server error"
+    });
+  });
 });
 
 server.listen(port, "127.0.0.1", () => {
