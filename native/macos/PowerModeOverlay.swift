@@ -328,7 +328,7 @@ private final class OrbLayerRenderer {
         container.insertSublayer(emitter, below: core)
         choreography.frame = container.bounds
         choreography.masksToBounds = false
-        container.insertSublayer(choreography, above: emitter)
+        container.insertSublayer(choreography, above: beatRing)
         updatePreferences()
     }
 
@@ -612,14 +612,16 @@ private final class OrbLayerRenderer {
 
     private func makeParticle(size: CGSize, color: NSColor, square: Bool = false) -> CAShapeLayer {
         let layer = CAShapeLayer()
-        layer.bounds = CGRect(origin: .zero, size: size)
+        let boost: CGFloat = arcade ? 1.5 : 1
+        layer.bounds = CGRect(origin: .zero, size: CGSize(width: size.width * boost, height: size.height * boost))
         layer.path = square
             ? CGPath(roundedRect: layer.bounds, cornerWidth: 0.45, cornerHeight: 0.45, transform: nil)
             : CGPath(ellipseIn: layer.bounds, transform: nil)
         layer.fillColor = color.cgColor
         layer.shadowColor = color.cgColor
-        layer.shadowOpacity = 0.55
-        layer.shadowRadius = 2.5
+        layer.shadowOpacity = arcade ? 0.9 : 0.62
+        layer.shadowRadius = arcade ? 4.5 : 2.8
+        layer.compositingFilter = "screenBlendMode"
         layer.opacity = 0
         choreography.addSublayer(layer)
         return layer
@@ -659,39 +661,70 @@ private final class OrbLayerRenderer {
     }
 
     private func playObserveCapture(color: NSColor) {
-        let count = max(5, Int((arcade ? 11 : 7) * intensity))
+        let count = max(6, Int((arcade ? 17 : 8) * intensity))
         for index in 0..<count {
             let angle = CGFloat(index) / CGFloat(count) * .pi * 2 + CGFloat(index % 2) * 0.17
-            let radius: CGFloat = arcade ? 70 : 60
+            let radius: CGFloat = arcade ? 82 : 62
             let start = CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
             let shoulder = CGPoint(x: 46 + cos(angle) * 34, y: 46 + sin(angle) * 34)
             let end = CGPoint(x: 46 + cos(angle) * 8, y: 46 + sin(angle) * 8)
-            let dot = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 3.4 : 2.2, height: index.isMultiple(of: 3) ? 3.4 : 2.2), color: color)
-            animateParticle(dot, positions: [start, start, shoulder, end, end], opacity: [0, 0.9, 0.84, 0.55, 0], keyTimes: [0, 0.12, 0.48, 0.78, 1], duration: arcade ? 0.76 : 0.98, delay: Double(index) * 0.025, scales: [0.65, 1, 0.8, 0.38, 0.2])
+            let dot = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 4.2 : 2.8, height: index.isMultiple(of: 3) ? 4.2 : 2.8), color: index.isMultiple(of: 5) ? NSColor.white : color)
+            animateParticle(dot, positions: [start, start, shoulder, end, end], opacity: [0, 1, 0.94, 0.72, 0], keyTimes: [0, 0.1, 0.46, 0.8, 1], duration: arcade ? 0.9 : 1.02, delay: Double(index) * 0.018, scales: [0.65, 1.2, 0.92, 0.42, 0.2])
         }
     }
 
     private func playActDrive(color: NSColor) {
-        let count = max(6, Int((arcade ? 12 : 8) * intensity))
+        let count = max(7, Int((arcade ? 18 : 9) * intensity))
         for index in 0..<count {
             let lane = CGFloat(index % 5) - 2
             let start = CGPoint(x: 39, y: 46 + lane * 4.2)
             let recoil = CGPoint(x: 45, y: 46 + lane * 4.2)
-            let end = CGPoint(x: -18 - CGFloat(index % 3) * 12, y: 46 + lane * 8.5)
-            let streak = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 10 : 6.5, height: 1.5), color: index.isMultiple(of: 4) ? NSColor.systemCyan : color, square: true)
-            animateParticle(streak, positions: [start, recoil, start, end], opacity: [0, 0.65, 1, 0], keyTimes: [0, 0.12, 0.27, 1], duration: arcade ? 0.58 : 0.78, delay: Double(index) * 0.018, scales: [0.7, 0.85, 1.15, 0.45])
+            let end = CGPoint(x: -32 - CGFloat(index % 4) * 14, y: 46 + lane * 10)
+            let streak = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 14 : 8.5, height: index.isMultiple(of: 4) ? 2.2 : 1.7), color: index.isMultiple(of: 4) ? NSColor.systemCyan : color, square: true)
+            animateParticle(streak, positions: [start, recoil, start, end], opacity: [0, 0.78, 1, 0], keyTimes: [0, 0.12, 0.25, 1], duration: arcade ? 0.7 : 0.82, delay: Double(index) * 0.014, scales: [0.7, 0.9, 1.22, 0.5])
         }
     }
 
     private func playVerifyConvergence(color: NSColor) {
-        let lanes = arcade ? 8 : 5
+        let lanes = arcade ? 10 : 5
         for index in 0..<lanes {
             let lane = CGFloat(index) - CGFloat(lanes - 1) / 2
             let start = CGPoint(x: -26 - CGFloat(index % 3) * 10, y: 46 + lane * 8)
             let align = CGPoint(x: 20, y: 46 + lane * 5)
             let lock = CGPoint(x: 46, y: 46)
+            if index < (arcade ? 5 : 3) {
+                let track = CAShapeLayer()
+                track.frame = choreography.bounds
+                let path = CGMutablePath()
+                path.move(to: start)
+                path.addLine(to: align)
+                path.addLine(to: lock)
+                track.path = path
+                track.fillColor = NSColor.clear.cgColor
+                track.strokeColor = color.withAlphaComponent(0.72).cgColor
+                track.lineWidth = arcade ? 1.8 : 1.15
+                track.lineCap = .round
+                track.shadowColor = color.cgColor
+                track.shadowOpacity = arcade ? 0.75 : 0.4
+                track.shadowRadius = arcade ? 4 : 2
+                choreography.addSublayer(track)
+                let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+                draw.values = [0, 1, 1]
+                draw.keyTimes = [0, 0.64, 1]
+                let fade = CAKeyframeAnimation(keyPath: "opacity")
+                fade.values = [0, 1, 0]
+                fade.keyTimes = [0, 0.62, 1]
+                let group = CAAnimationGroup()
+                group.animations = [draw, fade]
+                group.duration = arcade ? 0.9 : 1.06
+                group.beginTime = track.convertTime(CACurrentMediaTime(), from: nil) + Double(index) * 0.035
+                group.fillMode = .both
+                group.isRemovedOnCompletion = false
+                track.add(group, forKey: "evidence-track")
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.035 + group.duration + 0.08) { [weak track] in track?.removeFromSuperlayer() }
+            }
             let evidence = makeParticle(size: CGSize(width: index.isMultiple(of: 2) ? 4.2 : 3, height: index.isMultiple(of: 2) ? 4.2 : 3), color: index.isMultiple(of: 3) ? NSColor.white.withAlphaComponent(0.9) : color, square: true)
-            animateParticle(evidence, positions: [start, align, align, lock, lock], opacity: [0, 0.82, 1, 0.9, 0], keyTimes: [0, 0.28, 0.44, 0.72, 1], duration: arcade ? 0.84 : 1.06, delay: Double(index) * 0.035, scales: [0.7, 1, 1, 0.55, 0.2])
+            animateParticle(evidence, positions: [start, align, align, lock, lock], opacity: [0, 0.94, 1, 1, 0], keyTimes: [0, 0.28, 0.44, 0.72, 1], duration: arcade ? 0.9 : 1.06, delay: Double(index) * 0.028, scales: [0.7, 1.18, 1, 0.58, 0.2])
         }
     }
 
@@ -706,14 +739,14 @@ private final class OrbLayerRenderer {
     }
 
     private func playRecoverFragments(color: NSColor) {
-        let count = max(6, Int((arcade ? 12 : 8) * intensity))
+        let count = max(7, Int((arcade ? 16 : 8) * intensity))
         for index in 0..<count {
             let angle = CGFloat(index) / CGFloat(count) * .pi * 2
-            let distance: CGFloat = arcade ? 68 : 56
+            let distance: CGFloat = arcade ? 82 : 58
             let center = CGPoint(x: 46, y: 46)
             let broken = CGPoint(x: 46 + cos(angle) * distance, y: 46 + sin(angle) * distance)
             let held = CGPoint(x: 46 + cos(angle + 0.12) * (distance - 6), y: 46 + sin(angle + 0.12) * (distance - 6))
-            let shard = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 5 : 3.2, height: index.isMultiple(of: 3) ? 5 : 3.2), color: index.isMultiple(of: 4) ? NSColor.white.withAlphaComponent(0.72) : color, square: true)
+            let shard = makeParticle(size: CGSize(width: index.isMultiple(of: 3) ? 6 : 3.8, height: index.isMultiple(of: 3) ? 6 : 3.8), color: index.isMultiple(of: 4) ? NSColor.white.withAlphaComponent(0.82) : color, square: true)
             animateParticle(shard, positions: [center, broken, held, held, center], opacity: [0.8, 1, 0.7, 0.9, 0], keyTimes: [0, 0.22, 0.4, 0.58, 1], duration: arcade ? 0.92 : 1.18, delay: Double(index) * 0.018, scales: [0.4, 1.15, 0.9, 1, 0.2], rotations: [0, angle + 0.8, angle + 1.2, angle + 1.4, angle + 1.8])
         }
     }
@@ -726,17 +759,17 @@ private final class OrbLayerRenderer {
             ring.path = CGPath(ellipseIn: CGRect(x: 10, y: 10, width: 72, height: 72), transform: nil)
             ring.fillColor = NSColor.clear.cgColor
             ring.strokeColor = color.cgColor
-            ring.lineWidth = arcade ? 2.2 : 1.8
+            ring.lineWidth = arcade ? 3.2 : 1.8
             ring.shadowColor = color.cgColor
-            ring.shadowOpacity = 0.55
-            ring.shadowRadius = 5
+            ring.shadowOpacity = arcade ? 0.9 : 0.55
+            ring.shadowRadius = arcade ? 8 : 5
             ring.opacity = 0
             choreography.addSublayer(ring)
             let opacity = CAKeyframeAnimation(keyPath: "opacity")
             opacity.values = [0, 0.95, 0.5, 0]
             opacity.keyTimes = [0, 0.12, 0.48, 1]
             let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-            scale.values = [0.72, 0.9, 1.25, 1.7]
+            scale.values = [0.68, 0.92, 1.38, arcade ? 2.15 : 1.7]
             scale.keyTimes = [0, 0.12, 0.48, 1]
             let group = CAAnimationGroup()
             group.animations = [opacity, scale]
