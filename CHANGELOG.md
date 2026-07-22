@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added guarded maintenance commands to stop Power Mode, restore display defaults without losing history, and purge only a recognized Power Mode data directory before uninstalling; destructive commands require explicit `--yes` confirmation.
 - Added a concise `doctor` command with human-readable and JSON output for service/HUD health, version and data-directory consistency, duplicate instances, stream connection, and trusted Codex lifecycle activity.
 - Added a release-hygiene gate and matching root ignores so developer-specific home paths, private-key material, local state, service tokens, logs, and compiled overlay artifacts cannot accidentally enter a future public release.
 - Restyled Typing Combo as a prominent orb-matched energy readout: the floating number and balanced gradient lifetime line advance together through cyan, mint, violet, pink, and gold tiers, with a warm critical drain and clearer hit pulses but no enclosing badge or heavy track.

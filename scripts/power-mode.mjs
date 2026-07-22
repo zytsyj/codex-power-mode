@@ -16,6 +16,7 @@ import { isPowerModeServerCommand, pluginIdentity, serviceMatchesPlugin } from "
 import { initialState, reduceState } from "../src/state.mjs";
 import { powerModeStatus } from "../src/status.mjs";
 import { powerModeDoctor, renderDoctorReport } from "../src/doctor.mjs";
+import { purgePowerModeData, resetOverlaySettings } from "../src/maintenance.mjs";
 import { readState } from "../src/storage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -392,6 +393,47 @@ async function stopNative() {
   process.stdout.write(`Native overlay stopped (PID ${pid})\n`);
 }
 
+async function stopService() {
+  const pid = await listenerPid();
+  if (!pid) {
+    process.stdout.write("Power Mode service is not running\n");
+    return;
+  }
+  process.kill(pid, "SIGTERM");
+  for (let attempt = 0; attempt < 40 && await processIsAlive(pid); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (await processIsAlive(pid)) throw new Error(`Power Mode service (PID ${pid}) did not stop`);
+  process.stdout.write(`Power Mode service stopped (PID ${pid})\n`);
+}
+
+async function stopAll() {
+  await stopNative();
+  await stopService();
+}
+
+function requireConfirmation(action) {
+  if (process.argv.includes("--yes")) return true;
+  process.stderr.write(`${action} requires explicit confirmation. Run the same command with --yes.\n`);
+  process.exitCode = 2;
+  return false;
+}
+
+async function resetSettings() {
+  if (!requireConfirmation("Resetting display settings")) return;
+  await stopNative();
+  await resetOverlaySettings(dataDir);
+  await startNative();
+  process.stdout.write("Power Mode display settings restored to defaults; history was preserved\n");
+}
+
+async function purgeData() {
+  if (!requireConfirmation("Deleting Power Mode settings, history, and local authentication")) return;
+  await stopAll();
+  await purgePowerModeData(dataDir);
+  process.stdout.write("Power Mode local data removed; the installed plugin was not changed\n");
+}
+
 async function status() {
   const [health, nativePid, state, nativeConfiguration] = await Promise.all([
     serviceHealth(),
@@ -480,7 +522,13 @@ if (command === "start") {
   await startNative();
 } else if (command === "native-stop") {
   await stopNative();
+} else if (command === "stop") {
+  await stopAll();
+} else if (command === "reset-settings") {
+  await resetSettings();
+} else if (command === "purge-data") {
+  await purgeData();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|demo|showcase|energy-showcase|replay|status|doctor> [--open|--json]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|stop|reset-settings|purge-data|demo|showcase|energy-showcase|replay|status|doctor> [--open|--json|--yes]\n");
   process.exitCode = 2;
 }
