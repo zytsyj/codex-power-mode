@@ -98,11 +98,14 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
 test("energy tier crossings use a complete multi-ring breakthrough choreography", async () => {
   const source = await readFile(overlaySource, "utf8");
 
-  assert.match(source, /pulse\.values = rising \? \[1, 1\.08, 1\.28, 0\.88, 1\.08, 1\]/);
-  assert.match(source, /pulse\.keyTimes = rising \? \[0, 0\.14, 0\.34, 0\.52, 0\.74, 1\]/);
+  assert.match(source, /let compression = 0\.92 - Double\(tierStrength\) \* 0\.08/);
+  assert.match(source, /let breakthrough = 1\.22 \+ Double\(tierStrength\) \* 0\.15/);
+  assert.match(source, /ringValues\.append\(contentsOf: \[boundary, boundary, reset, reset\]\)/);
   assert.match(source, /forKey: rising \? "tier-ring-impact" : "tier-ring-collapse"/);
-  assert.match(source, /let flareCount = rising \? min\(4, 2 \+ crossings\) : 2/);
+  assert.match(source, /let flareCount = rising \? min\(arcade \? 7 : 5, 2 \+ crossings \+ next \/ 2\) : 2/);
   assert.match(source, /forKey: rising \? "energy-breakthrough" : "energy-vent"/);
+  assert.match(source, /forKey: "energy-tier-establish"/);
+  assert.match(source, /transition-\\\(variant\.name\)-\\\(theme\)-\\\(crossing\.label\)\.png/);
 });
 
 test("all seven energy tiers have distinct material, node, texture, and motion profiles", async () => {

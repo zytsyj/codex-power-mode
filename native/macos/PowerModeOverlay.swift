@@ -120,6 +120,25 @@ private func runEnergyRenderQA(directory: String) {
         renderer.setVisible(true, animated: false)
         writeFrame(host: host, filename: filename)
     }
+    func renderTierTransitionFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, from previous: Int, to next: Int, filename: String) {
+        let preferences = PowerModePreferences(environment: [:])
+        preferences.setPreset(variant.preset)
+        if variant.reduced { preferences.toggleReducedMotion() }
+        let host = CALayer()
+        host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+        host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+        let renderer = OrbLayerRenderer(hostLayer: host, preferences: preferences)
+        renderer.layout(in: CGRect(x: 44, y: 44, width: 92, height: 92))
+        func state(_ momentum: Int) -> PowerState? {
+            let json = "{\"phase\":\"act\",\"status\":\"working\",\"momentum\":\(momentum),\"bestMomentum\":999,\"currentActivity\":\"Tier transition QA\",\"sessionId\":\"qa\"}"
+            return try? JSONDecoder().decode(PowerState.self, from: Data(json.utf8))
+        }
+        guard let previousState = state(previous), let nextState = state(next) else { return }
+        renderer.apply(state: previousState, presentation: (phase: "act", status: "working", momentum: previous, idle: false, settled: false, returning: false, settledAt: nil), label: "ACT")
+        renderer.apply(state: nextState, presentation: (phase: "act", status: "working", momentum: next, idle: false, settled: false, returning: false, settledAt: nil), label: "ACT")
+        renderer.setVisible(true, animated: false)
+        writeFrame(host: host, filename: filename)
+    }
     for variant in variants {
         for dark in [false, true] {
             let theme = dark ? "dark" : "light"
@@ -146,6 +165,15 @@ private func runEnergyRenderQA(directory: String) {
                     momentum: 820,
                     completion: completion,
                     filename: "complete-\(variant.name)-\(theme)-\(completion).png"
+                )
+            }
+            for crossing in [(from: 580, to: 820, label: "overload"), (from: 820, to: 960, label: "critical"), (from: 960, to: 999, label: "peak")] {
+                renderTierTransitionFrame(
+                    variant: variant,
+                    dark: dark,
+                    from: crossing.from,
+                    to: crossing.to,
+                    filename: "transition-\(variant.name)-\(theme)-\(crossing.label).png"
                 )
             }
             for cursorSample in [(effect: "spark", count: 12, label: "spark"), (effect: "neon", count: 12, label: "neon"), (effect: "neon", count: 20, label: "neon-milestone")] {
@@ -832,38 +860,46 @@ private final class OrbLayerRenderer {
         guard previousValue > 0, nextValue > 0, previous != next, !reducedMotion else { return }
         let rising = next > previous
         let crossings = max(1, abs(next - previous))
+        let palette = energyTierPalette(next)
+        let tierStrength = CGFloat(next) / 7
         let oldProgress = energyStageProgress(previousValue)
         let newProgress = energyStageProgress(nextValue)
         var ringValues: [CGFloat] = [oldProgress]
         for _ in 0..<crossings {
-            ringValues.append(rising ? 1 : 0)
-            ringValues.append(rising ? 0 : 1)
+            let boundary: CGFloat = rising ? 1 : 0
+            let reset: CGFloat = rising ? 0 : 1
+            ringValues.append(contentsOf: [boundary, boundary, reset, reset])
         }
         ringValues.append(newProgress)
         let ring = CAKeyframeAnimation(keyPath: "strokeEnd")
         ring.values = ringValues
-        ring.duration = min(2.4, 0.56 * Double(crossings) + 0.2)
+        ring.keyTimes = (0..<ringValues.count).map { NSNumber(value: Double($0) / Double(max(1, ringValues.count - 1))) }
+        ring.duration = rising
+            ? min(2.35, 0.9 + Double(crossings) * 0.18 + Double(next) * 0.055 + (arcade ? 0.12 : 0))
+            : min(1.55, 0.72 + Double(crossings) * 0.15)
         ring.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         energyRing.add(ring, forKey: rising ? "stage-fill-reset" : "stage-drain-restore")
         let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
-        pulse.values = rising ? [1, 1.08, 1.28, 0.88, 1.08, 1] : [1, 0.84, 1.1, 0.9, 1]
-        pulse.keyTimes = rising ? [0, 0.14, 0.34, 0.52, 0.74, 1] : [0, 0.22, 0.5, 0.76, 1]
-        pulse.duration = rising ? min(1.6, 0.72 + Double(crossings) * 0.18) : min(1.25, 0.58 + Double(crossings) * 0.14)
+        let compression = 0.92 - Double(tierStrength) * 0.08
+        let breakthrough = 1.22 + Double(tierStrength) * 0.15 + (arcade ? 0.055 : 0)
+        pulse.values = rising ? [1, 1.06, compression, compression, breakthrough, 0.94, 1.09, 1] : [1, 0.84, 1.1, 0.9, 1]
+        pulse.keyTimes = rising ? [0, 0.12, 0.23, 0.31, 0.47, 0.62, 0.8, 1] : [0, 0.22, 0.5, 0.76, 1]
+        pulse.duration = ring.duration
         pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         body.add(pulse, forKey: "energy-tier-body")
         let ringWidth = energyRing.presentation()?.lineWidth ?? energyRing.lineWidth
         let ringImpact = CAKeyframeAnimation(keyPath: "lineWidth")
-        ringImpact.values = rising ? [ringWidth, ringWidth + 1.5, ringWidth + 5.2, ringWidth] : [ringWidth, ringWidth + 2.4, 1.2, ringWidth]
-        ringImpact.keyTimes = [0, 0.3, 0.52, 1]
+        ringImpact.values = rising ? [ringWidth, ringWidth + 1.5, ringWidth + 3.4 + CGFloat(next) * 0.45, ringWidth + 1.2, ringWidth] : [ringWidth, ringWidth + 2.4, 1.2, ringWidth]
+        ringImpact.keyTimes = rising ? [0, 0.23, 0.47, 0.66, 1] : [0, 0.3, 0.52, 1]
         ringImpact.duration = pulse.duration
         energyRing.add(ringImpact, forKey: rising ? "tier-ring-impact" : "tier-ring-collapse")
-        let flareCount = rising ? min(4, 2 + crossings) : 2
+        let flareCount = rising ? min(arcade ? 7 : 5, 2 + crossings + next / 2) : 2
         for index in 0..<flareCount {
             let flare = CAShapeLayer()
             flare.frame = choreography.bounds
             flare.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
             flare.fillColor = NSColor.clear.cgColor
-            flare.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
+            flare.strokeColor = (rising ? (index.isMultiple(of: 2) ? color : palette.secondary) : NSColor.systemOrange).cgColor
             flare.lineWidth = rising ? CGFloat(2.4 + Double(next) * 0.5 - Double(index) * 0.25) : 2.4
             flare.lineDashPattern = rising ? nil : [4, 5]
             flare.shadowColor = flare.strokeColor
@@ -878,11 +914,43 @@ private final class OrbLayerRenderer {
             opacity.values = rising ? [0, 0.9, 1, 0] : [0, 0.72, 0]
             opacity.keyTimes = rising ? [0, 0.22, 0.4, 1] : [0, 0.34, 1]
             group.animations = [scale, opacity]
-            group.beginTime = CACurrentMediaTime() + Double(index) * (arcade ? 0.075 : 0.11)
-            group.duration = rising ? min(1.72, 0.92 + Double(crossings) * 0.18) : min(1.2, 0.68 + Double(crossings) * 0.12)
+            group.beginTime = CACurrentMediaTime() + ring.duration * 0.29 + Double(index) * (arcade ? 0.065 : 0.09)
+            group.duration = rising ? min(1.95, 1.08 + Double(crossings) * 0.14 + Double(next) * 0.045) : min(1.2, 0.68 + Double(crossings) * 0.12)
             group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
             flare.add(group, forKey: rising ? "energy-breakthrough" : "energy-vent")
-            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + Double(index) * 0.11 + 0.08) { [weak flare] in flare?.removeFromSuperlayer() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + ring.duration * 0.29 + group.duration + Double(index) * 0.09 + 0.08) { [weak flare] in flare?.removeFromSuperlayer() }
+        }
+        if rising {
+            let seal = CAShapeLayer()
+            seal.frame = choreography.bounds
+            seal.path = CGPath(ellipseIn: CGRect(x: 15, y: 15, width: 62, height: 62), transform: nil)
+            seal.fillColor = NSColor.clear.cgColor
+            seal.strokeColor = palette.secondary.cgColor
+            seal.lineWidth = 1.25 + CGFloat(next) * 0.18
+            seal.lineDashPattern = next >= 6 ? [2, 2] : next >= 4 ? [8, 4] : nil
+            seal.shadowColor = palette.secondary.cgColor
+            seal.shadowOpacity = next >= 5 ? 1 : 0.72
+            seal.shadowRadius = CGFloat(4 + next)
+            choreography.addSublayer(seal)
+            let establish = CAAnimationGroup()
+            let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+            draw.values = [0, 0, 0.72, 1, 1]
+            draw.keyTimes = [0, 0.18, 0.46, 0.68, 1]
+            let establishScale = CAKeyframeAnimation(keyPath: "transform.scale")
+            establishScale.values = [0.72, 0.72, 1.14 + Double(tierStrength) * 0.08, 0.98, 1]
+            establishScale.keyTimes = [0, 0.18, 0.52, 0.78, 1]
+            let establishOpacity = CAKeyframeAnimation(keyPath: "opacity")
+            establishOpacity.values = [0, 0, 1, 0.72, 0]
+            establishOpacity.keyTimes = [0, 0.18, 0.48, 0.78, 1]
+            let establishRotation = CABasicAnimation(keyPath: "transform.rotation.z")
+            establishRotation.fromValue = next >= 5 ? -Double.pi * 0.45 : -Double.pi * 0.18
+            establishRotation.toValue = 0
+            establish.animations = [draw, establishScale, establishOpacity, establishRotation]
+            establish.beginTime = CACurrentMediaTime() + ring.duration * 0.42
+            establish.duration = 0.78 + Double(next) * 0.055 + (arcade ? 0.12 : 0)
+            establish.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            seal.add(establish, forKey: "energy-tier-establish")
+            DispatchQueue.main.asyncAfter(deadline: .now() + ring.duration * 0.42 + establish.duration + 0.08) { [weak seal] in seal?.removeFromSuperlayer() }
         }
     }
 
