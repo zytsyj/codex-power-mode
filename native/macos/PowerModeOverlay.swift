@@ -125,7 +125,9 @@ private func runEnergyRenderQA(directory: String) {
         if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
     }
     func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, label: String? = nil, filename: String) {
-        let preferences = PowerModePreferences(environment: [:])
+        let preferences = PowerModePreferences(environment: [
+            "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+        ])
         preferences.setPreset(variant.preset)
         if variant.reduced { preferences.toggleReducedMotion() }
         let host = CALayer()
@@ -145,7 +147,9 @@ private func runEnergyRenderQA(directory: String) {
         writeFrame(host: host, filename: filename)
     }
     func renderTierTransitionFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, from previous: Int, to next: Int, filename: String) {
-        let preferences = PowerModePreferences(environment: [:])
+        let preferences = PowerModePreferences(environment: [
+            "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+        ])
         preferences.setPreset(variant.preset)
         if variant.reduced { preferences.toggleReducedMotion() }
         let host = CALayer()
@@ -213,7 +217,9 @@ private func runEnergyRenderQA(directory: String) {
                 )
             }
             for cursorSample in [(effect: "spark", count: 12, label: "spark"), (effect: "neon", count: 12, label: "neon"), (effect: "neon", count: 20, label: "neon-milestone")] {
-                let preferences = PowerModePreferences(environment: [:])
+                let preferences = PowerModePreferences(environment: [
+                    "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+                ])
                 preferences.setPreset(variant.preset)
                 preferences.setCursorEffect(cursorSample.effect)
                 if variant.reduced { preferences.toggleReducedMotion() }
@@ -226,7 +232,9 @@ private func runEnergyRenderQA(directory: String) {
                 writeFrame(host: host, filename: "cursor-\(variant.name)-\(theme)-\(cursorSample.label).png")
             }
             for comboSample in [(count: 4, label: "cyan"), (count: 12, label: "violet"), (count: 24, label: "pink"), (count: 48, label: "gold")] {
-                let preferences = PowerModePreferences(environment: [:])
+                let preferences = PowerModePreferences(environment: [
+                    "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+                ])
                 preferences.setPreset(variant.preset)
                 if variant.reduced { preferences.toggleReducedMotion() }
                 let host = CALayer()
@@ -324,10 +332,16 @@ private struct OverlaySettings: Codable, Equatable {
 private final class PowerModePreferences {
     private(set) var settings: OverlaySettings
     private let fileURL: URL?
+    private let systemReduceMotionOverride: Bool?
     var onChange: (() -> Void)?
 
     init(environment: [String: String]) {
         fileURL = environment["CODEX_POWER_MODE_CONFIG_PATH"].map { URL(fileURLWithPath: $0) }
+        switch environment["CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE"] {
+        case "0": systemReduceMotionOverride = false
+        case "1": systemReduceMotionOverride = true
+        default: systemReduceMotionOverride = nil
+        }
         if let fileURL,
            let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode(OverlaySettings.self, from: data),
@@ -337,6 +351,11 @@ private final class PowerModePreferences {
             settings = OverlaySettings(endpoint: environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream")
         }
         if settings.idleBehavior == "always" { settings.idleBehavior = "orb" }
+    }
+
+    var reduceMotionEnabled: Bool {
+        settings.reducedMotion
+            || (systemReduceMotionOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
 
     var isChinese: Bool {
@@ -1439,7 +1458,7 @@ private final class OrbLayerRenderer {
 
     func updatePreferences() {
         arcade = preferences.settings.preset == "arcade"
-        reducedMotion = preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        reducedMotion = preferences.reduceMotionEnabled
         intensity = preferences.settings.effectIntensity == "high" ? 1.35 : preferences.settings.effectIntensity == "low" ? 0.62 : 1
     }
 
@@ -2944,7 +2963,7 @@ private final class TypingFeedbackRenderer {
         CATransaction.commit()
         setVisible(true)
         animateLifetime(progress: progress, refill: pulse, palette: palette)
-        guard pulse, !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
+        guard pulse, !preferences.reduceMotionEnabled else { return }
         let hit = CAKeyframeAnimation(keyPath: "transform.scale")
         hit.values = count % 10 == 0 ? [1, 1.42, 0.91, 1.08, 1] : [1, 1.18, 0.96, 1]
         hit.duration = count % 10 == 0 ? 0.4 : 0.18
@@ -3017,7 +3036,7 @@ private final class TypingFeedbackRenderer {
     func emitCursorEffect(at point: CGPoint?, count: Int) {
         guard let point,
               preferences.settings.cursorEffect != "off",
-              !(preferences.settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) else { return }
+              !preferences.reduceMotionEnabled else { return }
         let neon = (preferences.settings.cursorEffect ?? "spark") == "neon"
         let arcade = preferences.settings.preset == "arcade"
         let milestone = count == 5 || count == 10 || count == 20 || count == 40 || count == 80 || count == 120 || count == 200
@@ -3277,7 +3296,7 @@ private final class PowerModeView: NSView {
     }()
     var onPositioningFinished: (() -> Void)?
     var onTypingCharge: ((Int, String) -> Void)?
-    private var reducedMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || preferences.settings.reducedMotion }
+    private var reducedMotion: Bool { preferences.reduceMotionEnabled }
     private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
     private var effectIntensity: CGFloat {
         switch preferences.settings.effectIntensity ?? "normal" {
@@ -6238,7 +6257,9 @@ private func runLayerBudgetSelfTest() {
         return try! JSONDecoder().decode(PowerState.self, from: Data(json.utf8))
     }
     func sample(preset: String, reducedMotion: Bool) -> LayerTreeMetrics {
-        let preferences = PowerModePreferences(environment: [:])
+        let preferences = PowerModePreferences(environment: [
+            "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+        ])
         preferences.setPreset(preset)
         if reducedMotion { preferences.toggleReducedMotion() }
         let host = CALayer()
@@ -6267,12 +6288,6 @@ private func runLayerBudgetSelfTest() {
     let arcade = sample(preset: "arcade", reducedMotion: false)
     let reduced = sample(preset: "focus", reducedMotion: true)
     let budgets = LayerTreeMetrics(layers: 96, animations: 88)
-    for metrics in [focus, arcade, reduced] {
-        precondition(metrics.layers <= budgets.layers, "Peak native layer budget exceeded")
-        precondition(metrics.animations <= budgets.animations, "Peak native animation budget exceeded")
-    }
-    precondition(reduced.layers < focus.layers, "Reduce Motion must allocate fewer transient layers")
-    precondition(reduced.animations < focus.animations, "Reduce Motion must run fewer animations")
     let report: [String: Any] = [
         "schemaVersion": 1,
         "budget": ["layers": budgets.layers, "animations": budgets.animations],
@@ -6282,6 +6297,13 @@ private func runLayerBudgetSelfTest() {
     ]
     let data = try! JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
     fputs(String(data: data, encoding: .utf8)! + "\n", stdout)
+    fflush(stdout)
+    for metrics in [focus, arcade, reduced] {
+        precondition(metrics.layers <= budgets.layers, "Peak native layer budget exceeded")
+        precondition(metrics.animations <= budgets.animations, "Peak native animation budget exceeded")
+    }
+    precondition(reduced.layers < focus.layers, "Reduce Motion must allocate fewer transient layers")
+    precondition(reduced.animations < focus.animations, "Reduce Motion must run fewer animations")
 }
 
 @main

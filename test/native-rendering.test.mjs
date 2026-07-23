@@ -119,6 +119,10 @@ test("native HUD enforces a peak layer and animation budget", async () => {
   assert.match(source, /private func layerTreeMetrics/);
   assert.match(source, /private func runLayerBudgetSelfTest/);
   assert.match(source, /CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST/);
+  assert.match(source, /CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE/);
+  assert.match(source, /var reduceMotionEnabled: Bool/);
+  assert.match(source, /systemReduceMotionOverride \?\? NSWorkspace\.shared\.accessibilityDisplayShouldReduceMotion/);
+  assert.match(source, /fflush\(stdout\)/);
   assert.match(source, /let budgets = LayerTreeMetrics\(layers: 96, animations: 88\)/);
   assert.match(source, /reduced\.layers < focus\.layers/);
   assert.match(source, /reduced\.animations < focus\.animations/);
