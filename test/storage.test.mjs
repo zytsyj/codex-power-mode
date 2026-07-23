@@ -145,7 +145,7 @@ test("mix storage shares energy and Combo without letting one parallel stop rese
     let result = await recordMixedEventResult(directory, { ...eventAt(1_000), sessionId: "thread-a" });
     result = await recordMixedEventResult(directory, { ...eventAt(2_000), sessionId: "thread-b" });
     assert.equal(result.state.sessionId, "mix");
-    assert.equal(result.state.momentum, 24);
+    assert.equal(result.state.momentum, 20);
     assert.equal(result.state.combo, 2);
     assert.equal(result.state.mixedConversationCount, 2);
 
@@ -164,7 +164,7 @@ test("mix storage shares energy and Combo without letting one parallel stop rese
     });
     assert.equal(result.state.phase, "complete");
     assert.equal(result.state.mixedConversationCount, 0);
-    const idle = presentationSnapshot(result.state, new Date(8_000).toISOString());
+    const idle = presentationSnapshot(result.state, new Date(10_000).toISOString());
     assert.equal(idle.phase, "idle");
     assert.ok(idle.momentum > 0 && idle.momentum < result.state.momentum);
   } finally {

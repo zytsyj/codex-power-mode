@@ -9,7 +9,7 @@ test("activity events represent Codex states without rewarding code volume", () 
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
   });
   assert.equal(state.phase, "observe");
-  assert.equal(state.momentum, 12);
+  assert.equal(state.momentum, 10);
   assert.equal(state.currentActivity, "Searching the workspace");
 });
 
@@ -19,7 +19,7 @@ test("prompt submission immediately enters understanding", () => {
   });
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
-  assert.equal(state.momentum, 12);
+  assert.equal(state.momentum, 10);
   assert.equal(state.combo, 1);
 });
 
@@ -35,13 +35,13 @@ test("energy stage progress refills inside every tier", () => {
 });
 
 test("typing Combo injects a bounded tiered charge without advancing agent Combo", () => {
-  assert.equal(ENERGY_GAIN_MULTIPLIER, 0.85);
-  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [5, 14, 27, 47, 77, 77]);
+  assert.equal(ENERGY_GAIN_MULTIPLIER, 0.72);
+  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [4, 12, 23, 40, 65, 65]);
   const prior = { ...initialState, momentum: 95, combo: 3, sessionId: "s" };
   const state = reduceState(prior, {
     type: "input-charge", inputCombo: 10, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
   });
-  assert.equal(state.momentum, 122);
+  assert.equal(state.momentum, 118);
   assert.equal(state.combo, 3);
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
@@ -148,7 +148,7 @@ test("energy has a grace period, decays by real elapsed time, and materializes b
   const resumed = reduceState(charged, {
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(66), sessionId: "s"
   });
-  assert.equal(resumed.momentum, 312);
+  assert.equal(resumed.momentum, 310);
 });
 
 test("only an evidence-backed edited completion reaches the 999 peak", () => {
@@ -228,7 +228,7 @@ test("new work cancels the idle countdown", () => {
   });
   assert.equal(state.turnStoppedAt, null);
   assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
-  assert.equal(state.momentum, 12);
+  assert.equal(state.momentum, 10);
   assert.equal(state.combo, 1);
 });
 
@@ -248,7 +248,7 @@ test("a new turn carries decayed energy while resetting evidence, risk, and edit
   state = reduceState(state, {
     type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(30), sessionId: "s"
   });
-  assert.equal(state.momentum, 944);
+  assert.equal(state.momentum, 942);
   assert.equal(state.combo, 1);
   assert.equal(state.confidence, 0);
   assert.equal(state.risk, 0);

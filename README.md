@@ -35,7 +35,7 @@ The current build is suitable for ongoing personal testing, but it is not a publ
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses a `0–999` Energy scale for useful progress, Confidence for verification evidence, and Risk for change scope; only evidence-backed completion reaches the verified peak.
-- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. The orb stays circular while tier colors, glow depth, rings, ticks, and particle intensity escalate.
+- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. The orb evolves cumulatively and at a deliberately slower pace—Wake awakens a breathing core, Charge adds three collector nodes, Drive adds directional propulsion arcs, High crystallizes an internal lattice, Overload opens energy vents, Critical links the collectors with magnetic bridges, and Peak synchronizes every retained system beneath a white-gold crown.
 - Optionally counts local typing rhythm while Codex is the foreground app. A large independent `×N` sits beside the orb, optional Sparks/Neon effects fire at the text cursor, and sending collapses the counter into an authenticated Energy stream without reading, storing, or transmitting text.
 - Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.

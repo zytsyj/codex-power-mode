@@ -323,7 +323,7 @@ test("mix mode streams one shared pool across Codex conversations", async () => 
     const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
     const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(state.sessionId, "mix");
-    assert.equal(state.momentum, 36);
+    assert.equal(state.momentum, 30);
     assert.equal(state.combo, 2);
     assert.equal(state.mixedConversationCount, 2);
     assert.equal(health.session.activitySource, "mix");
@@ -373,7 +373,7 @@ test("typing charge atomically augments the submitted desktop session without pr
     const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
     const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     const history = await readFile(path.join(dataDir, "events.ndjson"), "utf8");
-    assert.equal(state.momentum, 41);
+    assert.equal(state.momentum, 37);
     assert.equal(state.combo, 0);
     assert.equal(health.activity.realEventsReceived, 1);
     assert.match(history, /"inputCombo":10/);

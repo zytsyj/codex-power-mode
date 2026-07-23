@@ -124,7 +124,7 @@ private func runEnergyRenderQA(directory: String) {
         let file = destination.appendingPathComponent(filename)
         if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: file, options: .atomic) }
     }
-    func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, filename: String) {
+    func renderFrame(variant: (name: String, preset: String, reduced: Bool), dark: Bool, phase: String, momentum: Int, completion: String? = nil, label: String? = nil, filename: String) {
         let preferences = PowerModePreferences(environment: [:])
         preferences.setPreset(variant.preset)
         if variant.reduced { preferences.toggleReducedMotion() }
@@ -139,7 +139,7 @@ private func runEnergyRenderQA(directory: String) {
         renderer.apply(
             state: state,
             presentation: (phase: phase, status: "working", momentum: momentum, idle: false, settled: false, returning: false, settledAt: nil),
-            label: phase.uppercased()
+            label: label ?? phase.uppercased()
         )
         renderer.setVisible(true, animated: false)
         writeFrame(host: host, filename: filename)
@@ -182,12 +182,19 @@ private func runEnergyRenderQA(directory: String) {
                 }
             }
             for completion in ["verified", "unverified", "cancelled", "no-change"] {
+                let completionLabels = [
+                    "verified": "完成/已验证",
+                    "unverified": "完成/待验证",
+                    "cancelled": "完成/已取消",
+                    "no-change": "完成/无修改"
+                ]
                 renderFrame(
                     variant: variant,
                     dark: dark,
                     phase: "complete",
                     momentum: 820,
                     completion: completion,
+                    label: completionLabels[completion],
                     filename: "complete-\(variant.name)-\(theme)-\(completion).png"
                 )
             }
@@ -517,6 +524,11 @@ private final class OrbLayerRenderer {
     private let signature = CAShapeLayer()
     private let stageShell = CAShapeLayer()
     private let tierNodes = CAShapeLayer()
+    private let wakeEvolution = CAShapeLayer()
+    private let chargeEvolution = CAShapeLayer()
+    private let driveEvolution = CAShapeLayer()
+    private let criticalBridges = CAShapeLayer()
+    private let peakCrown = CAShapeLayer()
     private let ticks = CAShapeLayer()
     private let energyTrack = CAShapeLayer()
     private let energyRing = CAShapeLayer()
@@ -614,6 +626,12 @@ private final class OrbLayerRenderer {
         tierNodes.lineCap = .round
         body.addSublayer(tierNodes)
 
+        configureEvolutionRing(wakeEvolution, radius: 25)
+        configureEvolutionLayer(chargeEvolution)
+        configureEvolutionLayer(driveEvolution)
+        configureEvolutionLayer(criticalBridges)
+        configureEvolutionLayer(peakCrown)
+
         signatureBackdrop.frame = body.bounds
         signatureBackdrop.fillColor = NSColor.clear.cgColor
         signatureBackdrop.lineCap = .round
@@ -664,6 +682,7 @@ private final class OrbLayerRenderer {
         typingValue.opacity = 0
         configureText(value, frame: CGRect(x: 14, y: 35, width: 64, height: 29), size: 24, weight: .bold)
         configureText(activity, frame: CGRect(x: 12, y: 23, width: 68, height: 12), size: 7.2, weight: .semibold)
+        activity.masksToBounds = true
 
         connectionDot.frame = CGRect(x: 75, y: 70, width: 5, height: 5)
         connectionDot.cornerRadius = 2.5
@@ -693,6 +712,27 @@ private final class OrbLayerRenderer {
         layer.strokeStart = 0
         layer.strokeEnd = 1
         container.addSublayer(layer)
+    }
+
+    private func configureEvolutionRing(_ layer: CAShapeLayer, radius: CGFloat) {
+        layer.frame = body.bounds
+        layer.path = CGPath(
+            ellipseIn: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2),
+            transform: nil
+        )
+        layer.fillColor = NSColor.clear.cgColor
+        layer.lineCap = .round
+        layer.opacity = 0
+        body.addSublayer(layer)
+    }
+
+    private func configureEvolutionLayer(_ layer: CAShapeLayer) {
+        layer.frame = body.bounds
+        layer.fillColor = NSColor.clear.cgColor
+        layer.lineCap = .round
+        layer.lineJoin = .round
+        layer.opacity = 0
+        body.addSublayer(layer)
     }
 
     private func configureText(_ layer: CATextLayer, frame: CGRect, size: CGFloat, weight: NSFont.Weight) {
@@ -758,6 +798,11 @@ private final class OrbLayerRenderer {
         energyRing.strokeEnd = energyStageProgress(presentation.momentum)
         value.string = "\(presentation.momentum)"
         activity.string = label
+        let completionLabel = state.completion != nil || state.mixedLastCompletion != nil
+        activity.frame = completionLabel
+            ? CGRect(x: 12, y: 23, width: 68, height: 12)
+            : CGRect(x: 10, y: 23, width: 72, height: 12)
+        activity.fontSize = activityFontSize(label, completion: completionLabel)
         let activityColor = color.blended(withFraction: 0.48, of: .white) ?? .white
         activity.foregroundColor = activityColor.withAlphaComponent(nextPhase == "idle" ? 0.48 : 0.96).cgColor
         semantic.string = phaseGlyph(nextPhase, completion: state.completion)
@@ -836,7 +881,21 @@ private final class OrbLayerRenderer {
 
     private func energyStageColor(tier: Int, phaseColor: NSColor) -> NSColor {
         let accent = energyTierPalette(tier).primary
-        return phaseColor.blended(withFraction: tier >= 5 ? 0.94 : tier >= 3 ? 0.86 : 0.76, of: accent) ?? accent
+        return phaseColor.blended(withFraction: tier >= 5 ? 0.96 : tier >= 1 ? 0.93 : 0.76, of: accent) ?? accent
+    }
+
+    private func activityFontSize(_ label: String, completion: Bool) -> CGFloat {
+        let weightedLength = label.unicodeScalars.reduce(0) { partial, scalar in
+            partial + (scalar.value > 0x7F ? 2 : 1)
+        }
+        if completion {
+            if weightedLength > 14 { return 4.9 }
+            if weightedLength > 10 { return 5.6 }
+            return 6.2
+        }
+        if weightedLength > 18 { return 5.2 }
+        if weightedLength > 14 { return 5.8 }
+        return 7.2
     }
 
     private func polygonPath(center: CGPoint = CGPoint(x: 46, y: 46), radius: CGFloat, sides: Int, rotation: CGFloat = -.pi / 2) -> CGPath {
@@ -850,12 +909,102 @@ private final class OrbLayerRenderer {
         return path
     }
 
+    private func propulsionArcPath(radius: CGFloat = 39.2) -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<3 {
+            let center = -.pi / 2 + CGFloat(index) * 2 * .pi / 3
+            path.addArc(
+                center: CGPoint(x: 46, y: 46),
+                radius: radius,
+                startAngle: center - 0.33,
+                endAngle: center + 0.33,
+                clockwise: false
+            )
+        }
+        return path
+    }
+
+    private func collectorNodePath(radius: CGFloat = 29.2) -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<3 {
+            let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / 3
+            let center = CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
+            path.addEllipse(in: CGRect(x: center.x - 2.2, y: center.y - 2.2, width: 4.4, height: 4.4))
+        }
+        return path
+    }
+
+    private func energyLatticePath() -> CGPath {
+        let path = CGMutablePath()
+        let center = CGPoint(x: 46, y: 46)
+        let outer = polygonPath(center: center, radius: 23, sides: 6)
+        let innerHex = polygonPath(center: center, radius: 12.5, sides: 6, rotation: 0)
+        path.addPath(outer)
+        path.addPath(innerHex)
+        for index in 0..<6 {
+            let angle = -.pi / 2 + CGFloat(index) * .pi / 3
+            path.move(to: CGPoint(x: center.x + cos(angle) * 12.5, y: center.y + sin(angle) * 12.5))
+            path.addLine(to: CGPoint(x: center.x + cos(angle) * 23, y: center.y + sin(angle) * 23))
+        }
+        return path
+    }
+
+    private func overloadVentPath() -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<4 {
+            let angle = -.pi / 4 + CGFloat(index) * .pi / 2
+            path.addArc(
+                center: CGPoint(x: 46, y: 46),
+                radius: 38.2,
+                startAngle: angle - 0.16,
+                endAngle: angle + 0.16,
+                clockwise: false
+            )
+            let innerPoint = CGPoint(x: 46 + cos(angle) * 39.5, y: 46 + sin(angle) * 39.5)
+            let outerPoint = CGPoint(x: 46 + cos(angle) * 43.5, y: 46 + sin(angle) * 43.5)
+            path.move(to: innerPoint)
+            path.addLine(to: outerPoint)
+        }
+        return path
+    }
+
+    private func magneticBridgePath() -> CGPath {
+        let path = CGMutablePath()
+        var nodes: [CGPoint] = []
+        for index in 0..<3 {
+            let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / 3
+            nodes.append(CGPoint(x: 46 + cos(angle) * 29.2, y: 46 + sin(angle) * 29.2))
+        }
+        for index in 0..<nodes.count {
+            let start = nodes[index]
+            let end = nodes[(index + 1) % nodes.count]
+            path.move(to: start)
+            path.addQuadCurve(
+                to: end,
+                control: CGPoint(x: 46 + (start.x + end.x - 92) * 0.28, y: 46 + (start.y + end.y - 92) * 0.28)
+            )
+        }
+        return path
+    }
+
+    private func peakCrownPath() -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<12 {
+            let angle = -.pi / 2 + CGFloat(index) * .pi / 6
+            let innerRadius: CGFloat = index.isMultiple(of: 2) ? 39.5 : 40.5
+            let outerRadius: CGFloat = index.isMultiple(of: 2) ? 45 : 43.5
+            path.move(to: CGPoint(x: 46 + cos(angle) * innerRadius, y: 46 + sin(angle) * innerRadius))
+            path.addLine(to: CGPoint(x: 46 + cos(angle) * outerRadius, y: 46 + sin(angle) * outerRadius))
+        }
+        return path
+    }
+
     private func updateEnergyStageShape(tier: Int, color: NSColor) {
         let palette = energyTierPalette(tier)
-        let nodeCounts = [0, 1, 3, 5, 8, 10, 14, 16]
-        let coreBorders: [CGFloat] = [1, 1, 1.15, 1.3, 1.55, 1.85, 2.2, 2.6]
-        let shellWidths: [CGFloat] = [0, 0.9, 1.1, 1.3, 1.65, 1.95, 2.25, 2.7]
-        let haloRadii: [CGFloat] = [10, 12, 14, 16, 19, 22, 26, 30]
+        let nodeCounts = [0, 0, 0, 0, 6, 8, 10, 12]
+        let coreBorders: [CGFloat] = [1, 1.05, 1.35, 1.7, 1.9, 2.1, 2.35, 2.7]
+        let shellWidths: [CGFloat] = [0, 0, 0, 0, 1.65, 1.95, 2.25, 2.7]
+        let haloRadii: [CGFloat] = [10, 12, 16, 20, 22, 25, 28, 32]
         let coreFrame = CGRect(x: 10, y: 10, width: 72, height: 72)
         core.frame = coreFrame
         core.cornerRadius = coreFrame.width / 2
@@ -876,45 +1025,82 @@ private final class OrbLayerRenderer {
             NSColor.clear.cgColor
         ]
         sheen.locations = [0.18, 0.42, 0.57, 0.82]
-        stageShell.opacity = tier == 0 ? 0 : 1
-        stageShell.strokeColor = palette.secondary.withAlphaComponent(tier >= 5 ? 0.96 : 0.68).cgColor
+        // High crystallizes a permanent internal lattice instead of adding another circular shell.
+        stageShell.opacity = tier >= 4 ? 0.72 : 0
+        stageShell.strokeColor = energyTierPalette(4).secondary.withAlphaComponent(0.76).cgColor
         stageShell.lineWidth = shellWidths[tier]
-        switch tier {
-        case 2: stageShell.lineDashPattern = [2, 7]
-        case 3: stageShell.lineDashPattern = [9, 7]
-        case 4: stageShell.lineDashPattern = [15, 4]
-        case 5: stageShell.lineDashPattern = [7, 2]
-        case 6: stageShell.lineDashPattern = [2, 2]
-        default: stageShell.lineDashPattern = nil
-        }
-        stageShell.path = CGPath(ellipseIn: CGRect(x: 18, y: 18, width: 56, height: 56), transform: nil)
-        stageShell.shadowColor = palette.secondary.cgColor
-        stageShell.shadowOpacity = tier >= 5 ? 0.9 : tier >= 3 ? 0.56 : 0.24
-        stageShell.shadowRadius = tier >= 6 ? 12 : tier >= 4 ? 7 : 3
-        tierAura.opacity = tier == 0 ? 0 : Float(0.12 + Double(tier) * 0.075)
-        tierAura.path = CGPath(ellipseIn: CGRect(x: 13.5, y: 13.5, width: 65, height: 65), transform: nil)
-        tierAura.strokeColor = color.withAlphaComponent(tier >= 5 ? 0.82 : 0.5).cgColor
-        tierAura.lineWidth = 0.7 + CGFloat(tier) * 0.13
-        switch tier {
-        case 1: tierAura.lineDashPattern = [1, 12]
-        case 2: tierAura.lineDashPattern = [2, 8]
-        case 3: tierAura.lineDashPattern = [5, 7]
-        case 4: tierAura.lineDashPattern = [11, 4]
-        case 5: tierAura.lineDashPattern = [5, 2]
-        case 6: tierAura.lineDashPattern = [1, 2]
-        case 7: tierAura.lineDashPattern = [3, 1]
-        default: tierAura.lineDashPattern = nil
-        }
-        tierAura.shadowColor = color.cgColor
-        tierAura.shadowOpacity = tier >= 5 ? 0.72 : 0.3
-        tierAura.shadowRadius = tier >= 6 ? 8 : 4
-        tierNodes.opacity = tier == 0 ? 0 : 1
+        stageShell.lineDashPattern = nil
+        stageShell.path = energyLatticePath()
+        stageShell.shadowColor = energyTierPalette(4).secondary.cgColor
+        stageShell.shadowOpacity = tier >= 4 ? 0.62 : 0
+        stageShell.shadowRadius = tier >= 6 ? 8 : 5
+
+        // Overload opens four visible vents and lets energy escape beyond the body.
+        tierAura.opacity = tier >= 5 ? 0.94 : 0
+        tierAura.path = overloadVentPath()
+        tierAura.strokeColor = energyTierPalette(5).primary.withAlphaComponent(0.96).cgColor
+        tierAura.lineWidth = tier >= 6 ? 2.2 : 1.8
+        tierAura.lineDashPattern = nil
+        tierAura.shadowColor = energyTierPalette(5).secondary.cgColor
+        tierAura.shadowOpacity = tier >= 5 ? 0.88 : 0
+        tierAura.shadowRadius = tier >= 6 ? 9 : 6
+
+        tierNodes.opacity = tier >= 4 ? 0.72 : 0
         tierNodes.path = energyTierNodePath(count: nodeCounts[tier], radius: 31.8, tier: tier)
         tierNodes.strokeColor = palette.secondary.withAlphaComponent(tier >= 5 ? 0.96 : 0.72).cgColor
         tierNodes.lineWidth = tier >= 6 ? 2.4 : tier >= 4 ? 1.8 : 1.35
         tierNodes.shadowColor = palette.secondary.cgColor
         tierNodes.shadowOpacity = tier >= 5 ? 0.9 : 0.42
         tierNodes.shadowRadius = tier >= 6 ? 7 : 3
+        let wakePalette = energyTierPalette(1)
+        wakeEvolution.opacity = tier >= 1 ? (tier == 1 ? 0.82 : 0.68) : 0
+        wakeEvolution.strokeColor = wakePalette.primary.withAlphaComponent(0.92).cgColor
+        wakeEvolution.lineWidth = tier >= 4 ? 0.9 : 1.15
+        wakeEvolution.shadowColor = wakePalette.primary.cgColor
+        wakeEvolution.shadowOpacity = tier >= 1 ? 0.58 : 0
+        wakeEvolution.shadowRadius = 3
+
+        // Charge adds three discrete collector nodes which remain through every later tier.
+        let chargePalette = energyTierPalette(2)
+        chargeEvolution.opacity = tier >= 2 ? (tier == 2 ? 1 : 0.84) : 0
+        chargeEvolution.path = collectorNodePath()
+        chargeEvolution.fillColor = NSColor.clear.cgColor
+        chargeEvolution.strokeColor = chargePalette.primary.withAlphaComponent(0.94).cgColor
+        chargeEvolution.lineWidth = 1.8
+        chargeEvolution.lineDashPattern = nil
+        chargeEvolution.shadowColor = chargePalette.primary.cgColor
+        chargeEvolution.shadowOpacity = tier >= 2 ? 0.9 : 0
+        chargeEvolution.shadowRadius = 5
+
+        // Drive adds three directional propulsion arcs, not a full enclosing ring.
+        let drivePalette = energyTierPalette(3)
+        driveEvolution.opacity = tier >= 3 ? (tier == 3 ? 0.94 : 0.76) : 0
+        driveEvolution.path = propulsionArcPath()
+        driveEvolution.strokeColor = drivePalette.primary.withAlphaComponent(0.96).cgColor
+        driveEvolution.lineWidth = tier >= 5 ? 1.55 : 2.1
+        driveEvolution.lineDashPattern = nil
+        driveEvolution.shadowColor = drivePalette.secondary.cgColor
+        driveEvolution.shadowOpacity = tier >= 3 ? 0.72 : 0
+        driveEvolution.shadowRadius = 5
+
+        // Critical links the retained Charge nodes into a pulsing magnetic circuit.
+        criticalBridges.opacity = tier >= 6 ? 0.78 : 0
+        criticalBridges.path = magneticBridgePath()
+        criticalBridges.strokeColor = energyTierPalette(6).secondary.withAlphaComponent(0.88).cgColor
+        criticalBridges.lineWidth = 1.15
+        criticalBridges.shadowColor = energyTierPalette(6).primary.cgColor
+        criticalBridges.shadowOpacity = tier >= 6 ? 0.86 : 0
+        criticalBridges.shadowRadius = 6
+
+        // Peak keeps every previous system and adds a synchronized white-gold crown.
+        peakCrown.opacity = tier >= 7 ? 1 : 0
+        peakCrown.path = peakCrownPath()
+        peakCrown.strokeColor = energyTierPalette(7).secondary.withAlphaComponent(0.98).cgColor
+        peakCrown.lineWidth = 1.65
+        peakCrown.shadowColor = NSColor(calibratedRed: 1, green: 0.86, blue: 0.42, alpha: 1).cgColor
+        peakCrown.shadowOpacity = tier >= 7 ? 0.96 : 0
+        peakCrown.shadowRadius = 8
+
         ticks.opacity = tier >= 3 ? Float(min(0.92, 0.22 + Double(tier) * 0.1)) : 0
         ticks.strokeColor = palette.secondary.withAlphaComponent(0.72).cgColor
         ticks.lineDashPattern = tier >= 6 ? [1, 3] : tier >= 4 ? [3, 5] : [2, 8]
@@ -942,19 +1128,26 @@ private final class OrbLayerRenderer {
         let signature = "\(tier)|\(arcade)|\(reducedMotion)"
         guard signature != lastEnergyMotionSignature else { return }
         lastEnergyMotionSignature = signature
-        stageShell.removeAnimation(forKey: "energy-stage-spin")
+        stageShell.removeAnimation(forKey: "energy-lattice-breath")
         tierAura.removeAnimation(forKey: "energy-tier-breath")
         tierNodes.removeAnimation(forKey: "energy-node-orbit")
+        wakeEvolution.removeAnimation(forKey: "wake-evolution-breath")
+        chargeEvolution.removeAnimation(forKey: "charge-node-cycle")
+        driveEvolution.removeAnimation(forKey: "drive-evolution-spin")
+        criticalBridges.removeAnimation(forKey: "critical-bridge-double-pulse")
+        peakCrown.removeAnimation(forKey: "peak-crown-sync")
         guard tier > 0, !reducedMotion else { return }
         let spinDurations: [CFTimeInterval] = [0, 12, 9, 6.8, 4.7, 3.4, 2.35, 5.6]
         let speed = arcade ? 0.72 : 1.0
-        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-        spin.fromValue = tier == 5 ? Double.pi * 2 : 0
-        spin.toValue = tier == 5 ? 0 : Double.pi * 2
-        spin.duration = spinDurations[tier] * speed
-        spin.repeatCount = .infinity
-        spin.isRemovedOnCompletion = false
-        stageShell.add(spin, forKey: "energy-stage-spin")
+        if tier >= 4 {
+            let latticeBreath = CAKeyframeAnimation(keyPath: "transform.scale")
+            latticeBreath.values = [0.96, 1.035, 0.96]
+            latticeBreath.keyTimes = [0, 0.5, 1]
+            latticeBreath.duration = (arcade ? 2.2 : 3.2)
+            latticeBreath.repeatCount = .infinity
+            latticeBreath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            stageShell.add(latticeBreath, forKey: "energy-lattice-breath")
+        }
         let nodeOrbit = CABasicAnimation(keyPath: "transform.rotation.z")
         nodeOrbit.fromValue = tier == 6 ? Double.pi * 2 : 0
         nodeOrbit.toValue = tier == 6 ? 0 : Double.pi * 2
@@ -962,6 +1155,49 @@ private final class OrbLayerRenderer {
         nodeOrbit.repeatCount = .infinity
         nodeOrbit.isRemovedOnCompletion = false
         tierNodes.add(nodeOrbit, forKey: "energy-node-orbit")
+        let wakeBreath = CAKeyframeAnimation(keyPath: "opacity")
+        wakeBreath.values = [0.5, 0.9, 0.5]
+        wakeBreath.keyTimes = [0, 0.5, 1]
+        wakeBreath.duration = (arcade ? 2.5 : 3.6)
+        wakeBreath.repeatCount = .infinity
+        wakeBreath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        wakeEvolution.add(wakeBreath, forKey: "wake-evolution-breath")
+        if tier >= 2 {
+            let chargeCycle = CAKeyframeAnimation(keyPath: "strokeEnd")
+            chargeCycle.values = [0.34, 0.34, 0.67, 0.67, 1, 1]
+            chargeCycle.keyTimes = [0, 0.2, 0.28, 0.48, 0.56, 1]
+            chargeCycle.duration = arcade ? 1.7 : 2.4
+            chargeCycle.repeatCount = .infinity
+            chargeCycle.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            chargeEvolution.add(chargeCycle, forKey: "charge-node-cycle")
+        }
+        if tier >= 3 {
+            let driveSpin = CABasicAnimation(keyPath: "transform.rotation.z")
+            driveSpin.fromValue = Double.pi * 2
+            driveSpin.toValue = 0
+            driveSpin.duration = (arcade ? 4.6 : 6.4)
+            driveSpin.repeatCount = .infinity
+            driveSpin.isRemovedOnCompletion = false
+            driveEvolution.add(driveSpin, forKey: "drive-evolution-spin")
+        }
+        if tier >= 6 {
+            let criticalPulse = CAKeyframeAnimation(keyPath: "opacity")
+            criticalPulse.values = [0.48, 1, 0.58, 0.96, 0.48]
+            criticalPulse.keyTimes = [0, 0.16, 0.34, 0.5, 1]
+            criticalPulse.duration = arcade ? 1.15 : 1.55
+            criticalPulse.repeatCount = .infinity
+            criticalPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            criticalBridges.add(criticalPulse, forKey: "critical-bridge-double-pulse")
+        }
+        if tier >= 7 {
+            let crownSync = CAKeyframeAnimation(keyPath: "transform.scale")
+            crownSync.values = [0.96, 1.08, 1, 0.96]
+            crownSync.keyTimes = [0, 0.16, 0.32, 1]
+            crownSync.duration = arcade ? 1.8 : 2.6
+            crownSync.repeatCount = .infinity
+            crownSync.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            peakCrown.add(crownSync, forKey: "peak-crown-sync")
+        }
         let breath = CAKeyframeAnimation(keyPath: "opacity")
         breath.values = tier >= 6 ? [0.42, 1, 0.3, 0.88, 0.42] : tier == 5 ? [0.34, 0.9, 0.46, 0.76, 0.34] : [0.2, min(0.86, 0.34 + Double(tier) * 0.1), 0.2]
         breath.keyTimes = tier >= 5 ? [0, 0.18, 0.42, 0.64, 1] : [0, 0.46, 1]
@@ -3542,19 +3778,19 @@ private final class PowerModeView: NSView {
         if streamConnected == false { return preferences.text("RECONNECT", "重连中") }
         if let completion = state.mixedLastCompletion, (state.mixedConversationCount ?? 0) > 0 {
             switch completion {
-            case "verified": return preferences.text("ONE DONE · VERIFIED", "一项完成 · 已验证")
-            case "unverified": return preferences.text("ONE DONE · CHECK", "一项完成 · 待验证")
-            case "cancelled": return preferences.text("ONE DONE · CANCELLED", "一项完成 · 已取消")
-            default: return preferences.text("ONE DONE · NO CHANGE", "一项完成 · 无修改")
+            case "verified": return preferences.text("1 DONE/OK", "一项已验证")
+            case "unverified": return preferences.text("1 DONE/CHECK", "一项待验证")
+            case "cancelled": return preferences.text("1 DONE/CANCEL", "一项已取消")
+            default: return preferences.text("1 DONE/NO CHANGE", "一项无修改")
             }
         }
         if snapshot.idle || snapshot.phase == "idle" { return preferences.text("IDLE", "待机") }
         if state.status == "needs-attention" || snapshot.phase == "wait" { return preferences.text("APPROVAL", "等待授权") }
         if state.status == "failed" || snapshot.phase == "recover" { return preferences.text("RECOVER", "修复中") }
-        if state.completion == "verified" { return preferences.text("DONE · VERIFIED", "完成 · 已验证") }
-        if state.completion == "unverified" { return preferences.text("DONE · CHECK", "完成 · 待验证") }
-        if state.completion == "cancelled" { return preferences.text("DONE · CANCELLED", "完成 · 已取消") }
-        if state.completion == "no-change" { return preferences.text("DONE · NO CHANGE", "完成 · 无修改") }
+        if state.completion == "verified" { return preferences.text("DONE/OK", "完成/已验证") }
+        if state.completion == "unverified" { return preferences.text("DONE/CHECK", "完成/待验证") }
+        if state.completion == "cancelled" { return preferences.text("DONE/CANCEL", "完成/已取消") }
+        if state.completion == "no-change" { return preferences.text("DONE/NO CHANGE", "完成/无修改") }
         if state.currentActivity == "Understanding request" { return preferences.text("THINKING", "理解需求") }
         let activity = (state.currentActivity ?? "").lowercased()
         switch snapshot.phase {

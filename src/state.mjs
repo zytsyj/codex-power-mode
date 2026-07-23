@@ -42,7 +42,7 @@ export const initialState = Object.freeze({
 });
 
 export const ENERGY_MAX = 999;
-export const ENERGY_GAIN_MULTIPLIER = 0.85;
+export const ENERGY_GAIN_MULTIPLIER = 0.72;
 export const ENERGY_STAGES = Object.freeze([
   Object.freeze({ name: "idle", lower: 0, upper: 0 }),
   Object.freeze({ name: "awakening", lower: 1, upper: 99 }),
