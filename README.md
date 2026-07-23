@@ -36,7 +36,7 @@ The current build is suitable for ongoing personal testing, but it is not a publ
 
 - Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
 - Uses a five-stage `0–999` Energy scale—Wake, Charge, Drive, Critical, Peak—for useful progress, Confidence for verification evidence, and Risk for change scope; only evidence-backed completion reaches the verified peak.
-- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. The orb evolves through five deliberate assemblies—Wake awakens a breathing core, Charge adds three collector nodes, Drive adds directional propulsion arcs, Critical locks them into a collector lattice, and the verified Peak synchronizes the retained system beneath a white-gold crown. Earlier modules stay quiet in the current tier's palette, so progression remains visible without accumulating a rainbow of competing motion.
+- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. One connected mechanism evolves across five topologies—Wake starts the chassis, Charge splits out three orbiting nodes, Drive anchors them into a directional energy bus and opens propulsion ports, Critical divides them into six locks around a counter-rotating stabilizer, and the verified Peak phase-synchronizes the whole machine beneath a white-gold crown. Upgrades migrate existing nodes and grow their connections instead of stacking isolated decorations.
 - Optionally counts local typing rhythm while Codex is the foreground app. A large independent `×N` sits beside the orb, optional Sparks/Neon effects fire at the text cursor, and sending collapses the counter into an authenticated Energy stream without reading, storing, or transmitting text.
 - Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.
@@ -48,7 +48,7 @@ The current build is suitable for ongoing personal testing, but it is not a publ
 - Recognizes common test, build, lint, and type-check commands.
 - Requires successful post-edit verification for an evidence-backed completion.
 - Gives verified, unverified, cancelled, and no-change endings distinct motion rhythms; Focus confirms quietly while Arcade reserves multi-stage impact for evidence-backed success.
-- Keeps Act directional with a thrust axis and makes Verify converge through four lock brackets, including static silhouettes when Reduced Motion is enabled.
+- Keeps the central number and activity label permanently clear. Act drives the shared outer energy bus, Verify locks its nodes in sequence, and Reduced Motion preserves the same topology without spatial animation.
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
 - Includes semantic demo and recent-event replay tools for visual tuning.
@@ -169,7 +169,7 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 - Hook failures never block Codex work.
 - There are no runtime dependencies or analytics.
 - Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
-- Energy spans Wake, Charge, Drive, Critical, and the verified `999` Peak. A high-contrast 300-degree gauge fills within the current tier and resets only after the new level establishes. Its bright progress head accelerates near a breakthrough. Each level adds one retained component inside the gauge lane, while only the current module carries continuous motion: breathing core, collector nodes, directional fins, collector lattice, then a white-gold Peak crown.
+- Energy spans Wake, Charge, Drive, Critical, and the verified `999` Peak. A high-contrast 300-degree gauge fills within the current tier and resets only after the new topology establishes. Its bright progress head accelerates near a breakthrough. All nodes, buses, ports, stabilizers, and crown elements share one current-tier palette and one motion clock; semantic states change how that same machine moves rather than drawing another effect through the central value.
 - Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
 
 ## Combo semantics

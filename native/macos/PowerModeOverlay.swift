@@ -538,7 +538,13 @@ private final class EnergyVisualRenderer {
     private let core: CALayer
     private let inner: CAGradientLayer
     private let sheen: CAGradientLayer
-    private let modules = (0..<5).map { _ in CAShapeLayer() }
+    private let mechanism = CALayer()
+    private let chassis = CAShapeLayer()
+    private let bus = CAShapeLayer()
+    private let ports = CAShapeLayer()
+    private let stabilizer = CAShapeLayer()
+    private let crown = CAShapeLayer()
+    private let nodes = (0..<6).map { _ in CALayer() }
     private let track = CAShapeLayer()
     private let ring = CAShapeLayer()
     private let head = CALayer()
@@ -563,12 +569,22 @@ private final class EnergyVisualRenderer {
         self.core = core
         self.inner = inner
         self.sheen = sheen
-        for module in modules {
-            module.frame = body.bounds
-            module.fillColor = NSColor.clear.cgColor
-            module.lineCap = .round
-            module.lineJoin = .round
-            body.addSublayer(module)
+        mechanism.frame = body.bounds
+        body.addSublayer(mechanism)
+        for layer in [chassis, bus, ports, stabilizer, crown] {
+            layer.frame = mechanism.bounds
+            layer.fillColor = NSColor.clear.cgColor
+            layer.lineCap = .round
+            layer.lineJoin = .round
+            mechanism.addSublayer(layer)
+        }
+        for node in nodes {
+            node.bounds = CGRect(x: 0, y: 0, width: 5.6, height: 5.6)
+            node.cornerRadius = 2.8
+            node.borderWidth = 1
+            node.shadowOffset = .zero
+            node.opacity = 0
+            mechanism.addSublayer(node)
         }
         configureGauge(track, width: 4.2)
         track.strokeColor = NSColor.white.withAlphaComponent(0.14).cgColor
@@ -582,10 +598,22 @@ private final class EnergyVisualRenderer {
         container.addSublayer(head)
     }
 
-    func update(momentum: Int, phaseColor: NSColor, arcade: Bool, reducedMotion: Bool) -> (tier: Int, color: NSColor) {
+    func update(momentum: Int, phase: String, phaseColor: NSColor, arcade: Bool, reducedMotion: Bool) -> (tier: Int, color: NSColor) {
         let value = max(0, min(999, momentum))
         let tier = Self.tier(for: value)
         let color = stageColor(tier: tier, phaseColor: phaseColor)
+        let previousRotation = CGFloat(
+            (mechanism.presentation()?.value(forKeyPath: "transform.rotation.z") as? NSNumber)?.doubleValue ?? 0
+        )
+        let previousNodePositions = nodes.map {
+            let point = $0.presentation()?.position ?? $0.position
+            let dx = point.x - 46
+            let dy = point.y - 46
+            return CGPoint(
+                x: 46 + dx * cos(previousRotation) - dy * sin(previousRotation),
+                y: 46 + dx * sin(previousRotation) + dy * cos(previousRotation)
+            )
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         applyAppearance(tier: tier, color: color)
@@ -597,10 +625,16 @@ private final class EnergyVisualRenderer {
             reducedMotion: reducedMotion
         )
         CATransaction.commit()
+        updateMotion(tier: tier, phase: phase, arcade: arcade, reducedMotion: reducedMotion)
         if lastTier != tier, lastValue > 0, value > 0, !reducedMotion {
-            animateTierChange(from: lastValue, to: value, color: color, arcade: arcade)
+            animateTierChange(
+                from: lastValue,
+                to: value,
+                previousNodePositions: previousNodePositions,
+                color: color,
+                arcade: arcade
+            )
         }
-        updateMotion(tier: tier, arcade: arcade, reducedMotion: reducedMotion)
         lastTier = tier
         lastValue = value
         return (tier, color)
@@ -617,7 +651,7 @@ private final class EnergyVisualRenderer {
 
     func animateSemanticDuck(duration: CFTimeInterval, reducedMotion: Bool) {
         guard !reducedMotion else { return }
-        for (index, layer) in ((modules as [CALayer]) + [ring]).enumerated() {
+        for (index, layer) in ([mechanism, ring]).enumerated() {
             let base = layer.presentation()?.opacity ?? layer.opacity
             let duck = CAKeyframeAnimation(keyPath: "opacity")
             duck.values = [base, base, base * 0.3, base * 0.3, base * 0.72, base]
@@ -686,54 +720,61 @@ private final class EnergyVisualRenderer {
         CGPath(ellipseIn: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2), transform: nil)
     }
 
-    private func collectorPath() -> CGPath {
+    private func nodePosition(index: Int, count: Int) -> CGPoint {
+        guard count > 0 else { return CGPoint(x: 46, y: 46) }
+        let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / CGFloat(count)
+        let radius: CGFloat = count == 3 ? 28 : 29
+        return CGPoint(x: 46 + cos(angle) * radius, y: 46 + sin(angle) * radius)
+    }
+
+    private func visibleNodeCount(tier: Int) -> Int {
+        if tier < 2 { return 0 }
+        return tier < 4 ? 3 : 6
+    }
+
+    private func driveBusPath() -> CGPath {
         let path = CGMutablePath()
         for index in 0..<3 {
-            let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / 3
-            let center = CGPoint(x: 46 + cos(angle) * 27.5, y: 46 + sin(angle) * 27.5)
-            path.addEllipse(in: CGRect(x: center.x - 2.7, y: center.y - 2.7, width: 5.4, height: 5.4))
+            let start = -.pi / 2 + CGFloat(index) * 2 * .pi / 3 + 0.18
+            path.addArc(
+                center: CGPoint(x: 46, y: 46),
+                radius: 28,
+                startAngle: start,
+                endAngle: start + 1.72,
+                clockwise: false
+            )
         }
         return path
     }
 
-    private func drivePath() -> CGPath {
+    private func portPath() -> CGPath {
         let path = CGMutablePath()
-        for index in 0..<2 {
-            let angle = CGFloat(index) * .pi
-            let upper = CGPoint(x: 46 + cos(angle - 0.34) * 23, y: 46 + sin(angle - 0.34) * 23)
-            let tip = CGPoint(x: 46 + cos(angle) * 29.5, y: 46 + sin(angle) * 29.5)
-            let lower = CGPoint(x: 46 + cos(angle + 0.34) * 23, y: 46 + sin(angle + 0.34) * 23)
-            path.move(to: upper)
-            path.addLine(to: tip)
-            path.addLine(to: lower)
-            path.closeSubpath()
-        }
+        path.move(to: CGPoint(x: 23, y: 17))
+        path.addLine(to: CGPoint(x: 14, y: 22))
+        path.addLine(to: CGPoint(x: 21, y: 29))
+        path.move(to: CGPoint(x: 69, y: 75))
+        path.addLine(to: CGPoint(x: 78, y: 70))
+        path.addLine(to: CGPoint(x: 71, y: 63))
         return path
     }
 
-    private func criticalPath() -> CGPath {
+    private func stabilizerPath() -> CGPath {
         let path = CGMutablePath()
-        var nodes: [CGPoint] = []
-        for index in 0..<3 {
-            let angle = -.pi / 2 + CGFloat(index) * 2 * .pi / 3
-            nodes.append(CGPoint(x: 46 + cos(angle) * 27.5, y: 46 + sin(angle) * 27.5))
+        for index in 0..<6 {
+            let point = nodePosition(index: index, count: 6)
+            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
         }
-        for index in 0..<3 {
-            path.move(to: nodes[index])
-            path.addQuadCurve(to: nodes[(index + 1) % 3], control: CGPoint(x: 46, y: 46))
-        }
-        path.addEllipse(in: CGRect(x: 42.5, y: 42.5, width: 7, height: 7))
+        path.closeSubpath()
         return path
     }
 
-    private func peakPath() -> CGPath {
+    private func crownPath() -> CGPath {
         let path = CGMutablePath()
         for index in 0..<6 {
             let angle = -.pi / 2 + CGFloat(index) * .pi / 3
-            path.move(to: CGPoint(x: 46 + cos(angle) * 23, y: 46 + sin(angle) * 23))
-            path.addLine(to: CGPoint(x: 46 + cos(angle - 0.12) * 26, y: 46 + sin(angle - 0.12) * 26))
-            path.addLine(to: CGPoint(x: 46 + cos(angle) * 30, y: 46 + sin(angle) * 30))
-            path.addLine(to: CGPoint(x: 46 + cos(angle + 0.12) * 26, y: 46 + sin(angle + 0.12) * 26))
+            path.move(to: CGPoint(x: 46 + cos(angle - 0.11) * 30, y: 46 + sin(angle - 0.11) * 30))
+            path.addLine(to: CGPoint(x: 46 + cos(angle) * 34, y: 46 + sin(angle) * 34))
+            path.addLine(to: CGPoint(x: 46 + cos(angle + 0.11) * 30, y: 46 + sin(angle + 0.11) * 30))
             path.closeSubpath()
         }
         return path
@@ -741,7 +782,6 @@ private final class EnergyVisualRenderer {
 
     private func applyAppearance(tier: Int, color: NSColor) {
         let active = palette(tier)
-        let quiet = active.secondary.withAlphaComponent(0.5)
         let coreBorders: [CGFloat] = [1, 1.2, 1.55, 1.9, 2.3, 2.7]
         let haloRadii: [CGFloat] = [9, 12, 17, 22, 27, 32]
         core.borderWidth = coreBorders[tier]
@@ -766,40 +806,55 @@ private final class EnergyVisualRenderer {
         halo.backgroundColor = color.withAlphaComponent(tier >= 4 ? 0.1 : 0.045).cgColor
         halo.shadowColor = color.cgColor
 
-        modules[0].path = circlePath(radius: 23.5)
-        modules[0].opacity = tier >= 1 ? (tier == 1 ? 0.9 : 0.16) : 0
-        modules[0].strokeColor = (tier == 1 ? active.primary : quiet).cgColor
-        modules[0].lineWidth = tier == 1 ? 1.65 : 0.8
+        mechanism.opacity = tier > 0 ? 1 : 0
+        chassis.path = circlePath(radius: 24)
+        chassis.opacity = tier >= 1 ? (tier == 1 ? 0.92 : 0.38) : 0
+        chassis.strokeColor = active.secondary.withAlphaComponent(tier == 1 ? 0.9 : 0.58).cgColor
+        chassis.lineWidth = tier == 1 ? 1.8 : 1
 
-        modules[1].path = collectorPath()
-        modules[1].opacity = tier >= 2 ? (tier == 2 ? 1 : 0.3) : 0
-        modules[1].fillColor = (tier == 2 ? active.secondary.withAlphaComponent(0.3) : quiet.withAlphaComponent(0.12)).cgColor
-        modules[1].strokeColor = (tier == 2 ? active.primary : quiet).cgColor
-        modules[1].lineWidth = tier == 2 ? 2.2 : 1.1
+        bus.path = tier == 3 ? driveBusPath() : circlePath(radius: tier >= 4 ? 29 : 28)
+        bus.opacity = tier >= 2 ? (tier == 2 ? 0.82 : 0.92) : 0
+        bus.strokeColor = active.primary.withAlphaComponent(0.94).cgColor
+        bus.lineWidth = tier >= 4 ? 1.6 : 1.35
+        bus.lineDashPattern = tier == 2 ? [3, 5] : tier == 3 ? [9, 3] : [5, 3]
+        bus.shadowColor = active.primary.cgColor
+        bus.shadowOpacity = tier >= 2 ? 0.72 : 0
+        bus.shadowRadius = tier >= 4 ? 6 : 4
 
-        modules[2].path = drivePath()
-        modules[2].opacity = tier >= 3 ? (tier == 3 ? 1 : 0.3) : 0
-        modules[2].fillColor = (tier == 3 ? active.secondary.withAlphaComponent(0.26) : quiet.withAlphaComponent(0.1)).cgColor
-        modules[2].strokeColor = (tier == 3 ? active.primary : quiet).cgColor
-        modules[2].lineWidth = tier == 3 ? 2.6 : 1.15
+        ports.path = portPath()
+        ports.opacity = tier >= 3 ? 0.95 : 0
+        ports.strokeColor = active.secondary.cgColor
+        ports.lineWidth = tier >= 4 ? 2 : 2.5
+        ports.shadowColor = active.primary.cgColor
+        ports.shadowOpacity = tier >= 3 ? 0.82 : 0
+        ports.shadowRadius = 6
 
-        modules[3].path = criticalPath()
-        modules[3].opacity = tier >= 4 ? (tier == 4 ? 1 : 0.36) : 0
-        modules[3].fillColor = NSColor.clear.cgColor
-        modules[3].strokeColor = (tier == 4 ? active.secondary : quiet).cgColor
-        modules[3].lineWidth = tier == 4 ? 2.15 : 1.2
+        stabilizer.path = stabilizerPath()
+        stabilizer.opacity = tier >= 4 ? (tier == 4 ? 0.92 : 0.58) : 0
+        stabilizer.strokeColor = active.secondary.withAlphaComponent(0.94).cgColor
+        stabilizer.lineWidth = tier == 4 ? 1.9 : 1.25
+        stabilizer.shadowColor = active.primary.cgColor
+        stabilizer.shadowOpacity = tier >= 4 ? 0.74 : 0
+        stabilizer.shadowRadius = 6
 
-        modules[4].path = peakPath()
-        modules[4].opacity = tier == 5 ? 1 : 0
-        modules[4].fillColor = active.primary.withAlphaComponent(0.28).cgColor
-        modules[4].strokeColor = active.secondary.cgColor
-        modules[4].lineWidth = 2.4
+        crown.path = crownPath()
+        crown.opacity = tier == 5 ? 1 : 0
+        crown.fillColor = active.primary.withAlphaComponent(0.3).cgColor
+        crown.strokeColor = active.secondary.cgColor
+        crown.lineWidth = 1.8
+        crown.shadowColor = active.primary.cgColor
+        crown.shadowOpacity = tier == 5 ? 0.94 : 0
+        crown.shadowRadius = 9
 
-        for (index, module) in modules.enumerated() {
-            let current = index + 1 == tier
-            module.shadowColor = active.primary.cgColor
-            module.shadowOpacity = current ? (tier >= 4 ? 0.94 : 0.78) : 0
-            module.shadowRadius = current ? CGFloat(4 + tier) : 0
+        let visibleNodes = visibleNodeCount(tier: tier)
+        for (index, node) in nodes.enumerated() {
+            node.position = nodePosition(index: index, count: max(visibleNodes, 1))
+            node.opacity = index < visibleNodes ? 1 : 0
+            node.backgroundColor = active.primary.cgColor
+            node.borderColor = active.secondary.withAlphaComponent(0.9).cgColor
+            node.shadowColor = active.primary.cgColor
+            node.shadowOpacity = index < visibleNodes ? (tier >= 4 ? 0.94 : 0.76) : 0
+            node.shadowRadius = tier >= 4 ? 7 : 4
         }
     }
 
@@ -832,54 +887,215 @@ private final class EnergyVisualRenderer {
         head.add(pulse, forKey: "energy-head-warning")
     }
 
-    private func updateMotion(tier: Int, arcade: Bool, reducedMotion: Bool) {
-        let signature = "\(tier)|\(arcade)|\(reducedMotion)"
+    private func updateMotion(tier: Int, phase: String, arcade: Bool, reducedMotion: Bool) {
+        let signature = "\(tier)|\(phase)|\(arcade)|\(reducedMotion)"
         guard signature != lastMotionSignature else { return }
         lastMotionSignature = signature
-        modules.forEach { $0.removeAllAnimations() }
-        guard tier > 0, !reducedMotion else { return }
-        let animation: CAAnimation
-        switch tier {
-        case 1:
-            let breathe = CAKeyframeAnimation(keyPath: "opacity")
-            breathe.values = [0.58, 0.92, 0.58]
-            breathe.keyTimes = [0, 0.5, 1]
-            breathe.duration = arcade ? 2.5 : 3.6
-            breathe.repeatCount = .infinity
-            animation = breathe
-        case 2:
-            let collect = CAKeyframeAnimation(keyPath: "strokeEnd")
-            collect.values = [0.34, 0.34, 0.67, 0.67, 1, 1]
-            collect.keyTimes = [0, 0.2, 0.28, 0.48, 0.56, 1]
-            collect.duration = arcade ? 1.9 : 2.6
-            collect.repeatCount = .infinity
-            animation = collect
-        case 3:
-            let thrust = CAKeyframeAnimation(keyPath: "transform.scale")
-            thrust.values = [0.96, 1.06, 0.98, 1]
-            thrust.keyTimes = [0, 0.3, 0.62, 1]
-            thrust.duration = arcade ? 1.45 : 2.1
-            thrust.repeatCount = .infinity
-            animation = thrust
-        case 4:
-            let lock = CAKeyframeAnimation(keyPath: "opacity")
-            lock.values = [0.58, 1, 0.68, 0.94, 0.58]
-            lock.keyTimes = [0, 0.18, 0.42, 0.62, 1]
-            lock.duration = arcade ? 1.3 : 1.8
-            lock.repeatCount = .infinity
-            animation = lock
-        default:
-            let sync = CAKeyframeAnimation(keyPath: "transform.scale")
-            sync.values = [0.97, 1.07, 1, 0.97]
-            sync.keyTimes = [0, 0.18, 0.36, 1]
-            sync.duration = arcade ? 1.9 : 2.7
-            sync.repeatCount = .infinity
-            animation = sync
+        for layer in [mechanism, chassis, bus, ports, stabilizer, crown] + nodes {
+            for key in layer.animationKeys() ?? [] where key.hasPrefix("energy-steady-") {
+                layer.removeAnimation(forKey: key)
+            }
         }
-        modules[tier - 1].add(animation, forKey: "energy-current-module")
+        guard tier > 0, !reducedMotion else { return }
+
+        let baseDuration: CFTimeInterval = arcade ? 1.8 : 2.6
+        if tier == 1 {
+            addPulse(
+                to: chassis,
+                values: phase == "wait" ? [0.56, 0.94, 0.56, 0.94, 0.56] : [0.58, 0.94, 0.58],
+                duration: phase == "wait" ? baseDuration * 0.72 : baseDuration * 1.35,
+                key: "energy-steady-wake"
+            )
+        }
+
+        switch phase {
+        case "observe":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: -7,
+                angularOffset: 0.12,
+                duration: baseDuration * 1.28
+            )
+            if tier >= 2 { addDashFlow(to: bus, clockwise: false, duration: baseDuration * 1.4, key: "energy-steady-observe-flow") }
+        case "act":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: 3,
+                angularOffset: -0.2,
+                translation: CGPoint(x: 4.5, y: 0),
+                duration: baseDuration * 0.7
+            )
+            if tier >= 3 {
+                addDashFlow(to: bus, clockwise: true, duration: baseDuration * 0.72, key: "energy-steady-drive-flow")
+                addPulse(to: ports, values: [0.48, 1, 0.66, 1, 0.48], duration: baseDuration * 0.68, key: "energy-steady-drive-ports")
+            }
+            if tier >= 4 {
+                addRotation(to: stabilizer, clockwise: false, duration: baseDuration * 4.2, key: "energy-steady-critical-counter")
+            }
+        case "verify":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: -4,
+                angularOffset: 0,
+                duration: baseDuration * 1.08
+            )
+            let visible = visibleNodeCount(tier: tier)
+            for index in 0..<visible {
+                addNodePulse(node: nodes[index], index: index, count: visible, duration: baseDuration * 1.1)
+            }
+            if tier >= 4 {
+                addPulse(to: stabilizer, values: [1.04, 0.96, 1.02, 1], duration: baseDuration, key: "energy-steady-verify-lock")
+            }
+        case "wait":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: -2,
+                angularOffset: 0,
+                duration: baseDuration * 1.08,
+                doubleBeat: true
+            )
+            addPulse(
+                to: mechanism,
+                values: [0.56, 1, 0.58, 0.94, 0.56, 0.56],
+                duration: baseDuration * 1.08,
+                key: "energy-steady-wait-latch"
+            )
+        case "recover":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: 8,
+                angularOffset: -0.18,
+                duration: baseDuration * 0.82
+            )
+            if tier >= 3 { addDashFlow(to: bus, clockwise: false, duration: baseDuration * 0.86, key: "energy-steady-recover-flow") }
+        case "complete":
+            animateNodes(
+                tier: tier,
+                phase: phase,
+                radialOffset: -5,
+                angularOffset: 0,
+                duration: baseDuration * 1.35,
+                repeats: false
+            )
+            addPulse(to: mechanism, values: [1.04, 0.94, 1], duration: baseDuration * 1.35, key: "energy-steady-complete-close")
+        default:
+            break
+        }
+
+        if tier == 5 {
+            addPulse(
+                to: crown,
+                values: [0.78, 1, 0.9, 1, 0.78],
+                duration: baseDuration * 1.25,
+                key: "energy-steady-peak-sync"
+            )
+        }
     }
 
-    private func animateTierChange(from previousValue: Int, to nextValue: Int, color: NSColor, arcade: Bool) {
+    private func animateNodes(
+        tier: Int,
+        phase: String,
+        radialOffset: CGFloat,
+        angularOffset: CGFloat,
+        translation: CGPoint = .zero,
+        duration: CFTimeInterval,
+        doubleBeat: Bool = false,
+        repeats: Bool = true
+    ) {
+        let count = visibleNodeCount(tier: tier)
+        guard count > 0 else { return }
+        for index in 0..<count {
+            let baseAngle = -.pi / 2 + CGFloat(index) * 2 * .pi / CGFloat(count)
+            let baseRadius: CGFloat = count == 3 ? 28 : 29
+            let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
+            let targetAngle = baseAngle + angularOffset * direction
+            let targetRadius = baseRadius + radialOffset
+            let base = nodePosition(index: index, count: count)
+            let target = CGPoint(
+                x: 46 + cos(targetAngle) * targetRadius + translation.x,
+                y: 46 + sin(targetAngle) * targetRadius + translation.y
+            )
+            let position = CAKeyframeAnimation(keyPath: "position")
+            if doubleBeat {
+                position.values = [base, target, base, target, base, base].map { NSValue(point: $0) }
+                position.keyTimes = [0, 0.1, 0.2, 0.32, 0.44, 1]
+            } else if phase == "act" {
+                let recoil = CGPoint(x: base.x - 2.5, y: base.y)
+                position.values = [base, recoil, target, base, base].map { NSValue(point: $0) }
+                position.keyTimes = [0, 0.12, 0.3, 0.52, 1]
+            } else if phase == "recover" {
+                let fracture = CGPoint(
+                    x: target.x + cos(baseAngle + .pi / 2) * 4 * direction,
+                    y: target.y + sin(baseAngle + .pi / 2) * 4 * direction
+                )
+                position.values = [base, fracture, target, base, base].map { NSValue(point: $0) }
+                position.keyTimes = [0, 0.14, 0.32, 0.58, 1]
+            } else {
+                position.values = [base, target, target, base].map { NSValue(point: $0) }
+                position.keyTimes = [0, 0.28, 0.58, 1]
+            }
+            position.duration = duration
+            position.beginTime = nodes[index].convertTime(CACurrentMediaTime(), from: nil)
+                + (phase == "verify" ? Double(index) * 0.055 : Double(index) * 0.018)
+            position.repeatCount = repeats ? .infinity : 1
+            position.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.78, 0.2, 1)
+            nodes[index].add(position, forKey: "energy-steady-\(phase)-node-\(index)")
+        }
+    }
+
+    private func addRotation(to layer: CALayer, clockwise: Bool, duration: CFTimeInterval, key: String) {
+        let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotation.fromValue = 0
+        rotation.toValue = (clockwise ? 1 : -1) * CGFloat.pi * 2
+        rotation.duration = duration
+        rotation.repeatCount = .infinity
+        rotation.timingFunction = CAMediaTimingFunction(name: .linear)
+        layer.add(rotation, forKey: key)
+    }
+
+    private func addDashFlow(to layer: CAShapeLayer, clockwise: Bool, duration: CFTimeInterval, key: String) {
+        let flow = CABasicAnimation(keyPath: "lineDashPhase")
+        flow.fromValue = clockwise ? 0 : -24
+        flow.toValue = clockwise ? -24 : 0
+        flow.duration = duration
+        flow.repeatCount = .infinity
+        flow.timingFunction = CAMediaTimingFunction(name: .linear)
+        layer.add(flow, forKey: key)
+    }
+
+    private func addPulse(to layer: CALayer, values: [CGFloat], duration: CFTimeInterval, key: String) {
+        let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
+        pulse.values = values
+        pulse.keyTimes = (0..<values.count).map { NSNumber(value: Double($0) / Double(max(1, values.count - 1))) }
+        pulse.duration = duration
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(pulse, forKey: key)
+    }
+
+    private func addNodePulse(node: CALayer, index: Int, count: Int, duration: CFTimeInterval) {
+        let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
+        pulse.values = [0.78, 1.38, 0.92, 0.78]
+        pulse.keyTimes = [0, 0.18, 0.42, 1]
+        pulse.duration = duration
+        pulse.beginTime = node.convertTime(CACurrentMediaTime(), from: nil) + Double(index) * duration / Double(max(1, count))
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        node.add(pulse, forKey: "energy-steady-node-\(index)")
+    }
+
+    private func animateTierChange(
+        from previousValue: Int,
+        to nextValue: Int,
+        previousNodePositions: [CGPoint],
+        color: NSColor,
+        arcade: Bool
+    ) {
         let previous = Self.tier(for: previousValue)
         let next = Self.tier(for: nextValue)
         guard previous != next else { return }
@@ -891,7 +1107,7 @@ private final class EnergyVisualRenderer {
         }
         values.append(Self.progress(for: nextValue))
         let duration = rising
-            ? min(2.6, 1.2 + Double(crossings) * 0.22 + Double(next) * 0.12)
+            ? min(3.1, 1.55 + Double(crossings) * 0.25 + Double(next) * 0.18)
             : min(1.8, 1 + Double(crossings) * 0.18)
         let fill = CAKeyframeAnimation(keyPath: "strokeEnd")
         fill.values = values
@@ -905,17 +1121,36 @@ private final class EnergyVisualRenderer {
         pulse.duration = duration
         pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         body.add(pulse, forKey: "energy-tier-body")
-        let changed = rising ? Array((previous + 1)...next) : Array(((next + 1)...previous).reversed())
-        for (index, tier) in changed.enumerated() {
-            animateAssembly(tier: tier, rising: rising, delay: duration * 0.32 + Double(index) * 0.18)
-        }
+        animateTopologyChange(
+            from: previous,
+            to: next,
+            previousNodePositions: previousNodePositions,
+            rising: rising,
+            delay: duration * 0.28,
+            duration: duration * 0.76
+        )
         playBreakthrough(color: color, rising: rising, delay: duration * 0.34, duration: arcade ? 1.05 : 1.2)
     }
 
-    private func animateAssembly(tier: Int, rising: Bool, delay: CFTimeInterval) {
-        guard (1...modules.count).contains(tier) else { return }
-        let layer = modules[tier - 1]
-        let durations: [CFTimeInterval] = [0, 1.05, 1.25, 1.45, 1.7, 2]
+    private func topologyLayer(for tier: Int) -> CAShapeLayer {
+        switch tier {
+        case 1: return chassis
+        case 2: return bus
+        case 3: return ports
+        case 4: return stabilizer
+        default: return crown
+        }
+    }
+
+    private func animateTopologyChange(
+        from previous: Int,
+        to next: Int,
+        previousNodePositions: [CGPoint],
+        rising: Bool,
+        delay: CFTimeInterval,
+        duration: CFTimeInterval
+    ) {
+        let layer = topologyLayer(for: rising ? next : previous)
         let group = CAAnimationGroup()
         let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
         draw.values = rising ? [0, 0, 0.5, 1, 1] : [1, 1, 0.45, 0]
@@ -924,14 +1159,60 @@ private final class EnergyVisualRenderer {
         opacity.values = rising ? [0, 0, 1, 0.88, layer.opacity] : [layer.opacity, 1, 0.42, 0]
         opacity.keyTimes = rising ? [0, 0.14, 0.56, 0.8, 1] : [0, 0.2, 0.64, 1]
         let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-        scale.values = rising ? [0.38, 0.38, 1.28, 0.94, 1] : [1, 1.12, 0.7, 0.36]
+        scale.values = rising ? [0.2, 0.2, 1.42, 0.9, 1] : [1, 1.12, 0.7, 0.28]
         scale.keyTimes = [0, 0.14, 0.52, 0.8, 1]
-        group.animations = [draw, opacity, scale]
+        let rotation = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        rotation.values = rising ? [-0.34, -0.34, 0.14, -0.04, 0] : [0, 0.08, -0.2, -0.38]
+        rotation.keyTimes = [0, 0.14, 0.52, 0.8, 1]
+        let glow = CAKeyframeAnimation(keyPath: "shadowRadius")
+        glow.values = rising ? [0, 0, 14, 7, layer.shadowRadius] : [layer.shadowRadius, 10, 4, 0]
+        glow.keyTimes = rising ? [0, 0.14, 0.52, 0.8, 1] : [0, 0.2, 0.64, 1]
+        group.animations = [draw, opacity, scale, rotation, glow]
         group.beginTime = CACurrentMediaTime() + delay
-        group.duration = rising ? durations[tier] : max(0.8, durations[tier] * 0.68)
+        group.duration = duration
         group.fillMode = .backwards
         group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
-        layer.add(group, forKey: rising ? "energy-module-assemble" : "energy-module-release")
+        layer.add(group, forKey: rising ? "energy-topology-assemble" : "energy-topology-release")
+
+        let previousCount = visibleNodeCount(tier: previous)
+        let nextCount = visibleNodeCount(tier: next)
+        let animatedCount = max(previousCount, nextCount)
+        guard animatedCount > 0 else { return }
+        for index in 0..<animatedCount {
+            let node = nodes[index]
+            let fallbackIndex = previousCount > 0 ? index % previousCount : 0
+            let start = index < previousCount
+                ? previousNodePositions[index]
+                : previousCount > 0 ? previousNodePositions[fallbackIndex] : CGPoint(x: 46, y: 46)
+            let end = index < nextCount
+                ? nodePosition(index: index, count: nextCount)
+                : nextCount > 0 ? nodePosition(index: index % nextCount, count: nextCount) : CGPoint(x: 46, y: 46)
+            let movement = CAKeyframeAnimation(keyPath: "position")
+            movement.values = [start, start, midpoint(from: start, to: end, outward: rising ? 4 : -2), end]
+            movement.keyTimes = [0, 0.14, 0.58, 1]
+            let nodeOpacity = CAKeyframeAnimation(keyPath: "opacity")
+            nodeOpacity.values = index < nextCount
+                ? [index < previousCount ? 1 : 0, 0.34, 1, 1]
+                : [1, 1, 0.5, 0]
+            nodeOpacity.keyTimes = [0, 0.2, 0.64, 1]
+            let nodeGroup = CAAnimationGroup()
+            nodeGroup.animations = [movement, nodeOpacity]
+            nodeGroup.beginTime = CACurrentMediaTime() + delay + Double(index) * 0.045
+            nodeGroup.duration = duration * 0.9
+            nodeGroup.fillMode = .backwards
+            nodeGroup.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            node.add(nodeGroup, forKey: "energy-node-migrate-\(index)")
+        }
+    }
+
+    private func midpoint(from start: CGPoint, to end: CGPoint, outward: CGFloat) -> CGPoint {
+        var midpoint = CGPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+        let dx = midpoint.x - 46
+        let dy = midpoint.y - 46
+        let length = max(1, hypot(dx, dy))
+        midpoint.x += dx / length * outward
+        midpoint.y += dy / length * outward
+        return midpoint
     }
 
     private func playBreakthrough(color: NSColor, rising: Bool, delay: CFTimeInterval, duration: CFTimeInterval) {
@@ -940,7 +1221,7 @@ private final class EnergyVisualRenderer {
         wave.path = CGPath(ellipseIn: CGRect(x: 9, y: 9, width: 74, height: 74), transform: nil)
         wave.fillColor = NSColor.clear.cgColor
         wave.strokeColor = (rising ? color : NSColor.systemOrange).cgColor
-        wave.lineWidth = rising ? 3.2 : 2.2
+        wave.lineWidth = rising ? 3.6 : 2.2
         wave.shadowColor = wave.strokeColor
         wave.shadowOpacity = rising ? 0.9 : 0.56
         wave.shadowRadius = rising ? 8 : 3
@@ -948,7 +1229,7 @@ private final class EnergyVisualRenderer {
         let group = CAAnimationGroup()
         let scale = CABasicAnimation(keyPath: "transform.scale")
         scale.fromValue = rising ? 0.72 : 1.16
-        scale.toValue = rising ? 1.58 : 0.84
+        scale.toValue = rising ? 1.72 : 0.84
         let opacity = CAKeyframeAnimation(keyPath: "opacity")
         opacity.values = [0, 1, 0]
         opacity.keyTimes = [0, 0.28, 1]
@@ -1183,6 +1464,7 @@ private final class OrbLayerRenderer {
         let color = phaseColor(phase: nextPhase, state: state)
         let energy = energyVisuals.update(
             momentum: presentation.momentum,
+            phase: nextPhase,
             phaseColor: color,
             arcade: arcade,
             reducedMotion: reducedMotion
@@ -1553,6 +1835,8 @@ private final class OrbLayerRenderer {
         CATransaction.setDisableActions(true)
         signatureBackdrop.path = coreSignaturePath(phase, completion: completion)
         signature.path = coreSignaturePath(phase, completion: completion)
+        phaseRailBackdrop.path = phaseRailPath(phase)
+        phaseRail.path = phaseRailPath(phase)
         signature.strokeColor = color.withAlphaComponent(phase == "idle" ? 0.28 : 0.82).cgColor
         signature.shadowColor = color.cgColor
         signature.shadowOpacity = phase == "idle" ? 0.1 : arcade ? 0.72 : 0.42
@@ -1561,77 +1845,25 @@ private final class OrbLayerRenderer {
         signature.lineDashPattern = phase == "complete" && completion == "unverified" ? [4, 3]
             : phase == "complete" && completion == "cancelled" ? [8, 5]
             : nil
-        signature.opacity = phase == "idle" ? 0.36 : 1
-        phaseRail.opacity = phase == "idle" ? 0 : 0.88
+        signature.opacity = phase == "idle" ? 0.24 : phase == "complete" ? 1 : reducedMotion ? 0.52 : 0.12
+        phaseRail.opacity = phase == "complete" ? 0.72 : 0
         phaseRail.strokeColor = color.withAlphaComponent(0.92).cgColor
         phaseRail.shadowColor = color.cgColor
-        phaseRail.shadowOpacity = arcade ? 0.72 : 0.46
+        phaseRail.shadowOpacity = phase == "complete" ? (arcade ? 0.68 : 0.42) : (arcade ? 0.32 : 0.2)
         phaseRail.shadowRadius = arcade ? 4 : 2.4
         phaseRail.lineWidth = phase == "wait" || phase == "recover" ? 1.8 : 1.45
-        phaseRail.lineDashPattern = phase == "observe" ? [3, 5]
-            : phase == "act" ? [14, 3]
-            : phase == "verify" ? [7, 3]
-            : phase == "wait" ? [2, 7]
-            : phase == "recover" ? [5, 3]
-            : phase == "complete" ? [18, 2]
+        phaseRail.lineDashPattern = phase == "observe" ? [4, 4]
+            : phase == "recover" ? [7, 4]
             : nil
         signatureBackdrop.lineDashPattern = signature.lineDashPattern
         phaseRailBackdrop.lineDashPattern = phaseRail.lineDashPattern
         CATransaction.commit()
-        guard !reducedMotion, phase != "idle" else { return }
-        let animation: CAAnimation
-        switch phase {
-        case "observe":
-            let rotate = CABasicAnimation(keyPath: "transform.rotation.z")
-            rotate.fromValue = 0
-            rotate.toValue = CGFloat.pi * 2
-            rotate.duration = arcade ? 2.6 : 3.8
-            rotate.repeatCount = .infinity
-            animation = rotate
-        case "act":
-            let drive = CAKeyframeAnimation(keyPath: "transform.translation.x")
-            drive.values = [-2, 3.5, 0, 0]
-            drive.keyTimes = [0, 0.3, 0.5, 1]
-            drive.duration = arcade ? 0.72 : 1.05
-            drive.repeatCount = .infinity
-            animation = drive
-        case "verify":
-            let lock = CAKeyframeAnimation(keyPath: "transform.scale")
-            lock.values = [1.08, 0.88, 1.02, 1.02]
-            lock.keyTimes = [0, 0.28, 0.52, 1]
-            lock.duration = arcade ? 0.95 : 1.32
-            lock.repeatCount = .infinity
-            animation = lock
-        case "wait":
-            let gate = CAKeyframeAnimation(keyPath: "opacity")
-            gate.values = [0.42, 1, 0.46, 0.9, 0.42, 0.42]
-            gate.keyTimes = [0, 0.1, 0.2, 0.32, 0.44, 1]
-            gate.duration = arcade ? 1.45 : 2.05
-            gate.repeatCount = .infinity
-            animation = gate
-        case "recover":
-            let repair = CAKeyframeAnimation(keyPath: "transform.rotation.z")
-            repair.values = [-0.11, 0.075, -0.045, 0, 0]
-            repair.keyTimes = [0, 0.2, 0.38, 0.56, 1]
-            repair.duration = arcade ? 0.92 : 1.3
-            repair.repeatCount = .infinity
-            animation = repair
-        default:
-            let finish = CAKeyframeAnimation(keyPath: "transform.scale")
-            finish.values = [0.76, 1.16, 0.96, 1]
-            finish.keyTimes = [0, 0.46, 0.72, 1]
-            finish.duration = arcade ? 0.88 : 1.08
-            animation = finish
-        }
-        signature.add(animation, forKey: "signature-phase")
-        if ["observe", "act", "recover"].contains(phase) {
-            let dash = CABasicAnimation(keyPath: "lineDashPhase")
-            dash.fromValue = 0
-            dash.toValue = phase == "act" ? -34 : -16
-            dash.duration = phase == "act" ? 0.72 : 1.6
-            dash.repeatCount = .infinity
-            phaseRail.add(dash, forKey: "phase-dash")
-        }
+        guard !reducedMotion, phase == "complete" else { return }
+        let finish = CAKeyframeAnimation(keyPath: "transform.scale")
+        finish.values = [0.76, 1.16, 0.96, 1]
+        finish.keyTimes = [0, 0.46, 0.72, 1]
+        finish.duration = arcade ? 0.88 : 1.08
+        signature.add(finish, forKey: "signature-phase")
     }
 
     private func updateSemanticContrast(phase: String, tier: Int, color: NSColor) {
@@ -1645,18 +1877,22 @@ private final class OrbLayerRenderer {
             ? (arcade ? 2.65 : 2.2)
             : (arcade ? 2.35 : 1.95)
         signature.shadowColor = color.cgColor
-        signature.shadowOpacity = active ? (highEnergy ? 1 : arcade ? 0.72 : 0.48) : 0.1
+        signature.shadowOpacity = active
+            ? (phase == "complete" ? (highEnergy ? 0.9 : 0.68) : reducedMotion ? 0.38 : 0.12)
+            : 0.08
         signature.shadowRadius = highEnergy ? (peakEnergy ? 7 : 5.5) : arcade ? 4.5 : 2.8
         signatureBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.74 : 0.5).cgColor
         signatureBackdrop.lineWidth = signature.lineWidth + (highEnergy ? 3.6 : 2.5)
-        signatureBackdrop.opacity = active ? 1 : 0.2
+        signature.opacity = active ? (phase == "complete" ? 1 : reducedMotion ? 0.52 : 0.12) : 0.24
+        signatureBackdrop.opacity = active ? (phase == "complete" ? 0.7 : reducedMotion ? 0.28 : 0.06) : 0.12
         phaseRail.strokeColor = color.cgColor
         phaseRail.lineWidth = phase == "wait" || phase == "recover" ? (highEnergy ? 2.55 : 2.05) : (highEnergy ? 2.1 : 1.7)
-        phaseRail.shadowOpacity = active ? (highEnergy ? 0.95 : arcade ? 0.72 : 0.46) : 0
+        phaseRail.shadowOpacity = active && phase == "complete" ? (highEnergy ? 0.82 : 0.62) : 0
         phaseRail.shadowRadius = highEnergy ? 5.5 : arcade ? 4 : 2.4
         phaseRailBackdrop.strokeColor = NSColor.black.withAlphaComponent(highEnergy ? 0.68 : 0.42).cgColor
         phaseRailBackdrop.lineWidth = phaseRail.lineWidth + (highEnergy ? 3.1 : 2.3)
-        phaseRailBackdrop.opacity = active ? 0.9 : 0
+        phaseRail.opacity = active && phase == "complete" ? 0.72 : 0
+        phaseRailBackdrop.opacity = active && phase == "complete" ? 0.52 : 0
         semantic.shadowColor = NSColor.black.cgColor
         semantic.shadowOpacity = active ? (highEnergy ? 0.95 : 0.62) : 0
         semantic.shadowRadius = highEnergy ? 3.5 : 2
@@ -1671,7 +1907,8 @@ private final class OrbLayerRenderer {
         revealScale.values = [0.7, 0.7, arcade ? 1.3 : 1.22, 0.96, 1.06, 1]
         revealScale.keyTimes = [0, 0.14, 0.4, 0.62, 0.8, 1]
         let revealOpacity = CAKeyframeAnimation(keyPath: "opacity")
-        revealOpacity.values = [0, 0.18, 1, 1, 0.92, 1]
+        let restingSignatureOpacity: Float = phase == "complete" ? 1 : 0.12
+        revealOpacity.values = [0, 0.18, 1, 1, 0.78, restingSignatureOpacity]
         revealOpacity.keyTimes = [0, 0.12, 0.34, 0.58, 0.78, 1]
         let reveal = CAAnimationGroup()
         reveal.animations = [revealScale, revealOpacity]
@@ -1686,8 +1923,12 @@ private final class OrbLayerRenderer {
         let railPulse = CAKeyframeAnimation(keyPath: "transform.scale")
         railPulse.values = [0.88, 0.88, 1.16, 0.98, 1]
         railPulse.keyTimes = [0, 0.16, 0.44, 0.7, 1]
+        let railOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        let restingRailOpacity: Float = phase == "complete" ? 0.72 : 0
+        railOpacity.values = [0, 0, 1, 0.82, restingRailOpacity]
+        railOpacity.keyTimes = [0, 0.12, 0.34, 0.62, 1]
         let railReveal = CAAnimationGroup()
-        railReveal.animations = [railDraw, railPulse]
+        railReveal.animations = [railDraw, railPulse, railOpacity]
         railReveal.duration = duration
         railReveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
         phaseRail.add(railReveal, forKey: "semantic-rail-reveal")
@@ -1701,6 +1942,72 @@ private final class OrbLayerRenderer {
         semantic.add(glyphReveal, forKey: "semantic-glyph-reveal")
     }
 
+    private func phaseRailPath(_ phase: String) -> CGPath {
+        let path = CGMutablePath()
+        let center = CGPoint(x: 46, y: 46)
+        let radius: CGFloat = 32.2
+        switch phase {
+        case "observe":
+            // Four inward-facing scanner vanes leave an unmistakable broken aperture.
+            for start in stride(from: CGFloat(-78), to: 282, by: 90) {
+                path.addArc(
+                    center: center,
+                    radius: radius,
+                    startAngle: start * .pi / 180,
+                    endAngle: (start + 42) * .pi / 180,
+                    clockwise: false
+                )
+            }
+        case "act":
+            // Two directional rails and arrowheads create a horizontal drive silhouette.
+            path.addArc(center: center, radius: radius, startAngle: 0.72, endAngle: 2.42, clockwise: false)
+            path.addArc(center: center, radius: radius, startAngle: 3.86, endAngle: 5.56, clockwise: false)
+            path.move(to: CGPoint(x: 15, y: 29))
+            path.addLine(to: CGPoint(x: 9, y: 35))
+            path.addLine(to: CGPoint(x: 17, y: 37))
+            path.move(to: CGPoint(x: 77, y: 55))
+            path.addLine(to: CGPoint(x: 83, y: 61))
+            path.addLine(to: CGPoint(x: 75, y: 63))
+        case "verify":
+            // A four-corner targeting frame reads as a lock even after particles settle.
+            let inset: CGFloat = 15
+            let outer: CGFloat = 24
+            for (sx, sy) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+                let x = CGFloat(sx)
+                let y = CGFloat(sy)
+                path.move(to: CGPoint(x: 46 + x * inset, y: 46 + y * outer))
+                path.addLine(to: CGPoint(x: 46 + x * outer, y: 46 + y * outer))
+                path.addLine(to: CGPoint(x: 46 + x * outer, y: 46 + y * inset))
+            }
+        case "wait":
+            // Opposing rails visibly latch twice without resembling rotation.
+            for x in [CGFloat(14), 78] {
+                path.move(to: CGPoint(x: x, y: 25))
+                path.addLine(to: CGPoint(x: x, y: 67))
+            }
+            path.move(to: CGPoint(x: 14, y: 31))
+            path.addLine(to: CGPoint(x: 23, y: 31))
+            path.move(to: CGPoint(x: 69, y: 61))
+            path.addLine(to: CGPoint(x: 78, y: 61))
+        case "recover":
+            // Uneven fragments deliberately break circular continuity.
+            for (start, end) in [(-82.0, -24.0), (8.0, 58.0), (96.0, 142.0), (174.0, 226.0)] {
+                path.addArc(
+                    center: center,
+                    radius: radius,
+                    startAngle: CGFloat(start) * .pi / 180,
+                    endAngle: CGFloat(end) * .pi / 180,
+                    clockwise: false
+                )
+            }
+        case "complete":
+            path.addEllipse(in: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2))
+        default:
+            path.addEllipse(in: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2))
+        }
+        return path
+    }
+
     private func coreSignaturePath(_ phase: String, completion: String? = nil) -> CGPath {
         let path = CGMutablePath()
         let center = CGPoint(x: 46, y: 46)
@@ -1711,16 +2018,13 @@ private final class OrbLayerRenderer {
             }
             path.addEllipse(in: CGRect(x: 41, y: 41, width: 10, height: 10))
         case "act":
-            for offset in [CGFloat(0), 8] {
-                path.move(to: CGPoint(x: 15 + offset, y: 34))
-                path.addLine(to: CGPoint(x: 27 + offset, y: 46))
-                path.addLine(to: CGPoint(x: 15 + offset, y: 58))
-            }
-            path.move(to: CGPoint(x: 57, y: 39))
-            path.addLine(to: CGPoint(x: 73, y: 39))
-            path.addLine(to: CGPoint(x: 80, y: 46))
-            path.addLine(to: CGPoint(x: 73, y: 53))
-            path.addLine(to: CGPoint(x: 57, y: 53))
+            // State grammar stays outside x=20...72 so three-digit Energy is never crossed.
+            path.move(to: CGPoint(x: 10, y: 35))
+            path.addLine(to: CGPoint(x: 19, y: 46))
+            path.addLine(to: CGPoint(x: 10, y: 57))
+            path.move(to: CGPoint(x: 82, y: 35))
+            path.addLine(to: CGPoint(x: 73, y: 46))
+            path.addLine(to: CGPoint(x: 82, y: 57))
         case "verify":
             for (x, y, dx, dy) in [(21.0, 21.0, 1.0, 1.0), (71.0, 21.0, -1.0, 1.0), (21.0, 71.0, 1.0, -1.0), (71.0, 71.0, -1.0, -1.0)] {
                 let px = CGFloat(x), py = CGFloat(y), sx = CGFloat(dx), sy = CGFloat(dy)
