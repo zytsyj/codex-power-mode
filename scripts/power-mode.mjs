@@ -153,10 +153,10 @@ async function playPreview(events, delayMs) {
   }
 }
 
-async function playEnergyShowcase(delayMs = 1450) {
+async function playEnergyShowcase(delayMs = 3300) {
   await start();
   const realState = await readState(dataDir);
-  const tierValues = [45, 170, 340, 580, 820, 960, 999];
+  const tierValues = [90, 320, 580, 850, 999];
   try {
     for (const momentum of tierValues) {
       const timestamp = new Date().toISOString();

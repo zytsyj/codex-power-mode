@@ -43,15 +43,13 @@ export const initialState = Object.freeze({
 
 export const ENERGY_MAX = 999;
 export const ENERGY_GAIN_MULTIPLIER = 0.72;
-export const ENERGY_GAIN_PRESETS = Object.freeze([0.55, 0.72, 0.9, 1.1]);
+export const ENERGY_GAIN_PRESETS = Object.freeze([0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5]);
 export const ENERGY_STAGES = Object.freeze([
   Object.freeze({ name: "idle", lower: 0, upper: 0 }),
-  Object.freeze({ name: "awakening", lower: 1, upper: 99 }),
-  Object.freeze({ name: "charging", lower: 100, upper: 249 }),
-  Object.freeze({ name: "driving", lower: 250, upper: 449 }),
-  Object.freeze({ name: "high-energy", lower: 450, upper: 699 }),
-  Object.freeze({ name: "overload", lower: 700, upper: 899 }),
-  Object.freeze({ name: "critical", lower: 900, upper: 998 }),
+  Object.freeze({ name: "awakening", lower: 1, upper: 199 }),
+  Object.freeze({ name: "charging", lower: 200, upper: 449 }),
+  Object.freeze({ name: "driving", lower: 450, upper: 699 }),
+  Object.freeze({ name: "critical", lower: 700, upper: 998 }),
   Object.freeze({ name: "verified-peak", lower: 999, upper: 999 })
 ]);
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
@@ -70,7 +68,12 @@ export const RECOVERY_TIMEOUT_MS = 15_000;
 const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
 export function normalizeEnergyGainMultiplier(value) {
   const parsed = Number(value);
-  return ENERGY_GAIN_PRESETS.find((candidate) => Math.abs(candidate - parsed) < 0.001) ?? ENERGY_GAIN_MULTIPLIER;
+  const preset = ENERGY_GAIN_PRESETS.find((candidate) => Math.abs(candidate - parsed) < 0.001);
+  if (preset !== undefined) return preset;
+  if (Math.abs(parsed - 0.55) < 0.001) return 0.5;
+  if (Math.abs(parsed - 0.9) < 0.001) return 0.85;
+  if (Math.abs(parsed - 1.1) < 0.001) return 1.15;
+  return ENERGY_GAIN_MULTIPLIER;
 }
 
 const scaledEnergyGain = (value, multiplier = ENERGY_GAIN_MULTIPLIER) =>

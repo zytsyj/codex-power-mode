@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -15,6 +15,15 @@ const root = path.resolve(import.meta.dirname, "..");
 const output = path.resolve(process.argv[outputFlag + 1]);
 const buildDir = await mkdtemp(path.join(tmpdir(), "codex-power-mode-render-"));
 const binary = path.join(buildDir, "power-mode-render");
+
+// Render output is disposable evidence, but the caller may choose its parent.
+// Remove only stale PNG frames instead of recursively replacing the directory.
+await mkdir(output, { recursive: true });
+for (const entry of await readdir(output, { withFileTypes: true })) {
+  if (entry.isFile() && entry.name.endsWith(".png")) {
+    await rm(path.join(output, entry.name), { force: true });
+  }
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: root, encoding: "utf8", ...options });

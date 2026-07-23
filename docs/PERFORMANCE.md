@@ -33,6 +33,6 @@ Measured on 2026-07-23 with macOS 26.5 (Darwin 25.5.0), Apple silicon (`arm64`),
 
 All automated budgets passed. Current gates are 5%/3% idle CPU p95 and 45%/15% active CPU p95 for HUD/service, 128 MB RSS per process, POWER 5/3 idle and 50/15 active, and 20/30 threads. These are regression ceilings rather than performance targets.
 
-The initial compositor-budget run measured 70 layers/60 animations for Focus, 74/64 for Arcade, and 58/22 for Reduce Motion at the synthetic peak. Reduce Motion is explicitly required to allocate fewer transient layers and animations than Focus.
+After the five-tier Energy renderer refactor, the compositor-budget run measured 67 layers/55 animations for Focus, 69/57 for Arcade, and 60/22 for Reduce Motion at the synthetic peak. Compared with the preceding seven-tier renderer, peak Arcade motion dropped from 72 to 57 concurrent animations and layers dropped from 74 to 69. Reduce Motion is explicitly required to allocate fewer transient layers and animations than Focus.
 
 The full lifecycle scenario covers Typing Combo charge, Observe, Act, Verify, Wait, Recover, Complete, decay, and disconnect choreography. The Energy scenario exercises repeated tier breakthroughs. The initial machine has Command Line Tools but not full Xcode, so `xctrace` is currently unavailable and Instruments-based GPU/energy inspection with Energy Log remains pending. Final RC acceptance also requires repeat measurements across the supported hardware and macOS range.

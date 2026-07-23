@@ -24,19 +24,21 @@ test("prompt submission immediately enters understanding", () => {
 });
 
 test("energy stage progress refills inside every tier", () => {
-  assert.deepEqual(energyStage(99), { name: "awakening", lower: 1, upper: 99, value: 99, progress: 1 });
-  assert.equal(energyStage(100).name, "charging");
-  assert.equal(energyStage(100).progress, 0);
-  assert.equal(energyStage(249).progress, 1);
-  assert.equal(energyStage(250).name, "driving");
-  assert.equal(energyStage(250).progress, 0);
+  assert.deepEqual(energyStage(199), { name: "awakening", lower: 1, upper: 199, value: 199, progress: 1 });
+  assert.equal(energyStage(200).name, "charging");
+  assert.equal(energyStage(200).progress, 0);
+  assert.equal(energyStage(449).progress, 1);
+  assert.equal(energyStage(450).name, "driving");
+  assert.equal(energyStage(450).progress, 0);
+  assert.equal(energyStage(700).name, "critical");
+  assert.equal(energyStage(998).progress, 1);
   assert.equal(energyStage(999).name, "verified-peak");
   assert.equal(energyStage(999).progress, 1);
 });
 
 test("typing Combo injects a bounded tiered charge without advancing agent Combo", () => {
   assert.equal(ENERGY_GAIN_MULTIPLIER, 0.72);
-  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [4, 12, 23, 40, 65, 65]);
+  assert.deepEqual([1, 5, 10, 20, 40, 200].map((combo) => typingChargeForCombo(combo)), [4, 12, 23, 40, 65, 65]);
   const prior = { ...initialState, momentum: 95, combo: 3, sessionId: "s" };
   const state = reduceState(prior, {
     type: "input-charge", inputCombo: 10, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
@@ -49,12 +51,16 @@ test("typing Combo injects a bounded tiered charge without advancing agent Combo
 
 test("Energy gain presets change the next event without changing tier boundaries", () => {
   const event = { type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, sessionId: "s" };
-  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.55 }).momentum, 47);
-  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.72 }).momentum, 61);
-  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.9 }).momentum, 77);
-  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 1.1 }).momentum, 94);
+  assert.deepEqual(
+    [0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5]
+      .map((energyGainMultiplier) => reduceState(initialState, event, { energyGainMultiplier }).momentum),
+    [26, 34, 43, 51, 61, 72, 85, 98, 111, 128]
+  );
+  assert.equal(normalizeEnergyGainMultiplier(0.55), 0.5);
+  assert.equal(normalizeEnergyGainMultiplier(0.9), 0.85);
+  assert.equal(normalizeEnergyGainMultiplier(1.1), 1.15);
   assert.equal(normalizeEnergyGainMultiplier(0.73), 0.72);
-  assert.equal(energyStage(100).name, "charging");
+  assert.equal(energyStage(200).name, "charging");
 });
 
 test("typing charge cannot claim the evidence-backed peak", () => {
@@ -142,11 +148,10 @@ test("verification rewards distinguish evidence, records, and standalone confirm
 test("energy levels span awakening through a verified 999 peak", () => {
   assert.equal(energyLevel(0), "idle");
   assert.equal(energyLevel(1), "awakening");
-  assert.equal(energyLevel(100), "charging");
-  assert.equal(energyLevel(250), "driving");
-  assert.equal(energyLevel(450), "high-energy");
-  assert.equal(energyLevel(700), "overload");
-  assert.equal(energyLevel(900), "critical");
+  assert.equal(energyLevel(200), "charging");
+  assert.equal(energyLevel(450), "driving");
+  assert.equal(energyLevel(700), "critical");
+  assert.equal(energyLevel(998), "critical");
   assert.equal(energyLevel(999), "verified-peak");
 });
 

@@ -144,13 +144,13 @@ test("stored Energy gain setting applies to the very next Hook event", async () 
   try {
     const nativeDirectory = path.join(directory, "native");
     await mkdir(nativeDirectory, { recursive: true });
-    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 0.55 }));
+    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 0.5 }));
     const slow = await recordSessionEventResult(directory, { ...eventAt(1_000), sessionId: "slow" });
-    assert.equal(slow.state.momentum, 8);
+    assert.equal(slow.state.momentum, 7);
 
-    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 1.1 }));
+    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 1.5 }));
     const turbo = await recordSessionEventResult(directory, { ...eventAt(2_000), sessionId: "turbo" });
-    assert.equal(turbo.state.momentum, 15);
+    assert.equal(turbo.state.momentum, 21);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

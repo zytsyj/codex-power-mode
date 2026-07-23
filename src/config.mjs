@@ -6,7 +6,8 @@ const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
 const CURSOR_EFFECTS = new Set(["off", "spark", "neon"]);
 const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
 const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);
-const ENERGY_GAIN_MULTIPLIERS = new Set([0.55, 0.72, 0.9, 1.1]);
+const ENERGY_GAIN_MULTIPLIERS = new Set([0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5]);
+const LEGACY_ENERGY_GAIN_MULTIPLIERS = new Map([[0.55, 0.5], [0.9, 0.85], [1.1, 1.15]]);
 
 const hasValue = (environment, key) => Object.hasOwn(environment, key) && environment[key] !== undefined && environment[key] !== "";
 const storedNumber = (value) => value === null || value === undefined || value === ""
@@ -80,7 +81,9 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     language: LANGUAGES.has(language) ? language : "auto",
     activitySource: ACTIVITY_SOURCES.has(activitySource) ? activitySource : "focused",
     effectIntensity: EFFECT_INTENSITIES.has(effectIntensity) ? effectIntensity : "normal",
-    energyGainMultiplier: ENERGY_GAIN_MULTIPLIERS.has(requestedEnergyGainMultiplier) ? requestedEnergyGainMultiplier : 0.72,
+    energyGainMultiplier: ENERGY_GAIN_MULTIPLIERS.has(requestedEnergyGainMultiplier)
+      ? requestedEnergyGainMultiplier
+      : LEGACY_ENERGY_GAIN_MULTIPLIERS.get(requestedEnergyGainMultiplier) ?? 0.72,
     showCombo,
     typingCombo,
     cursorEffect: CURSOR_EFFECTS.has(cursorEffect) ? cursorEffect : "spark",

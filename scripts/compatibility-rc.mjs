@@ -32,7 +32,7 @@ if (process.platform !== "darwin") throw new Error("RC compatibility rendering c
 run(process.execPath, [path.join(root, "scripts", "render-qa.mjs"), "--output", frames]);
 
 const filenames = (await readdir(frames)).filter((filename) => filename.endsWith(".png")).sort();
-assert.equal(filenames.length, 234, `Expected 234 native QA frames, found ${filenames.length}`);
+assert.equal(filenames.length, 228, `Expected 228 native QA frames, found ${filenames.length}`);
 const dimensions = new Set();
 for (const filename of filenames) {
   const bytes = await readFile(path.join(frames, filename));
@@ -45,7 +45,7 @@ for (const filename of filenames) {
 
 assert.ok(includesEvery(filenames, ["focus-light", "focus-dark", "arcade-light", "arcade-dark", "reduced-light", "reduced-dark"]));
 assert.ok(includesEvery(filenames, ["-observe-", "-act-", "-verify-", "-wait-", "-recover-", "-complete-"]));
-assert.ok(includesEvery(filenames, ["-45.png", "-170.png", "-340.png", "-580.png", "-820.png", "-960.png", "-999.png"]));
+assert.ok(includesEvery(filenames, ["-90.png", "-320.png", "-580.png", "-850.png", "-999.png"]));
 assert.ok(includesEvery(filenames, ["-verified.png", "-unverified.png", "-cancelled.png", "-no-change.png"]));
 assert.ok(includesEvery(filenames, ["cursor-focus-light-spark", "cursor-focus-dark-neon", "cursor-arcade-light-neon-milestone"]));
 assert.ok(includesEvery(filenames, ["typing-focus-light-cyan", "typing-arcade-dark-gold", "typing-reduced-dark-violet"]));
@@ -73,7 +73,7 @@ const report = {
     themes: ["light", "dark"],
     motionProfiles: ["focus", "arcade", "reduced-motion"],
     semanticStates: ["observe", "act", "verify", "wait", "recover", "complete"],
-    energyTiers: ["wake", "charge", "drive", "high", "overload", "critical", "peak"],
+    energyTiers: ["wake", "charge", "drive", "critical", "peak"],
     completionOutcomes: ["verified", "unverified", "cancelled", "no-change"],
     cursorSamples: ["spark", "neon", "neon-milestone"],
     typingComboPalettes: ["cyan", "violet", "pink", "gold"],

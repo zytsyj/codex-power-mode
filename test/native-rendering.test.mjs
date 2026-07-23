@@ -100,6 +100,7 @@ test("native HUD settings self-test exercises isolated persistence and validatio
   assert.match(source, /private func runSettingsPersistenceSelfTest/);
   assert.match(source, /CODEX_POWER_MODE_SETTINGS_SELF_TEST/);
   assert.match(source, /func setEnergyGainMultiplier\(_ value: Double\)/);
+  assert.match(source, /let supported = \[0\.3, 0\.4, 0\.5, 0\.6, 0\.72, 0\.85, 1\.0, 1\.15, 1\.3, 1\.5\]/);
   assert.match(source, /preferences\.text\("Energy gain", "能量获取"\)/);
   assert.match(source, /#selector\(selectEnergyGainMultiplier\)/);
   assert.match(source, /CODEX_POWER_MODE_CONFIG_PATH/);
@@ -159,7 +160,6 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /forKey: "cursor-combo-milestone"/);
   assert.match(source, /let particleCount = neon/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
-  assert.match(source, /chargeEvolution\.path = collectorNodePath\(\)/);
   assert.match(source, /private let lifetimeFill = CAGradientLayer\(\)/);
   assert.match(source, /private func typingPalette\(for count: Int\)/);
   assert.match(source, /forKey: "typing-lifetime"/);
@@ -170,51 +170,42 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /forKey: "typing-energy-stream"/);
 });
 
-test("energy tier crossings use a complete multi-ring breakthrough choreography", async () => {
+test("energy tier crossings use a paced gauge and bounded breakthrough choreography", async () => {
   const source = await readFile(overlaySource, "utf8");
 
-  assert.match(source, /let compression = 0\.92 - Double\(tierStrength\) \* 0\.08/);
-  assert.match(source, /let breakthrough = 1\.22 \+ Double\(tierStrength\) \* 0\.15/);
-  assert.match(source, /ringValues\.append\(contentsOf: \[boundary, boundary, reset, reset\]\)/);
-  assert.match(source, /forKey: rising \? "tier-ring-impact" : "tier-ring-collapse"/);
-  assert.match(source, /let flareCount = rising \? min\(arcade \? 7 : 5, 2 \+ crossings \+ next \/ 2\) : 2/);
-  assert.match(source, /forKey: rising \? "energy-breakthrough" : "energy-vent"/);
-  assert.match(source, /forKey: "energy-tier-establish"/);
+  assert.match(source, /private final class EnergyVisualRenderer/);
+  assert.match(source, /values\.append\(contentsOf: rising \? \[1, 1, 0, 0\] : \[0, 0, 1, 1\]\)/);
+  assert.match(source, /forKey: rising \? "stage-fill-reset" : "stage-drain-restore"/);
+  assert.match(source, /pulse\.values = rising \? \[1, 1\.04, 0\.88, 0\.88, 1\.28, 0\.95, 1\.05, 1\]/);
+  assert.match(source, /playBreakthrough\(color: color, rising: rising/);
+  assert.match(source, /forKey: rising \? "energy-breakthrough" : "energy-release"/);
+  assert.match(source, /let durations: \[CFTimeInterval\] = \[0, 1\.05, 1\.25, 1\.45, 1\.7, 2\]/);
+  assert.match(source, /group\.fillMode = \.backwards/);
   assert.match(source, /transition-\\\(variant\.name\)-\\\(theme\)-\\\(crossing\.label\)\.png/);
 });
 
-test("all seven energy tiers have distinct material, node, texture, and motion profiles", async () => {
+test("five energy tiers use a bounded cumulative module system with one active motion", async () => {
   const source = await readFile(overlaySource, "utf8");
 
-  assert.match(source, /private func energyTierPalette/);
-  assert.match(source, /let nodeCounts = \[0, 0, 0, 0, 6, 8, 10, 12\]/);
-  assert.match(source, /private let wakeEvolution = CAShapeLayer\(\)/);
-  assert.match(source, /private let chargeEvolution = CAShapeLayer\(\)/);
-  assert.match(source, /private let driveEvolution = CAShapeLayer\(\)/);
-  assert.match(source, /wakeEvolution\.opacity = tier >= 1/);
-  assert.match(source, /chargeEvolution\.opacity = tier >= 2/);
-  assert.match(source, /driveEvolution\.opacity = tier >= 3/);
-  assert.match(source, /forKey: "wake-evolution-breath"/);
-  assert.match(source, /forKey: "charge-node-cycle"/);
-  assert.match(source, /forKey: "drive-evolution-spin"/);
-  assert.match(source, /private func collectorNodePath/);
-  assert.match(source, /private func energyLatticePath/);
-  assert.match(source, /private func overloadVentPath/);
-  assert.match(source, /private func magneticBridgePath/);
-  assert.match(source, /private func peakCrownPath/);
-  assert.match(source, /forKey: "energy-lattice-breath"/);
-  assert.match(source, /forKey: "critical-bridge-double-pulse"/);
-  assert.match(source, /forKey: "peak-crown-sync"/);
-  assert.match(source, /private func energyTierNodePath/);
-  assert.match(source, /private func updateEnergyTierMotion/);
-  assert.match(source, /let spinDurations: \[CFTimeInterval\] = \[0, 12, 9, 6\.8, 4\.7, 3\.4, 2\.35, 5\.6\]/);
-  assert.match(source, /forKey: "energy-tier-breath"/);
-  assert.match(source, /forKey: "energy-node-orbit"/);
+  assert.match(source, /private let modules = \(0\.\.<5\)\.map/);
+  assert.match(source, /if momentum < 200 \{ return 1 \}/);
+  assert.match(source, /if momentum < 450 \{ return 2 \}/);
+  assert.match(source, /if momentum < 700 \{ return 3 \}/);
+  assert.match(source, /if momentum < 999 \{ return 4 \}/);
+  assert.match(source, /private func collectorPath/);
+  assert.match(source, /private func drivePath/);
+  assert.match(source, /private func criticalPath/);
+  assert.match(source, /private func peakPath/);
+  assert.match(source, /let quiet = active\.secondary\.withAlphaComponent\(0\.5\)/);
+  assert.match(source, /modules\.forEach \{ \$0\.removeAllAnimations\(\) \}/);
+  assert.match(source, /modules\[tier - 1\]\.add\(animation, forKey: "energy-current-module"\)/);
+  assert.doesNotMatch(source, /overloadVentPath/);
+  assert.doesNotMatch(source, /energy-tier-breath/);
   assert.match(source, /private func runEnergyRenderQA/);
   assert.match(source, /"CODEX_POWER_MODE_RENDER_QA_DIR"/);
-  assert.match(source, /let tiers = \[45, 170, 340, 580, 820, 960, 999\]/);
+  assert.match(source, /let tiers = \[90, 320, 580, 850, 999\]/);
   assert.match(source, /for phase in \["observe", "act", "verify", "wait", "recover", "complete"\]/);
-  assert.match(source, /for momentum in \[45, 580, 960\]/);
+  assert.match(source, /for momentum in \[90, 580, 850\]/);
   assert.match(source, /for completion in \["verified", "unverified", "cancelled", "no-change"\]/);
   assert.match(source, /neon-milestone/);
 });
@@ -234,7 +225,7 @@ test("semantic phase grammar stays independent from energy progress and completi
   assert.match(source, /forKey: "semantic-reveal"/);
   assert.match(source, /forKey: "semantic-rail-reveal"/);
   assert.match(source, /forKey: "semantic-glyph-reveal"/);
-  assert.match(source, /configureRing\(energyRing, radius: 35\.5/);
+  assert.match(source, /configureGauge\(ring, width: 5\.2\)/);
   assert.match(source, /configureRing\(phaseRail, radius: 32\.2/);
   assert.match(source, /phaseRail\.lineDashPattern = phase == "observe" \? \[3, 5\]/);
   assert.match(source, /: phase == "complete" \? \[18, 2\]/);

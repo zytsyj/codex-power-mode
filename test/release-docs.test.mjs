@@ -86,7 +86,7 @@ test("compatibility evidence separates synthetic coverage from real and manual a
   assert.equal(packageManifest.scripts["compatibility:rc"], "node scripts/compatibility-rc.mjs --output .power-mode/compatibility-rc.json --frames .power-mode/compatibility-render");
   assert.match(compatibility, /Synthetic preview data is never presented as proof/i);
   assert.match(compatibility, /Hands-on evidence still required/);
-  assert.match(runner, /Expected 234 native QA frames/);
+  assert.match(runner, /Expected 228 native QA frames/);
   assert.match(runner, /pending-new-trusted-task/);
 });
 

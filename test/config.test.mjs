@@ -42,7 +42,7 @@ test("native config normalizes environment overrides", () => {
     CODEX_POWER_MODE_LANGUAGE: "zh-CN",
     CODEX_POWER_MODE_ACTIVITY_SOURCE: "global",
     CODEX_POWER_MODE_INTENSITY: "high",
-    CODEX_POWER_MODE_ENERGY_GAIN: "1.1",
+    CODEX_POWER_MODE_ENERGY_GAIN: "1.15",
     CODEX_POWER_MODE_SHOW_COMBO: "0",
     CODEX_POWER_MODE_TYPING_COMBO: "1",
     CODEX_POWER_MODE_CURSOR_EFFECT: "neon",
@@ -60,7 +60,7 @@ test("native config normalizes environment overrides", () => {
     language: "zh-CN",
     activitySource: "global",
     effectIntensity: "high",
-    energyGainMultiplier: 1.1,
+    energyGainMultiplier: 1.15,
     showCombo: false,
     typingCombo: true,
     cursorEffect: "neon",
@@ -85,7 +85,7 @@ test("native config preserves settings unless an environment override is provide
     language: "en",
     activitySource: "global",
     effectIntensity: "low",
-    energyGainMultiplier: 0.55,
+    energyGainMultiplier: 0.5,
     showCombo: false,
     typingCombo: true,
     cursorEffect: "spark",
@@ -161,10 +161,15 @@ test("native config limits auto-hide delay to supported rhythm presets", () => {
 });
 
 test("native config limits Energy gain to supported live presets", () => {
-  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.55" }).energyGainMultiplier, 0.55);
-  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.72" }).energyGainMultiplier, 0.72);
-  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.9" }).energyGainMultiplier, 0.9);
-  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "1.1" }).energyGainMultiplier, 1.1);
+  for (const multiplier of [0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5]) {
+    assert.equal(
+      nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: String(multiplier) }).energyGainMultiplier,
+      multiplier
+    );
+  }
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.55" }).energyGainMultiplier, 0.5);
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.9" }).energyGainMultiplier, 0.85);
+  assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "1.1" }).energyGainMultiplier, 1.15);
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ENERGY_GAIN: "0.73" }).energyGainMultiplier, 0.72);
 });
 

@@ -10,12 +10,12 @@ Run on macOS:
 npm run compatibility:rc
 ```
 
-The command regenerates all 234 native frames and verifies PNG integrity plus coverage for:
+The command regenerates all 228 native frames and verifies PNG integrity plus coverage for:
 
 - light and dark appearances;
 - Focus, Arcade, and Reduce Motion;
 - Observe, Act, Verify, Wait, Recover, and Complete;
-- all seven Energy tiers and four completion outcomes;
+- all five Energy tiers and four completion outcomes;
 - Spark, Neon, and Neon milestone cursor samples;
 - cyan, violet, pink, and gold Typing Combo palettes.
 
@@ -25,8 +25,8 @@ It also records aggregate installed-service health, HUD connection, Accessibilit
 
 | Area | Automated evidence | Hands-on evidence still required |
 | --- | --- | --- |
-| Theme and motion | 234 native light/dark Focus/Arcade/Reduce Motion frames | Observe transition rhythm and legibility on the target displays |
-| Semantic and Energy states | Six states, seven tiers, four completion outcomes | Real lifecycle ordering from a trusted Codex desktop task |
+| Theme and motion | 228 native light/dark Focus/Arcade/Reduce Motion frames | Observe transition rhythm and legibility on the target displays |
+| Semantic and Energy states | Six states, five tiers, four completion outcomes | Real lifecycle ordering from a trusted Codex desktop task |
 | Typing feedback | Static Spark/Neon and Combo palette frames; Accessibility health | Effects following the real insertion point; real `UserPromptSubmit` injection |
 | Floating behavior | Position/config/state logic tests plus isolated position save, reload, and reset | Drag gesture, multiple-display attach/detach, Dock and visible-frame changes |
 | Foreground and idle policy | Isolated save/reload coverage for hide/stay/follow and hide/quiet-orb settings | Policy timing and behavior in the live app |

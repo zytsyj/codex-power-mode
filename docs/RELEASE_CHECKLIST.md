@@ -28,7 +28,7 @@ The repository must remain private until the owner explicitly authorizes publica
 - [x] Add a read-only Hook runtime inventory and test the candidate retention plan without deleting installed versions.
 - [x] Add a recoverable hands-on interaction checkpoint that preserves settings and never auto-passes visual checks.
 - [x] Run `npm run stability:reconnect` on the installed RC build and confirm the live 1/2/4-second rejection cadence, recovery, single instances, and unchanged settings.
-- [x] Generate and validate the 234-frame native compatibility matrix with `npm run compatibility:rc` on the initial RC machine.
+- [x] Generate and validate the 228-frame native compatibility matrix with `npm run compatibility:rc` on the initial RC machine.
 - [ ] Verify the full [installation and maintenance](INSTALLATION.md) flow on a clean account, including start/stop, settings reset, data purge, package removal, and Accessibility revocation.
 - [x] Run `npm run security:rc` and verify loopback binding, token permissions, authentication, browser-token scope, origin validation, JSON/payload limits, recursive sensitive-field rejection, failure isolation, and diagnostic redaction.
 - [x] Record an initial reproducible single-machine CPU, memory, POWER, thread, and wakeup baseline for idle and synthetic bursts.

@@ -10,7 +10,7 @@ On macOS with the system Swift toolchain:
 npm run render:qa
 ```
 
-This compiles a temporary native renderer and writes the complete 234-frame matrix to the ignored `.power-mode/render-qa` directory. The matrix covers light/dark, Focus/Arcade/Reduce Motion, all seven Energy tiers, six semantic states at low/mid/high Energy, four completion outcomes, high-tier transitions, cursor effects, and Typing Combo colors.
+This compiles a temporary native renderer and writes the complete 228-frame matrix to the ignored `.power-mode/render-qa` directory. The matrix covers light/dark, Focus/Arcade/Reduce Motion, all five Energy tiers, six semantic states at low/mid/high Energy, four completion outcomes, tier transitions, cursor effects, and Typing Combo colors.
 
 The five PNG images under `docs/media/` are selected unchanged from that generated matrix:
 

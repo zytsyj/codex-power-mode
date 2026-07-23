@@ -11,7 +11,7 @@ private let demos: [(filename: String, frames: [DemoFrame])] = [
     (
         "focus-demo.gif",
         [
-            DemoFrame(filename: "matrix-focus-dark-observe-45.png", delay: 0.75),
+            DemoFrame(filename: "matrix-focus-dark-observe-90.png", delay: 0.75),
             DemoFrame(filename: "matrix-focus-dark-act-580.png", delay: 0.8),
             DemoFrame(filename: "matrix-focus-dark-verify-580.png", delay: 0.85),
             DemoFrame(filename: "complete-focus-dark-verified.png", delay: 1.15)
@@ -24,9 +24,9 @@ private let demos: [(filename: String, frames: [DemoFrame])] = [
             DemoFrame(filename: "typing-arcade-dark-gold.png", delay: 0.65),
             DemoFrame(filename: "matrix-arcade-dark-observe-580.png", delay: 0.55),
             DemoFrame(filename: "matrix-arcade-dark-act-580.png", delay: 0.55),
-            DemoFrame(filename: "transition-arcade-dark-overload.png", delay: 0.55),
-            DemoFrame(filename: "matrix-arcade-dark-act-960.png", delay: 0.55),
-            DemoFrame(filename: "matrix-arcade-dark-verify-960.png", delay: 0.65),
+            DemoFrame(filename: "transition-arcade-dark-critical.png", delay: 0.55),
+            DemoFrame(filename: "matrix-arcade-dark-act-850.png", delay: 0.55),
+            DemoFrame(filename: "matrix-arcade-dark-verify-850.png", delay: 0.65),
             DemoFrame(filename: "complete-arcade-dark-verified.png", delay: 1.05)
         ]
     )
