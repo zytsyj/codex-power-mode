@@ -139,6 +139,23 @@ test("hook sessions keep independent momentum and combo state", async () => {
   }
 });
 
+test("stored Energy gain setting applies to the very next Hook event", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-energy-gain-"));
+  try {
+    const nativeDirectory = path.join(directory, "native");
+    await mkdir(nativeDirectory, { recursive: true });
+    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 0.55 }));
+    const slow = await recordSessionEventResult(directory, { ...eventAt(1_000), sessionId: "slow" });
+    assert.equal(slow.state.momentum, 8);
+
+    await writeFile(path.join(nativeDirectory, "overlay-config.json"), JSON.stringify({ energyGainMultiplier: 1.1 }));
+    const turbo = await recordSessionEventResult(directory, { ...eventAt(2_000), sessionId: "turbo" });
+    assert.equal(turbo.state.momentum, 15);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("mix storage shares energy and Combo without letting one parallel stop reset the pool", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "codex-power-mode-mix-"));
   try {

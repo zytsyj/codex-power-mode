@@ -99,6 +99,9 @@ test("native HUD settings self-test exercises isolated persistence and validatio
 
   assert.match(source, /private func runSettingsPersistenceSelfTest/);
   assert.match(source, /CODEX_POWER_MODE_SETTINGS_SELF_TEST/);
+  assert.match(source, /func setEnergyGainMultiplier\(_ value: Double\)/);
+  assert.match(source, /preferences\.text\("Energy gain", "能量获取"\)/);
+  assert.match(source, /#selector\(selectEnergyGainMultiplier\)/);
   assert.match(source, /CODEX_POWER_MODE_CONFIG_PATH/);
   assert.match(source, /func reloaded\(\) -> PowerModePreferences/);
   assert.match(source, /let persisted = reloaded\(\)/);

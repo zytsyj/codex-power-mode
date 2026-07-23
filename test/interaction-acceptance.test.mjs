@@ -21,6 +21,7 @@ const configuration = {
   language: "auto",
   activitySource: "mix",
   effectIntensity: "normal",
+  energyGainMultiplier: 0.72,
   showCombo: true,
   typingCombo: true,
   cursorEffect: "spark",

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { COMBO_DECAY_MS, ENERGY_GAIN_MULTIPLIER, MOMENTUM_RETURN_MS, comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, energyStage, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity, typingChargeForCombo } from "../src/state.mjs";
+import { COMBO_DECAY_MS, ENERGY_GAIN_MULTIPLIER, MOMENTUM_RETURN_MS, comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, energyStage, initialState, normalizeEnergyGainMultiplier, presentationSnapshot, reduceState, shouldCoalesceActivity, typingChargeForCombo } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -45,6 +45,16 @@ test("typing Combo injects a bounded tiered charge without advancing agent Combo
   assert.equal(state.combo, 3);
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
+});
+
+test("Energy gain presets change the next event without changing tier boundaries", () => {
+  const event = { type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, sessionId: "s" };
+  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.55 }).momentum, 47);
+  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.72 }).momentum, 61);
+  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 0.9 }).momentum, 77);
+  assert.equal(reduceState(initialState, event, { energyGainMultiplier: 1.1 }).momentum, 94);
+  assert.equal(normalizeEnergyGainMultiplier(0.73), 0.72);
+  assert.equal(energyStage(100).name, "charging");
 });
 
 test("typing charge cannot claim the evidence-backed peak", () => {

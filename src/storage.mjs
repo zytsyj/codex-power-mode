@@ -1,9 +1,19 @@
 import { appendFile, mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { energyAt, initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
+import { energyAt, initialState, normalizeEnergyGainMultiplier, reduceState, shouldCoalesceActivity } from "./state.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const staleLockAgeMs = 10_000;
+
+async function configuredEnergyGainMultiplier(dataDir) {
+  try {
+    const config = JSON.parse(await readFile(path.join(dataDir, "native", "overlay-config.json"), "utf8"));
+    return normalizeEnergyGainMultiplier(config.energyGainMultiplier);
+  } catch (error) {
+    if (error.code === "ENOENT" || error instanceof SyntaxError) return normalizeEnergyGainMultiplier();
+    throw error;
+  }
+}
 
 function processIsAlive(pid) {
   try {
@@ -156,6 +166,7 @@ export async function readMixedState(dataDir) {
 export async function recordMixedEventResult(dataDir, event) {
   await mkdir(dataDir, { recursive: true });
   return withLock(dataDir, async () => {
+    const energyGainMultiplier = await configuredEnergyGainMultiplier(dataDir);
     const previous = await readMixedState(dataDir);
     const eventAt = Date.parse(event.timestamp);
     const sessionActivity = previous.mixedSessionActivity && typeof previous.mixedSessionActivity === "object"
@@ -182,7 +193,7 @@ export async function recordMixedEventResult(dataDir, event) {
         mixedLastCompletionAt: event.timestamp
       };
     } else {
-      next = reduceState(previous, mixedEvent);
+      next = reduceState(previous, mixedEvent, { energyGainMultiplier });
       if ((event.type === "edit-failure" || (event.type === "verification" && event.success === false)) && activeSessions.size > 1) {
         next = {
           ...next,
@@ -221,11 +232,12 @@ export async function writeStateSnapshot(dataDir, state) {
 export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 } = {}) {
   await mkdir(dataDir, { recursive: true });
   return withLock(dataDir, async () => {
+    const energyGainMultiplier = await configuredEnergyGainMultiplier(dataDir);
     const previous = await readState(dataDir);
     if (shouldCoalesceActivity(previous, event, coalesceWindowMs)) {
       return { state: previous, recorded: false };
     }
-    const next = reduceState(previous, event);
+    const next = reduceState(previous, event, { energyGainMultiplier });
     await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
     await writeStateFile(dataDir, next);
     return { state: next, recorded: true };
@@ -235,11 +247,12 @@ export async function recordEventResult(dataDir, event, { coalesceWindowMs = 0 }
 export async function recordSessionEventResult(dataDir, event, { coalesceWindowMs = 0 } = {}) {
   await mkdir(dataDir, { recursive: true });
   return withLock(dataDir, async () => {
+    const energyGainMultiplier = await configuredEnergyGainMultiplier(dataDir);
     const previous = await readSessionState(dataDir, event.sessionId);
     if (shouldCoalesceActivity(previous, event, coalesceWindowMs)) {
       return { state: previous, recorded: false };
     }
-    const next = reduceState(previous, event);
+    const next = reduceState(previous, event, { energyGainMultiplier });
     await appendFile(path.join(dataDir, "events.ndjson"), `${JSON.stringify({ ...event, state: next })}\n`);
     await writeSessionStateFile(dataDir, event.sessionId, next);
     return { state: next, recorded: true };

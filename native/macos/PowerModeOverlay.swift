@@ -306,6 +306,7 @@ private struct OverlaySettings: Codable, Equatable {
     var language = "auto"
     var activitySource: String? = "focused"
     var effectIntensity: String?
+    var energyGainMultiplier: Double?
     var showCombo: Bool?
     var typingCombo: Bool?
     var cursorEffect: String?
@@ -355,6 +356,11 @@ private final class PowerModePreferences {
     func setEffectIntensity(_ value: String) {
         guard ["low", "normal", "high"].contains(value) else { return }
         mutate { $0.effectIntensity = value }
+    }
+    func setEnergyGainMultiplier(_ value: Double) {
+        let supported = [0.55, 0.72, 0.9, 1.1]
+        guard supported.contains(where: { abs($0 - value) < 0.001 }) else { return }
+        mutate { $0.energyGainMultiplier = value }
     }
     func setEdge(_ value: String) {
         let supported = ["smart", "top-right", "top-left", "bottom-right", "bottom-left", "center"]
@@ -427,6 +433,7 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     preferences.setActivitySource("global")
     preferences.setActivitySource("mix")
     preferences.setEffectIntensity("high")
+    preferences.setEnergyGainMultiplier(1.1)
     preferences.setEdge("bottom-left")
     preferences.setScale(2)
     preferences.toggleEnabled()
@@ -448,6 +455,7 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     precondition(persisted.settings.language == "zh-CN")
     precondition(persisted.settings.activitySource == "mix")
     precondition(persisted.settings.effectIntensity == "high")
+    precondition(persisted.settings.energyGainMultiplier == 1.1)
     precondition(persisted.settings.edge == "bottom-left")
     precondition(persisted.settings.scale == 1.6)
     precondition(!persisted.settings.enabled)
@@ -463,6 +471,7 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     persisted.setAutoHideDelay(3)
     persisted.setActivitySource("cli")
     persisted.setEffectIntensity("extreme")
+    persisted.setEnergyGainMultiplier(0.73)
     persisted.setInactiveBehavior("detach")
     persisted.setCursorEffect("fixed")
     precondition(persisted.settings == snapshot)
@@ -1338,6 +1347,62 @@ private final class OrbLayerRenderer {
             seal.add(establish, forKey: "energy-tier-establish")
             DispatchQueue.main.asyncAfter(deadline: .now() + ring.duration * 0.42 + establish.duration + 0.08) { [weak seal] in seal?.removeFromSuperlayer() }
         }
+        let changedTiers = rising
+            ? Array((previous + 1)...next)
+            : Array(((next + 1)...previous).reversed())
+        for (index, tier) in changedTiers.enumerated() {
+            animateEvolutionAssembly(
+                tier: tier,
+                rising: rising,
+                delay: ring.duration * (rising ? 0.38 : 0.18) + Double(index) * 0.12
+            )
+        }
+    }
+
+    private func animateEvolutionAssembly(tier: Int, rising: Bool, delay: CFTimeInterval) {
+        let layer: CAShapeLayer?
+        switch tier {
+        case 1: layer = wakeEvolution
+        case 2: layer = chargeEvolution
+        case 3: layer = driveEvolution
+        case 4: layer = stageShell
+        case 5: layer = tierAura
+        case 6: layer = criticalBridges
+        case 7: layer = peakCrown
+        default: layer = nil
+        }
+        guard let layer else { return }
+        let duration = (rising ? 0.72 : 0.48) + Double(tier) * (rising ? 0.055 : 0.025)
+        let group = CAAnimationGroup()
+        let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+        draw.values = rising ? [0, 0, 0.72, 1] : [1, 0.65, 0]
+        draw.keyTimes = rising ? [0, 0.16, 0.62, 1] : [0, 0.42, 1]
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = rising ? [0, 0, 1, 0.72] : [0.9, 0.64, 0]
+        opacity.keyTimes = rising ? [0, 0.16, 0.68, 1] : [0, 0.52, 1]
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        switch tier {
+        case 2: scale.values = rising ? [0.34, 0.34, 1.28, 1] : [1, 1.14, 0.3]
+        case 3: scale.values = rising ? [0.72, 0.72, 1.2, 0.96, 1] : [1, 1.08, 0.62]
+        case 4: scale.values = rising ? [0.5, 0.5, 1.12, 0.98, 1] : [1, 0.88, 0.42]
+        case 5: scale.values = rising ? [0.78, 0.78, 1.32, 0.95, 1] : [1, 1.16, 0.68]
+        case 6: scale.values = rising ? [0.82, 0.82, 1.08, 0.96, 1] : [1, 0.92, 0.5]
+        case 7: scale.values = rising ? [0.58, 0.58, 1.42, 0.92, 1] : [1, 1.12, 0.36]
+        default: scale.values = rising ? [0.72, 0.72, 1.16, 1] : [1, 0.86, 0.54]
+        }
+        scale.keyTimes = (scale.values?.count ?? 0) == 5 ? [0, 0.16, 0.58, 0.78, 1] : rising ? [0, 0.16, 0.68, 1] : [0, 0.46, 1]
+        let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotation.fromValue = rising
+            ? (tier == 3 ? Double.pi * 0.7 : tier >= 6 ? -Double.pi * 0.24 : -Double.pi * 0.1)
+            : 0
+        rotation.toValue = rising
+            ? 0
+            : (tier == 3 ? -Double.pi * 0.55 : tier >= 6 ? Double.pi * 0.18 : Double.pi * 0.08)
+        group.animations = [draw, opacity, scale, rotation]
+        group.beginTime = CACurrentMediaTime() + delay
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(name: rising ? .easeOut : .easeInEaseOut)
+        layer.add(group, forKey: rising ? "evolution-module-assemble" : "evolution-module-release")
     }
 
     func updateTypingCombo(count: Int, progress: CGFloat, pulse: Bool = false) {
@@ -5765,6 +5830,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             selected: preferences.settings.effectIntensity ?? "normal",
             action: #selector(selectEffectIntensity)
         ))
+        menu.addItem(submenu(
+            title: preferences.text("Energy gain", "能量获取"),
+            choices: [
+                ("0.55", preferences.text("Slow · 0.55×", "缓慢 · 0.55×")),
+                ("0.72", preferences.text("Balanced · 0.72×", "平衡 · 0.72×")),
+                ("0.9", preferences.text("Fast · 0.90×", "快速 · 0.90×")),
+                ("1.1", preferences.text("Turbo · 1.10×", "极速 · 1.10×"))
+            ],
+            selected: String(preferences.settings.energyGainMultiplier ?? 0.72),
+            action: #selector(selectEnergyGainMultiplier),
+            numericSelected: preferences.settings.energyGainMultiplier ?? 0.72
+        ))
         let combo = NSMenuItem(title: preferences.text("Show Combo", "显示 Combo"), action: #selector(toggleCombo), keyEquivalent: "")
         combo.target = self
         combo.state = (preferences.settings.showCombo ?? true) ? .on : .off
@@ -5899,6 +5976,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func toggleEnabled() { preferences?.toggleEnabled() }
     @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
     @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
+    @objc private func selectEnergyGainMultiplier(_ sender: NSMenuItem) {
+        if let value = sender.representedObject as? String, let multiplier = Double(value) {
+            preferences?.setEnergyGainMultiplier(multiplier)
+        }
+    }
     @objc private func toggleCombo() { preferences?.toggleCombo() }
     @objc private func toggleTypingCombo() { preferences?.toggleTypingCombo() }
     @objc private func selectCursorEffect(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setCursorEffect(value) } }
