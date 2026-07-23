@@ -51,7 +51,7 @@ const copy = {
   power: ["POWER", "能量"], online: ["ONLINE", "在线"], reconnecting: ["RECONNECTING", "重新连接"], preview: ["PREVIEW", "预览"],
   observe: ["OBSERVE", "观察"], act: ["ACT", "执行"], verify: ["VERIFY", "验证"], wait: ["WAIT", "等待"], recover: ["RECOVER", "恢复"], complete: ["COMPLETE", "完成"], idle: ["IDLE", "待机"],
   cancelled: ["CANCELLED", "已取消"], unverified: ["UNVERIFIED", "未验证"], hold: ["HOLD", "保持"], waiting: ["WAIT", "等待"], link: ["LINK", "续连"], done: ["DONE", "完成"], lost: ["LOST", "断连"], ready: ["READY", "就绪"],
-  awakening: ["WAKE", "唤醒"], charging: ["CHARGE", "聚能"], driving: ["DRIVE", "推进"], criticalEnergy: ["CRITICAL", "临界"], "verified-peak": ["PEAK", "峰值"],
+  awakening: ["WAKE", "唤醒"], charging: ["CHARGE", "聚能"], driving: ["DRIVE", "推进"], criticalEnergy: ["CRITICAL", "临界"], peak: ["PEAK", "峰值"],
   ignition: ["IGNITE", "点火"], linked: ["LINK", "续连"], accelerated: ["ACCEL", "加速"], heated: ["HEAT", "高热"], extreme: ["EXTREME", "极限"], critical: ["BREAK", "将断"], reward: ["BOOST", "奖励"], confirmed: ["CHECK", "确认"], record: ["RECORD", "纪录"], relinked: ["RELINK", "重连"],
   approval: ["Your approval is needed", "等待你的授权"], approvalDenied: ["Approval was not granted", "未获得授权"], verifyRecommended: ["Run verification before relying on these changes", "建议验证后再使用这些修改"], noChanges: ["No code changes were made", "没有代码修改"], recovering: ["Confidence dropped; repairing the latest change", "可信度下降，正在修复最近的修改"], verified: ["Latest changes are backed by evidence", "最新修改已有验证证据"], checking: ["Building confidence in the change", "正在验证修改"], acting: ["Applying a scoped change", "正在执行修改"], understandingTitle: ["UNDERSTANDING REQUEST", "理解需求"], understanding: ["Understanding your request", "正在理解你的需求"], observing: ["Reading and understanding context", "正在读取并理解上下文"], standby: ["Waiting for Codex activity", "等待 Codex 活动"],
   taskSwitched: ["TASK SWITCHED", "任务已切换"], followingTask: ["Following the newly active Codex task", "正在跟随新的 Codex 任务"],
@@ -328,27 +328,27 @@ function energyLevelAt(momentum) {
   if (momentum < 200) return "awakening";
   if (momentum < 450) return "charging";
   if (momentum < 700) return "driving";
-  if (momentum < 999) return "critical";
-  return "verified-peak";
+  if (momentum < 900) return "critical";
+  return "peak";
 }
 
 function energyProgressAt(momentum) {
   const value = Math.max(0, Math.min(999, momentum));
-  const ranges = [[0, 0], [1, 199], [200, 449], [450, 699], [700, 998], [999, 999]];
+  const ranges = [[0, 0], [1, 199], [200, 449], [450, 699], [700, 899], [900, 999]];
   const [lower, upper] = ranges[energyRankAt(energyLevelAt(value))];
   if (upper <= lower) return value > 0 ? 1 : 0;
   return Math.max(0, Math.min(1, (value - lower) / (upper - lower)));
 }
 
 function energyRankAt(level) {
-  return { idle: 0, awakening: 1, charging: 2, driving: 3, critical: 4, "verified-peak": 5 }[level] ?? 0;
+  return { idle: 0, awakening: 1, charging: 2, driving: 3, critical: 4, peak: 5 }[level] ?? 0;
 }
 
 function reactToEnergyTransition(level, rising = true) {
   if (reducedMotion || level === "idle") return;
   const start = reactorOrigin();
-  const color = ["critical", "verified-peak"].includes(level) ? "#ffd66b" : level === "driving" ? "#a987ff" : "#75dfff";
-  document.body.classList.remove(...["awakening", "charging", "driving", "critical", "verified-peak"].flatMap((name) => [`energy-upgrade-${name}`, `energy-downgrade-${name}`]));
+  const color = ["critical", "peak"].includes(level) ? "#ffd66b" : level === "driving" ? "#a987ff" : "#75dfff";
+  document.body.classList.remove(...["awakening", "charging", "driving", "critical", "peak"].flatMap((name) => [`energy-upgrade-${name}`, `energy-downgrade-${name}`]));
   void document.body.offsetWidth;
   document.body.classList.add(`${rising ? "energy-upgrade" : "energy-downgrade"}-${level}`);
   if (level === "awakening") {

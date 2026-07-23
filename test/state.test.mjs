@@ -31,8 +31,9 @@ test("energy stage progress refills inside every tier", () => {
   assert.equal(energyStage(450).name, "driving");
   assert.equal(energyStage(450).progress, 0);
   assert.equal(energyStage(700).name, "critical");
-  assert.equal(energyStage(998).progress, 1);
-  assert.equal(energyStage(999).name, "verified-peak");
+  assert.equal(energyStage(899).progress, 1);
+  assert.equal(energyStage(900).name, "peak");
+  assert.equal(energyStage(900).progress, 0);
   assert.equal(energyStage(999).progress, 1);
 });
 
@@ -63,11 +64,12 @@ test("Energy gain presets change the next event without changing tier boundaries
   assert.equal(energyStage(200).name, "charging");
 });
 
-test("typing charge cannot claim the evidence-backed peak", () => {
-  const state = reduceState({ ...initialState, momentum: 980, sessionId: "s" }, {
+test("typing charge can naturally enter the peak tier", () => {
+  const state = reduceState({ ...initialState, momentum: 880, sessionId: "s" }, {
     type: "input-charge", inputCombo: 200, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
   });
-  assert.equal(state.momentum, 998);
+  assert.equal(state.momentum, 945);
+  assert.equal(energyLevel(state.momentum), "peak");
 });
 
 test("rapid identical observe activity is coalesced without hiding phase changes", () => {
@@ -145,14 +147,15 @@ test("verification rewards distinguish evidence, records, and standalone confirm
   assert.equal(comboStage(record, at(2.5)), "record");
 });
 
-test("energy levels span awakening through a verified 999 peak", () => {
+test("energy levels span awakening through a 900-plus peak", () => {
   assert.equal(energyLevel(0), "idle");
   assert.equal(energyLevel(1), "awakening");
   assert.equal(energyLevel(200), "charging");
   assert.equal(energyLevel(450), "driving");
   assert.equal(energyLevel(700), "critical");
-  assert.equal(energyLevel(998), "critical");
-  assert.equal(energyLevel(999), "verified-peak");
+  assert.equal(energyLevel(899), "critical");
+  assert.equal(energyLevel(900), "peak");
+  assert.equal(energyLevel(999), "peak");
 });
 
 test("energy has a grace period, decays by real elapsed time, and materializes before the next event", () => {
@@ -166,15 +169,13 @@ test("energy has a grace period, decays by real elapsed time, and materializes b
   assert.equal(resumed.momentum, 310);
 });
 
-test("only an evidence-backed edited completion reaches the 999 peak", () => {
+test("verified completion no longer forces energy to 999", () => {
   let verified = reduceState(initialState, { type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s" });
   verified = reduceState(verified, { type: "verification", category: "test", success: true, timestamp: at(2), sessionId: "s" });
+  const momentumBeforeStop = verified.momentum;
   verified = reduceState(verified, { type: "turn-stop", timestamp: at(3), sessionId: "s" });
-  assert.equal(verified.momentum, 999);
-
-  let unverified = reduceState(initialState, { type: "edit", timestamp: at(1), addedLines: 2, removedLines: 0, sessionId: "s" });
-  unverified = reduceState(unverified, { type: "turn-stop", timestamp: at(3), sessionId: "s" });
-  assert.ok(unverified.momentum < 999);
+  assert.equal(verified.momentum, momentumBeforeStop);
+  assert.ok(verified.momentum < 900);
 });
 
 test("combo stages span ignition through extreme and critical timing", () => {
@@ -260,10 +261,11 @@ test("a new turn carries decayed energy while resetting evidence, risk, and edit
   assert.equal(state.edits, 1);
   assert.deepEqual(state.evidence, ["test"]);
 
+  const expectedCarriedEnergy = energyAt(state, at(30));
   state = reduceState(state, {
     type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(30), sessionId: "s"
   });
-  assert.equal(state.momentum, 942);
+  assert.equal(state.momentum, expectedCarriedEnergy + 10);
   assert.equal(state.combo, 1);
   assert.equal(state.confidence, 0);
   assert.equal(state.risk, 0);

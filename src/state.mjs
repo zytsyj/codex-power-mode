@@ -49,8 +49,8 @@ export const ENERGY_STAGES = Object.freeze([
   Object.freeze({ name: "awakening", lower: 1, upper: 199 }),
   Object.freeze({ name: "charging", lower: 200, upper: 449 }),
   Object.freeze({ name: "driving", lower: 450, upper: 699 }),
-  Object.freeze({ name: "critical", lower: 700, upper: 998 }),
-  Object.freeze({ name: "verified-peak", lower: 999, upper: 999 })
+  Object.freeze({ name: "critical", lower: 700, upper: 899 }),
+  Object.freeze({ name: "peak", lower: 900, upper: 999 })
 ]);
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 const clampEnergy = (value) => clamp(value, 0, ENERGY_MAX);
@@ -308,7 +308,7 @@ export function reduceState(previous = initialState, event, { energyGainMultipli
     state.currentActivity = activityLabel(event);
     state.steps += 1;
     const gain = scaledEnergyGain(state.phase === "observe" ? 14 : state.phase === "verify" ? 20 : 28, gainMultiplier);
-    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + gain));
+    state.momentum = clampEnergy(state.momentum + gain);
     state.completion = null;
     state.lastActivityAt = event.timestamp;
     state.energyUpdatedAt = event.timestamp;
@@ -318,7 +318,7 @@ export function reduceState(previous = initialState, event, { energyGainMultipli
     state.phase = "observe";
     state.status = "working";
     state.currentActivity = "Understanding request";
-    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + typingChargeForCombo(event.inputCombo, gainMultiplier)));
+    state.momentum = clampEnergy(state.momentum + typingChargeForCombo(event.inputCombo, gainMultiplier));
     state.lastActivityAt = event.timestamp;
     state.energyUpdatedAt = event.timestamp;
     state.completion = null;
@@ -339,7 +339,7 @@ export function reduceState(previous = initialState, event, { energyGainMultipli
     state.edits += 1;
     state.addedLines += event.addedLines;
     state.removedLines += event.removedLines;
-    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + scaledEnergyGain(85, gainMultiplier)));
+    state.momentum = clampEnergy(state.momentum + scaledEnergyGain(85, gainMultiplier));
     state.confidence = clamp(state.confidence - 12);
     state.risk = clamp(state.risk + scopeRisk(event));
     state.lastEditAt = event.timestamp;
@@ -401,7 +401,6 @@ export function reduceState(previous = initialState, event, { energyGainMultipli
     state.status = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "complete";
     state.completion = verifiedAfterEdit ? "verified" : stoppedWhileWaiting ? "cancelled" : state.edits ? "unverified" : "no-change";
     state.currentActivity = verifiedAfterEdit ? "Completed with evidence" : stoppedWhileWaiting ? "Approval was not granted" : state.edits ? "Completed — verification recommended" : "Turn complete";
-    if (verifiedAfterEdit && state.edits > 0) state.momentum = ENERGY_MAX;
     state.lastActivityAt = event.timestamp;
     state.energyUpdatedAt = event.timestamp;
     if (verifiedAfterEdit && state.combo > 0) {
