@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/media/arcade-dark-complete.png" width="128" alt="Codex Power Mode completion orb">
+<img src="docs/media/hero.svg" width="100%" alt="Codex Power Mode — semantic agent states and five-tier Energy evolution">
 
 # Codex Power Mode
 

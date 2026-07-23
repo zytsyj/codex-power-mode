@@ -2,6 +2,8 @@
 
 The checked-in preview images are first-party frames rendered directly from the native Core Animation implementation. They contain synthetic state only: no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history.
 
+`hero.svg` is a first-party, hand-authored vector composition derived from the same five Energy tier colors and connected-machine geometry. It contains no external assets, embedded fonts, scripts, user data, or runtime content.
+
 ## Reproduce the QA set
 
 On macOS with the system Swift toolchain:

@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Power Mode</title>
+  <desc id="desc">A dark energy-themed banner showing the five Power Mode energy tiers and a glowing Peak orb.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#05070d"/>
+      <stop offset=".48" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#080912"/>
+    </linearGradient>
+    <radialGradient id="violet-field" cx="70%" cy="48%" r="58%">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity=".22"/>
+      <stop offset=".45" stop-color="#3b82f6" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#03050a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#52d9ff"/>
+      <stop offset=".28" stop-color="#5399ff"/>
+      <stop offset=".55" stop-color="#a879ff"/>
+      <stop offset=".78" stop-color="#ff8351"/>
+      <stop offset="1" stop-color="#ffd66b"/>
+    </linearGradient>
+    <linearGradient id="peak-ring" x1=".15" y1=".05" x2=".85" y2=".95">
+      <stop offset="0" stop-color="#fff8d9"/>
+      <stop offset=".38" stop-color="#ffd66b"/>
+      <stop offset=".72" stop-color="#ff9f5b"/>
+      <stop offset="1" stop-color="#a879ff"/>
+    </linearGradient>
+    <radialGradient id="core" cx="45%" cy="38%" r="68%">
+      <stop offset="0" stop-color="#fffdf4"/>
+      <stop offset=".2" stop-color="#ffd66b"/>
+      <stop offset=".46" stop-color="#5b3c2a"/>
+      <stop offset=".7" stop-color="#111321"/>
+      <stop offset="1" stop-color="#05060b"/>
+    </radialGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#9fb7ff" stroke-opacity=".055" stroke-width="1"/>
+    </pattern>
+    <filter id="soft-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="hard-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="frame">
+      <rect x="1" y="1" width="1198" height="418" rx="28"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="420" fill="url(#background)"/>
+    <rect width="1200" height="420" fill="url(#violet-field)"/>
+    <rect width="1200" height="420" fill="url(#grid)"/>
+
+    <g opacity=".5">
+      <path d="M0 328C210 281 342 359 522 313S845 214 1200 258" fill="none" stroke="url(#spectrum)" stroke-opacity=".2"/>
+      <path d="M0 344C214 296 356 378 536 331S856 232 1200 274" fill="none" stroke="url(#spectrum)" stroke-opacity=".09"/>
+    </g>
+
+    <g transform="translate(74 74)">
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <text x="0" y="18" fill="#95a4c8" font-size="15" font-weight="700" letter-spacing="4">CODEX // SEMANTIC HUD</text>
+        <text x="0" y="91" fill="#f8fafc" font-size="60" font-weight="760" letter-spacing="-2.5">POWER MODE</text>
+        <text x="2" y="132" fill="#b8c2db" font-size="20" font-weight="450">See the agent think in states. Feel useful work build energy.</text>
+
+        <g transform="translate(2 180)">
+          <rect width="112" height="34" rx="17" fill="#52d9ff" fill-opacity=".09" stroke="#52d9ff" stroke-opacity=".4"/>
+          <circle cx="18" cy="17" r="4" fill="#52d9ff" filter="url(#hard-glow)"/>
+          <text x="31" y="22" fill="#bdefff" font-size="13" font-weight="650">OBSERVE</text>
+
+          <rect x="124" width="82" height="34" rx="17" fill="#a879ff" fill-opacity=".09" stroke="#a879ff" stroke-opacity=".42"/>
+          <circle cx="142" cy="17" r="4" fill="#a879ff" filter="url(#hard-glow)"/>
+          <text x="155" y="22" fill="#d9c5ff" font-size="13" font-weight="650">ACT</text>
+
+          <rect x="218" width="98" height="34" rx="17" fill="#58d9a2" fill-opacity=".08" stroke="#58d9a2" stroke-opacity=".38"/>
+          <circle cx="236" cy="17" r="4" fill="#58d9a2" filter="url(#hard-glow)"/>
+          <text x="249" y="22" fill="#bcf4d9" font-size="13" font-weight="650">VERIFY</text>
+
+          <rect x="328" width="108" height="34" rx="17" fill="#ffd66b" fill-opacity=".08" stroke="#ffd66b" stroke-opacity=".36"/>
+          <circle cx="346" cy="17" r="4" fill="#ffd66b" filter="url(#hard-glow)"/>
+          <text x="359" y="22" fill="#ffebb1" font-size="13" font-weight="650">COMPLETE</text>
+        </g>
+
+        <g transform="translate(2 252)">
+          <text x="0" y="0" fill="#657392" font-size="11" font-weight="700" letter-spacing="1.8">ENERGY EVOLUTION</text>
+          <rect x="0" y="18" width="434" height="5" rx="2.5" fill="#252c40"/>
+          <rect x="0" y="18" width="434" height="5" rx="2.5" fill="url(#spectrum)" filter="url(#hard-glow)"/>
+          <g font-size="11" font-weight="650" text-anchor="middle">
+            <circle cx="4" cy="20.5" r="5.5" fill="#52d9ff"/>
+            <text x="4" y="47" fill="#8ca0bf" text-anchor="start">WAKE</text>
+            <circle cx="110" cy="20.5" r="5.5" fill="#5399ff"/>
+            <text x="110" y="47" fill="#8ca0bf">CHARGE</text>
+            <circle cx="218" cy="20.5" r="5.5" fill="#a879ff"/>
+            <text x="218" y="47" fill="#8ca0bf">DRIVE</text>
+            <circle cx="326" cy="20.5" r="5.5" fill="#ff8351"/>
+            <text x="326" y="47" fill="#8ca0bf">CRITICAL</text>
+            <circle cx="434" cy="20.5" r="7" fill="#ffd66b" filter="url(#hard-glow)"/>
+            <text x="434" y="47" fill="#ffd66b">PEAK</text>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <circle cx="930" cy="210" r="156" fill="#6d4aff" fill-opacity=".04"/>
+    <circle cx="930" cy="210" r="132" fill="none" stroke="#8d6cff" stroke-opacity=".12"/>
+    <circle cx="930" cy="210" r="112" fill="none" stroke="#ffd66b" stroke-opacity=".16" stroke-width="2" stroke-dasharray="2 12"/>
+    <circle cx="930" cy="210" r="92" fill="#ffd66b" fill-opacity=".05" filter="url(#soft-glow)"/>
+
+    <path d="M850 161 A94 94 0 0 1 1001 148" fill="none" stroke="url(#peak-ring)" stroke-width="9" stroke-linecap="round" filter="url(#soft-glow)"/>
+    <path d="M1010 259 A94 94 0 0 1 859 272" fill="none" stroke="url(#peak-ring)" stroke-width="9" stroke-linecap="round" filter="url(#soft-glow)"/>
+    <circle cx="930" cy="210" r="73" fill="none" stroke="#ffd66b" stroke-opacity=".3" stroke-width="2"/>
+    <circle cx="930" cy="210" r="55" fill="url(#core)" stroke="#fff7cf" stroke-opacity=".32"/>
+
+    <g fill="#fff5c7" stroke="#ffd66b" stroke-width="2" filter="url(#hard-glow)">
+      <circle cx="882" cy="156" r="5"/>
+      <circle cx="978" cy="156" r="5"/>
+      <circle cx="992" cy="244" r="5"/>
+      <circle cx="868" cy="244" r="5"/>
+    </g>
+    <g fill="none" stroke="#ffd66b" stroke-opacity=".65" stroke-width="2.5" stroke-linecap="round">
+      <path d="M886 160 L914 190"/>
+      <path d="M974 160 L946 190"/>
+      <path d="M988 241 L950 224"/>
+      <path d="M872 241 L910 224"/>
+    </g>
+
+    <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" text-anchor="middle">
+      <text x="930" y="217" fill="#fffdf4" font-size="34" font-weight="760">945</text>
+      <text x="930" y="239" fill="#ffd66b" font-size="10" font-weight="750" letter-spacing="2.2">PEAK</text>
+    </g>
+
+    <path d="M918 102 L930 91 L942 102" fill="none" stroke="#fff7cf" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#hard-glow)"/>
+
+    <g fill="#dbe6ff">
+      <circle cx="1117" cy="77" r="1.5" opacity=".7"/>
+      <circle cx="1057" cy="36" r="1" opacity=".45"/>
+      <circle cx="765" cy="92" r="1.5" opacity=".35"/>
+      <circle cx="713" cy="334" r="1" opacity=".45"/>
+      <circle cx="1155" cy="334" r="1.5" opacity=".4"/>
+    </g>
+    <rect x="820" y="96" width="220" height="228" rx="32" fill="#0a0b13" fill-opacity=".22" stroke="#ffd66b" stroke-opacity=".08"/>
+  </g>
+  <rect x="1" y="1" width="1198" height="418" rx="28" fill="none" stroke="#9fb7ff" stroke-opacity=".16" stroke-width="2"/>
+</svg>

@@ -146,6 +146,11 @@ test("checked-in media is generated, privacy-safe, and documented", async () => 
     assert.ok(bytes.length < 100_000, `${filename} must stay compact`);
     assert.match(provenance, new RegExp(filename.replaceAll(".", "\\.")));
   }
+  const hero = await readFile(path.join(root, "docs/media/hero.svg"), "utf8");
+  assert.match(hero, /<svg[\s\S]*aria-labelledby="title desc"/);
+  assert.match(hero, /ENERGY EVOLUTION/);
+  assert.doesNotMatch(hero, /<script|(?:href|src)=["']https?:/i);
+  assert.match(provenance, /hero\.svg/);
   const demoRenderer = await readFile(path.join(root, "scripts/render-demos.mjs"), "utf8");
   const composer = await readFile(path.join(root, "scripts/compose-demo.swift"), "utf8");
   assert.match(demoRenderer, /scripts\/render-qa\.mjs/);
