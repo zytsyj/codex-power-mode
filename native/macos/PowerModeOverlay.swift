@@ -536,6 +536,7 @@ private final class OrbLayerRenderer {
     private let semanticEffects = CALayer()
     private let comboEffects = CALayer()
     private var comboAnimationGeneration = 0
+    private var completionAnimationGeneration = 0
     private var lastComboSignature = ""
     private var lastComboCount = 0
     private var lastComboStage = "idle"
@@ -655,7 +656,7 @@ private final class OrbLayerRenderer {
         beatRing.opacity = 0
         beatRing.lineCap = .round
 
-        configureText(semantic, frame: CGRect(x: 36, y: 68, width: 20, height: 14), size: 9.5, weight: .bold)
+        configureText(semantic, frame: CGRect(x: 24, y: 68, width: 44, height: 14), size: 8.8, weight: .bold)
         configureText(comboValue, frame: CGRect(x: 28, y: 59, width: 36, height: 11), size: 7.5, weight: .bold)
         configureText(typingValue, frame: CGRect(x: 14, y: 75, width: 64, height: 10), size: 6.4, weight: .bold)
         typingValue.opacity = 0
@@ -771,6 +772,7 @@ private final class OrbLayerRenderer {
         updateCombo(state, color: color, event: event)
         let semanticPhaseChanged = phase != nextPhase || completionStyle != state.completion
         if semanticPhaseChanged {
+            if nextPhase != "complete" { completionAnimationGeneration += 1 }
             phase = nextPhase
             completionStyle = state.completion
             updateCoreSignature(nextPhase, completion: state.completion, color: color)
@@ -783,7 +785,7 @@ private final class OrbLayerRenderer {
             if event.sessionTransition != nil { animateSessionTransition(color: color) }
             animateEventRhythm(event, phase: nextPhase, color: color)
             animateCoreEvent(nextPhase)
-            playSemanticChoreography(phase: nextPhase, color: color)
+            playSemanticChoreography(phase: nextPhase, completion: state.completion, color: color)
             emitFeedback(for: event, phase: nextPhase, color: color)
         }
         if semanticPhaseChanged {
@@ -1834,7 +1836,7 @@ private final class OrbLayerRenderer {
         beatRing.add(group, forKey: "beat-ring-\(rhythmGeneration)-\(delay)")
     }
 
-    private func playSemanticChoreography(phase: String, color: NSColor) {
+    private func playSemanticChoreography(phase: String, completion: String?, color: NSColor) {
         guard !reducedMotion, phase != "idle" else { return }
         semanticEffects.sublayers?.forEach { $0.removeFromSuperlayer() }
         switch phase {
@@ -1843,7 +1845,7 @@ private final class OrbLayerRenderer {
         case "verify": playVerifyConvergence(color: color)
         case "wait": playWaitGates(color: color)
         case "recover": playRecoverFragments(color: color)
-        case "complete": playCompleteRings()
+        case "complete": playCompleteFamily(completion: completion)
         default: break
         }
     }
@@ -2050,37 +2052,157 @@ private final class OrbLayerRenderer {
         }
     }
 
-    private func playCompleteRings() {
-        let colors: [NSColor] = arcade ? [.systemGreen, .systemPurple, .systemCyan] : [.systemGreen]
-        for (index, color) in colors.enumerated() {
-            let ring = CAShapeLayer()
-            ring.frame = semanticEffects.bounds
-            ring.path = CGPath(ellipseIn: CGRect(x: 10, y: 10, width: 72, height: 72), transform: nil)
-            ring.fillColor = NSColor.clear.cgColor
-            ring.strokeColor = color.cgColor
-            ring.lineWidth = arcade ? 3.2 : 1.8
-            ring.shadowColor = color.cgColor
-            ring.shadowOpacity = arcade ? 0.9 : 0.55
-            ring.shadowRadius = arcade ? 8 : 5
-            ring.opacity = 0
-            semanticEffects.addSublayer(ring)
-            let opacity = CAKeyframeAnimation(keyPath: "opacity")
-            opacity.values = [0, 0.95, 0.5, 0]
-            opacity.keyTimes = [0, 0.12, 0.48, 1]
-            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-            scale.values = [0.68, 0.92, 1.38, arcade ? 2.15 : 1.7]
-            scale.keyTimes = [0, 0.12, 0.48, 1]
-            let group = CAAnimationGroup()
-            group.animations = [opacity, scale]
-            let delay = 0.22 + Double(index) * 0.13
-            group.beginTime = ring.convertTime(CACurrentMediaTime(), from: nil) + delay
-            group.duration = arcade ? 0.82 : 0.96
-            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            group.fillMode = .both
-            group.isRemovedOnCompletion = false
-            ring.add(group, forKey: "complete-wave")
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay + group.duration + 0.08) { [weak ring] in ring?.removeFromSuperlayer() }
+    private func playCompleteFamily(completion: String?) {
+        completionAnimationGeneration += 1
+        let generation = completionAnimationGeneration
+        let commonColor = NSColor(calibratedRed: 0.76, green: 0.96, blue: 1, alpha: 1)
+        let outcomeColor: NSColor
+        switch completion {
+        case "verified": outcomeColor = .systemGreen
+        case "unverified": outcomeColor = .systemYellow
+        case "cancelled": outcomeColor = .systemOrange
+        default: outcomeColor = .systemCyan
         }
+
+        semantic.string = preferences.text("COMPLETE", "完成")
+        semantic.foregroundColor = commonColor.cgColor
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        signature.path = completeClosurePath()
+        signature.strokeColor = commonColor.cgColor
+        signature.lineDashPattern = nil
+        signatureBackdrop.path = completeClosurePath()
+        phaseRail.strokeColor = commonColor.cgColor
+        phaseRail.lineDashPattern = nil
+        CATransaction.commit()
+        semantic.removeAnimation(forKey: "complete-stamp")
+        let stamp = CAKeyframeAnimation(keyPath: "transform.scale")
+        stamp.values = [0.72, 1.12, 1, 1]
+        stamp.keyTimes = [0, 0.28, 0.54, 1]
+        stamp.duration = arcade ? 0.7 : 0.82
+        stamp.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        semantic.add(stamp, forKey: "complete-stamp")
+
+        let closure = completionRing(radius: 37, color: commonColor, width: arcade ? 3.2 : 2.4)
+        closure.strokeEnd = 0
+        let close = CAKeyframeAnimation(keyPath: "strokeEnd")
+        close.values = [0, 0.08, 0.82, 1, 1]
+        close.keyTimes = [0, 0.14, 0.62, 0.8, 1]
+        let pause = CAKeyframeAnimation(keyPath: "transform.scale")
+        pause.values = [1.05, 1.05, 0.91, 0.91, 1]
+        pause.keyTimes = [0, 0.2, 0.62, 0.76, 1]
+        let closureOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        closureOpacity.values = [0, 1, 1, 0.92, 0]
+        closureOpacity.keyTimes = [0, 0.12, 0.72, 0.88, 1]
+        let closureGroup = CAAnimationGroup()
+        closureGroup.animations = [close, pause, closureOpacity]
+        closureGroup.duration = arcade ? 1.12 : 1.28
+        closureGroup.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.78, 0.2, 1)
+        closure.add(closureGroup, forKey: "complete-family-closure")
+
+        let outcomeDelay: CFTimeInterval = arcade ? 0.7 : 0.82
+        DispatchQueue.main.asyncAfter(deadline: .now() + outcomeDelay) { [weak self] in
+            guard let self, self.completionAnimationGeneration == generation else { return }
+            self.semantic.string = self.phaseGlyph("complete", completion: completion)
+            self.semantic.foregroundColor = outcomeColor.cgColor
+            self.updateCoreSignature("complete", completion: completion, color: outcomeColor)
+            let reveal = CAKeyframeAnimation(keyPath: "transform.scale")
+            reveal.values = [0.62, self.arcade ? 1.55 : 1.32, 0.94, 1]
+            reveal.keyTimes = [0, 0.35, 0.7, 1]
+            reveal.duration = self.arcade ? 0.44 : 0.56
+            reveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.semantic.add(reveal, forKey: "complete-outcome-stamp")
+            self.playCompleteOutcome(completion: completion, color: outcomeColor)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak closure] in
+            closure?.removeFromSuperlayer()
+        }
+    }
+
+    private func completionRing(radius: CGFloat, color: NSColor, width: CGFloat, start: CGFloat = 0, end: CGFloat = 1) -> CAShapeLayer {
+        let ring = CAShapeLayer()
+        ring.frame = semanticEffects.bounds
+        ring.path = CGPath(ellipseIn: CGRect(x: 46 - radius, y: 46 - radius, width: radius * 2, height: radius * 2), transform: nil)
+        ring.fillColor = NSColor.clear.cgColor
+        ring.strokeColor = color.cgColor
+        ring.lineWidth = width
+        ring.lineCap = .round
+        ring.strokeStart = start
+        ring.strokeEnd = end
+        ring.shadowColor = color.cgColor
+        ring.shadowOpacity = arcade ? 0.82 : 0.46
+        ring.shadowRadius = arcade ? 7 : 4
+        ring.opacity = 0
+        semanticEffects.addSublayer(ring)
+        return ring
+    }
+
+    private func completeClosurePath() -> CGPath {
+        CGPath(ellipseIn: CGRect(x: 20, y: 20, width: 52, height: 52), transform: nil)
+    }
+
+    private func playCompleteOutcome(completion: String?, color: NSColor) {
+        switch completion {
+        case "verified":
+            let colors: [NSColor] = [.systemGreen, .systemGreen, arcade ? .systemCyan : .systemGreen]
+            for (index, ringColor) in colors.enumerated() {
+                let ring = completionRing(radius: 32 + CGFloat(index) * 4.5, color: ringColor, width: arcade ? 2.7 : 1.7)
+                let opacity = CAKeyframeAnimation(keyPath: "opacity")
+                opacity.values = [0, 1, 0.72, 0]
+                opacity.keyTimes = [0, 0.16, 0.55, 1]
+                let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+                scale.values = [0.82, 1, 1.18, arcade ? 1.48 : 1.3]
+                scale.keyTimes = [0, 0.18, 0.56, 1]
+                let group = CAAnimationGroup()
+                group.animations = [opacity, scale]
+                group.beginTime = ring.convertTime(CACurrentMediaTime(), from: nil) + Double(index) * 0.1
+                group.duration = arcade ? 0.92 : 1.08
+                group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ring.add(group, forKey: "complete-verified-reward")
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.1 + group.duration + 0.08) { [weak ring] in ring?.removeFromSuperlayer() }
+            }
+        case "unverified":
+            let ring = completionRing(radius: 37, color: color, width: arcade ? 3 : 2, start: 0.08, end: 0.88)
+            ring.lineDashPattern = [9, 4]
+            animateCompletionOutcomeRing(ring, key: "complete-unverified-gap", scales: [0.9, 1.04, 1], duration: arcade ? 1.12 : 1.3)
+        case "cancelled":
+            for (start, end) in [(CGFloat(0.04), CGFloat(0.46)), (CGFloat(0.54), CGFloat(0.96))] {
+                let arc = completionRing(radius: 37, color: color, width: arcade ? 3.2 : 2.2, start: start, end: end)
+                let opacity = CAKeyframeAnimation(keyPath: "opacity")
+                opacity.values = [0, 1, 0.86, 0]
+                opacity.keyTimes = [0, 0.12, 0.45, 1]
+                let retract = CAKeyframeAnimation(keyPath: "strokeEnd")
+                retract.values = [end, end, start, start]
+                retract.keyTimes = [0, 0.42, 0.86, 1]
+                let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+                scale.values = [1, 1, 0.82, 0.72]
+                scale.keyTimes = [0, 0.42, 0.84, 1]
+                let group = CAAnimationGroup()
+                group.animations = [opacity, retract, scale]
+                group.duration = arcade ? 1 : 1.18
+                group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                arc.add(group, forKey: "complete-cancelled-retract")
+                DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.08) { [weak arc] in arc?.removeFromSuperlayer() }
+            }
+        default:
+            let ring = completionRing(radius: 36, color: color, width: arcade ? 2 : 1.35)
+            animateCompletionOutcomeRing(ring, key: "complete-no-change-settle", scales: [1, 0.94, 0.78], duration: arcade ? 1.05 : 1.3)
+        }
+    }
+
+    private func animateCompletionOutcomeRing(_ ring: CAShapeLayer, key: String, scales: [CGFloat], duration: CFTimeInterval) {
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [0, 0.92, 0.7, 0]
+        opacity.keyTimes = [0, 0.14, 0.62, 1]
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = scales
+        scale.keyTimes = [0, 0.5, 1]
+        let group = CAAnimationGroup()
+        group.animations = [opacity, scale]
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        ring.add(group, forKey: key)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.08) { [weak ring] in ring?.removeFromSuperlayer() }
     }
 
     private func emitFeedback(for event: PowerEvent, phase: String, color: NSColor) {
@@ -2136,13 +2258,14 @@ private final class OrbLayerRenderer {
         if completion == "verified" { return "✓" }
         if completion == "unverified" { return "!" }
         if completion == "cancelled" { return "×" }
+        if completion == "no-change" { return "·" }
         switch phase {
         case "observe": return "◌"
         case "act": return "›"
         case "verify": return "✓"
         case "wait": return "Ⅱ"
         case "recover": return "↻"
-        case "complete": return "✓"
+        case "complete": return "·"
         default: return "·"
         }
     }
@@ -3281,8 +3404,6 @@ private final class PowerModeView: NSView {
     }
 
     private func localizedPhase(_ phase: String) -> String {
-        if phase != "IDLE" && state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
-        if phase != "IDLE" && state.completion == "unverified" { return preferences.text("UNVERIFIED", "未验证") }
         switch phase {
         case "OBSERVE": return preferences.text("OBSERVE", "观察")
         case "ACT": return preferences.text("ACT", "执行")
@@ -3316,10 +3437,10 @@ private final class PowerModeView: NSView {
         if snapshot.idle || snapshot.phase == "idle" { return preferences.text("IDLE", "待机") }
         if state.status == "needs-attention" || snapshot.phase == "wait" { return preferences.text("APPROVAL", "等待授权") }
         if state.status == "failed" || snapshot.phase == "recover" { return preferences.text("RECOVER", "修复中") }
-        if state.completion == "verified" { return preferences.text("VERIFIED", "已验证") }
-        if state.completion == "unverified" { return preferences.text("CHECK", "待验证") }
-        if state.completion == "cancelled" { return preferences.text("CANCELLED", "已取消") }
-        if state.completion == "no-change" { return preferences.text("DONE", "已完成") }
+        if state.completion == "verified" { return preferences.text("DONE · VERIFIED", "完成 · 已验证") }
+        if state.completion == "unverified" { return preferences.text("DONE · CHECK", "完成 · 待验证") }
+        if state.completion == "cancelled" { return preferences.text("DONE · CANCELLED", "完成 · 已取消") }
+        if state.completion == "no-change" { return preferences.text("DONE · NO CHANGE", "完成 · 无修改") }
         if state.currentActivity == "Understanding request" { return preferences.text("THINKING", "理解需求") }
         let activity = (state.currentActivity ?? "").lowercased()
         switch snapshot.phase {
@@ -3972,6 +4093,7 @@ private final class PowerModeView: NSView {
             connectionDot.fill()
         }
         if phase == "COMPLETE" {
+            drawCompleteClosure(around: origin)
             if state.completion == "verified" {
                 drawCompleteSignal(around: origin)
             } else if state.completion == "unverified" {
@@ -4242,25 +4364,11 @@ private final class PowerModeView: NSView {
 
     private func drawCompleteSignal(around origin: CGPoint) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let rotation = reducedMotion ? 0 : shakePhase * (arcadeMode ? 0.28 : 0.055)
-        if arcadeMode {
-            let colors: [NSColor] = [.systemGreen, .systemPurple, .systemCyan]
-            for (index, color) in colors.enumerated() {
-                let start = CGFloat(index) * 120 + rotation
-                let ribbon = NSBezierPath()
-                ribbon.appendArc(withCenter: center, radius: 41, startAngle: start + 4, endAngle: start + 112)
-                ribbon.lineWidth = 2.3
-                ribbon.lineCapStyle = .round
-                color.withAlphaComponent(0.94).setStroke()
-                ribbon.stroke()
-            }
-        } else {
-            let ribbon = NSBezierPath()
-            ribbon.appendArc(withCenter: center, radius: 41, startAngle: rotation + 8, endAngle: rotation + 350)
-            ribbon.lineWidth = 2
-            ribbon.lineCapStyle = .round
-            NSColor.systemGreen.withAlphaComponent(0.78).setStroke()
-            ribbon.stroke()
+        for (index, radius) in [CGFloat(31), 35.5, 40].enumerated() {
+            let reward = NSBezierPath(ovalIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+            reward.lineWidth = index == 2 ? 1.8 : 1.25
+            NSColor.systemGreen.withAlphaComponent(0.34 + CGFloat(index) * 0.2).setStroke()
+            reward.stroke()
         }
 
         let check = NSBezierPath()
@@ -4274,21 +4382,22 @@ private final class PowerModeView: NSView {
         check.stroke()
     }
 
+    private func drawCompleteClosure(around origin: CGPoint) {
+        let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
+        let closure = NSBezierPath(ovalIn: CGRect(x: center.x - 41, y: center.y - 41, width: 82, height: 82))
+        closure.lineWidth = arcadeMode ? 2.6 : 2
+        NSColor(calibratedRed: 0.76, green: 0.96, blue: 1, alpha: 0.72).setStroke()
+        closure.stroke()
+    }
+
     private func drawUnverifiedSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
-        let ring = NSBezierPath(ovalIn: CGRect(x: center.x - 40, y: center.y - 40, width: 80, height: 80))
-        ring.setLineDash([7, 5], count: 2, phase: reducedMotion ? 0 : shakePhase * (arcadeMode ? 0.24 : 0.08))
+        let ring = NSBezierPath()
+        ring.appendArc(withCenter: center, radius: 37, startAngle: 34, endAngle: 326)
+        ring.setLineDash([9, 4], count: 2, phase: 0)
         ring.lineWidth = 2
         color.withAlphaComponent(0.72).setStroke()
         ring.stroke()
-
-        if arcadeMode {
-            let inner = NSBezierPath(ovalIn: CGRect(x: center.x - 35, y: center.y - 35, width: 70, height: 70))
-            inner.setLineDash([2, 8], count: 2, phase: reducedMotion ? 0 : -shakePhase * 0.18)
-            inner.lineWidth = 1
-            color.withAlphaComponent(0.36).setStroke()
-            inner.stroke()
-        }
 
         let badge = NSBezierPath(ovalIn: CGRect(x: origin.x + 65, y: origin.y + 3, width: 17, height: 17))
         NSColor(calibratedWhite: 0.04, alpha: 0.94).setFill()
@@ -4302,7 +4411,7 @@ private final class PowerModeView: NSView {
     private func drawCancelledSignal(around origin: CGPoint, color: NSColor) {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         color.withAlphaComponent(0.76).setStroke()
-        for angles in [(18.0, 91.0), (132.0, 211.0), (257.0, 326.0)] {
+        for angles in [(12.0, 166.0), (194.0, 348.0)] {
             let segment = NSBezierPath()
             segment.appendArc(withCenter: center, radius: 40, startAngle: CGFloat(angles.0), endAngle: CGFloat(angles.1))
             segment.lineWidth = 2
@@ -4332,26 +4441,14 @@ private final class PowerModeView: NSView {
         let center = CGPoint(x: origin.x + 41, y: origin.y + 41)
         let settle = reducedMotion ? CGFloat(0) : 1.5 * sin(shakePhase * 0.045)
         color.withAlphaComponent(0.48).setStroke()
-        let left = NSBezierPath()
-        left.appendArc(withCenter: center, radius: 40 - settle, startAngle: 112, endAngle: 248)
-        left.lineWidth = 1.5
-        left.lineCapStyle = .round
-        left.stroke()
-        let right = NSBezierPath()
-        right.appendArc(withCenter: center, radius: 40 - settle, startAngle: -68, endAngle: 68)
-        right.lineWidth = 1.5
-        right.lineCapStyle = .round
-        right.stroke()
+        let quietRing = NSBezierPath(ovalIn: CGRect(x: center.x - 36 + settle, y: center.y - 36 + settle, width: 72 - settle * 2, height: 72 - settle * 2))
+        quietRing.lineWidth = 1.35
+        quietRing.stroke()
 
         color.withAlphaComponent(0.74).setFill()
         NSBezierPath(ovalIn: CGRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)).fill()
         color.withAlphaComponent(0.82).setStroke()
-        let quietMark = NSBezierPath()
-        quietMark.move(to: CGPoint(x: origin.x + 68, y: origin.y + 12))
-        quietMark.line(to: CGPoint(x: origin.x + 76, y: origin.y + 12))
-        quietMark.lineWidth = 1.8
-        quietMark.lineCapStyle = .round
-        quietMark.stroke()
+        NSBezierPath(ovalIn: CGRect(x: origin.x + 70, y: origin.y + 10, width: 4, height: 4)).fill()
     }
 
     private func energyLevel(_ momentum: Int) -> (name: String, lineWidth: CGFloat, rhythm: CGFloat) {

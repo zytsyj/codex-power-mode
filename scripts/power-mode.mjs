@@ -187,6 +187,44 @@ async function playEnergyShowcase(delayMs = 1450) {
   }
 }
 
+async function playCompletionShowcase(delayMs = 2200) {
+  await start();
+  const realState = await readState(dataDir);
+  const outcomes = [
+    { completion: "verified", status: "completed", momentum: 999 },
+    { completion: "unverified", status: "completed", momentum: 820 },
+    { completion: "cancelled", status: "cancelled", momentum: 580 },
+    { completion: "no-change", status: "completed", momentum: 340 }
+  ];
+  try {
+    for (const outcome of outcomes) {
+      const timestamp = new Date().toISOString();
+      await broadcast({
+        type: "turn-stop",
+        id: `${Date.now()}-complete-${outcome.completion}`,
+        timestamp,
+        sessionId: "demo",
+        preview: true,
+        state: {
+          ...initialState,
+          phase: "complete",
+          status: outcome.status,
+          momentum: outcome.momentum,
+          bestMomentum: 999,
+          completion: outcome.completion,
+          energyUpdatedAt: timestamp,
+          lastActivityAt: timestamp,
+          stoppedAt: timestamp,
+          sessionId: "demo"
+        }
+      });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  } finally {
+    await restorePreview(realState);
+  }
+}
+
 async function replay() {
   await start();
   const realState = await readState(dataDir);
@@ -533,6 +571,8 @@ if (command === "start") {
   await playPreview(events, 850);
 } else if (command === "energy-showcase") {
   await playEnergyShowcase();
+} else if (command === "completion-showcase") {
+  await playCompletionShowcase();
 } else if (command === "replay") {
   await replay();
 } else if (command === "native") {
@@ -546,6 +586,6 @@ if (command === "start") {
 } else if (command === "purge-data") {
   await purgeData();
 } else {
-  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|stop|reset-settings|purge-data|demo|showcase|energy-showcase|replay|status|doctor> [--open|--json|--yes]\n");
+  process.stderr.write("Usage: power-mode.mjs <start|native|native-stop|stop|reset-settings|purge-data|demo|showcase|energy-showcase|completion-showcase|replay|status|doctor> [--open|--json|--yes]\n");
   process.exitCode = 2;
 }

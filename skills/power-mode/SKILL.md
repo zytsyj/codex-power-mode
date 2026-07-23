@@ -55,7 +55,13 @@ To compare all seven Energy tiers in order without altering real state, run:
 node "${PLUGIN_ROOT}/scripts/power-mode.mjs" energy-showcase
 ```
 
-Demo, showcase, Energy showcase, and replay are transient previews. They do not change the connected task, energy, Combo, history, or personal best, and restore the real HUD state after playback.
+To compare the shared Complete closure followed by the four result stamps, run:
+
+```bash
+node "${PLUGIN_ROOT}/scripts/power-mode.mjs" completion-showcase
+```
+
+Demo, showcase, Energy showcase, completion showcase, and replay are transient previews. They do not change the connected task, energy, Combo, history, or personal best, and restore the real HUD state after playback.
 
 To replay up to 40 recent locally stored events without changing state:
 
@@ -85,7 +91,7 @@ Read `hudDisplay` as the state currently visible after settling and decay, and `
 - Successful tests, builds, lint, or type checks add confidence and evidence and briefly lock the Combo in a Boost reward window.
 - Failed verification enters recovery and lowers confidence.
 - A turn gets an evidence-backed completion only when the latest edit is followed by successful verification.
-- Complete outcomes stay semantically distinct: verified celebrates, unverified cautions, cancelled interrupts, and no-change settles quietly.
+- Every Complete outcome begins with the same stop, closed-ring, and Complete stamp. Its second beat adds the result: verified celebrates with three reward rings, unverified leaves a caution gap, cancelled retracts two split arcs, and no-change settles a thin cyan ring. All four then share the same smooth return to zero.
 - Focus uses restrained single-beat state motion; Arcade uses faster multi-stage capture, drive, and verification rhythms rather than only adding particles.
 - Long Wait and Recover states automatically settle into slower, lower-amplitude motion while keeping their meaning visible.
 - The static Idle orb uses a one-second heartbeat without redrawing identical frames. The browser presentation timer stops entirely after a settled auto-hide, while new activity, disconnects, and reconnects wake it immediately; active effects and Combo decay still render responsively.

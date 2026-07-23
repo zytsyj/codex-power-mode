@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const overlaySource = new URL("../native/macos/PowerModeOverlay.swift", import.meta.url);
+const controllerSource = new URL("../scripts/power-mode.mjs", import.meta.url);
 
 test("native HUD uses compositor-driven orb layers instead of frame-by-frame drawing", async () => {
   const source = await readFile(overlaySource, "utf8");
@@ -21,7 +22,18 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.match(source, /private func playVerifyConvergence/);
   assert.match(source, /private func playWaitGates/);
   assert.match(source, /private func playRecoverFragments/);
-  assert.match(source, /private func playCompleteRings/);
+  assert.match(source, /private func playCompleteFamily/);
+  assert.match(source, /private func playCompleteOutcome/);
+  assert.match(source, /complete-family-closure/);
+  assert.match(source, /complete-verified-reward/);
+  assert.match(source, /complete-unverified-gap/);
+  assert.match(source, /complete-cancelled-retract/);
+  assert.match(source, /complete-no-change-settle/);
+  assert.match(source, /preferences\.text\("COMPLETE", "完成"\)/);
+  assert.match(source, /preferences\.text\("DONE · VERIFIED", "完成 · 已验证"\)/);
+  assert.match(source, /preferences\.text\("DONE · CHECK", "完成 · 待验证"\)/);
+  assert.match(source, /preferences\.text\("DONE · CANCELLED", "完成 · 已取消"\)/);
+  assert.match(source, /preferences\.text\("DONE · NO CHANGE", "完成 · 无修改"\)/);
   assert.match(source, /for effects in \[energyEffects, semanticEffects, comboEffects\]/);
   assert.match(source, /forKey: "evidence-track"/);
   assert.match(source, /layer\.compositingFilter = "screenBlendMode"/);
@@ -48,6 +60,17 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.doesNotMatch(source, /context\.fill\(bounds\)/);
   assert.doesNotMatch(source, /particle\.color\.withAlphaComponent/);
   assert.doesNotMatch(source, /\("always", preferences\.text\("Always expanded"/);
+});
+
+test("Complete showcase previews the shared family without changing real state", async () => {
+  const source = await readFile(controllerSource, "utf8");
+
+  assert.match(source, /async function playCompletionShowcase/);
+  assert.match(source, /completion: "verified"/);
+  assert.match(source, /completion: "unverified"/);
+  assert.match(source, /completion: "cancelled"/);
+  assert.match(source, /completion: "no-change"/);
+  assert.match(source, /finally \{\s+await restorePreview\(realState\);/);
 });
 
 test("native event stream applies bounded exponential reconnect backoff", async () => {
