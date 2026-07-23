@@ -1,64 +1,124 @@
+<div align="center">
+
+<img src="docs/media/arcade-dark-complete.png" width="128" alt="Codex Power Mode completion orb">
+
 # Codex Power Mode
 
-An agent activity feedback layer designed for Codex. Power Mode turns observing, acting, verifying, waiting, recovering, and completing into legible visual states—without pretending Codex is typing at a keyboard.
+**A semantic activity HUD for Codex.**<br>
+See the agent understand, act, verify, wait, recover, and complete—at a glance.
 
-> Private incubation project. The repository is intentionally not open source yet.
+[![macOS](https://img.shields.io/badge/macOS-native-111827?style=flat-square&logo=apple&logoColor=white)](docs/INSTALLATION.md)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-1f6f4a?style=flat-square&logo=nodedotjs&logoColor=white)](package.json)
+[![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
+[![Status](https://img.shields.io/badge/status-private_RC-7c3aed?style=flat-square)](docs/RELEASE_CHECKLIST.md)
+[![License](https://img.shields.io/badge/license-UNLICENSED-4b5563?style=flat-square)](#known-limitations)
 
-| Focus lifecycle | Arcade lifecycle |
-| --- | --- |
-| ![Synthetic Focus lifecycle: Observe, Act, Verify, Complete](docs/media/focus-demo.gif) | ![Synthetic Arcade lifecycle with Typing Combo, Energy tiers, Verify, and Complete](docs/media/arcade-demo.gif) |
+[Install](docs/INSTALLATION.md) · [How it works](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-Power Mode reads Codex lifecycle signals—not keystrokes or code volume—and turns them into a compact semantic rhythm. Useful edits build Energy, consecutive agent steps build Combo, verification creates evidence-backed rewards, and inactivity visibly decays back to Idle. Everything stays local and the runtime has zero third-party packages.
+</div>
 
-Documentation: [Installation](docs/INSTALLATION.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Security audit](docs/SECURITY_AUDIT.md) · [Archive drill](docs/RELEASE_ARCHIVE.md) · [Performance](docs/PERFORMANCE.md) · [Stability](docs/STABILITY.md) · [Compatibility](docs/COMPATIBILITY.md) · [Dependencies](docs/DEPENDENCIES.md) · [Media](docs/MEDIA.md) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/RELEASE_CHECKLIST.md)
+> [!IMPORTANT]
+> This is a private incubation project and is intentionally not open source yet. The current build is a private Release Candidate for personal testing, not a public release.
 
-## At a glance
+<table>
+  <tr>
+    <th width="50%">Focus · restrained clarity</th>
+    <th width="50%">Arcade · expressive feedback</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/focus-demo.gif" width="240" alt="Focus lifecycle: Observe, Act, Verify, Complete"></td>
+    <td align="center"><img src="docs/media/arcade-demo.gif" width="240" alt="Arcade lifecycle with Typing Combo, Energy tiers, Verify, and Complete"></td>
+  </tr>
+</table>
+
+Power Mode reads trusted Codex lifecycle signals—not prompt text, simulated typing, or raw source code—and turns them into a compact visual rhythm. Useful work builds **Energy**, consecutive agent steps maintain **Combo**, verification creates evidence-backed completion, and inactivity settles visibly back to Idle.
+
+## Why Power Mode?
+
+| Semantic, not decorative | Local by design | Calm or expressive |
+| --- | --- | --- |
+| Six distinct states explain what Codex is doing instead of showing a generic spinner. | The service binds to localhost, uses per-install authentication, and stores no prompt or command text. | Focus keeps motion restrained; Arcade adds stronger impact without changing the underlying state model. |
+
+## One orb, two independent signals
+
+### Agent state
+
+`Observe` → `Act` → `Verify` → `Complete`
+
+Attention paths remain explicit: `Wait` requests input, while `Recover` shows failed work being repaired. Every new event gets one short state-specific action; stable state geometry remains readable after the transient animation leaves.
+
+### Energy evolution
+
+| Energy | Tier | Visual evolution |
+| ---: | --- | --- |
+| `1–199` | **Wake** | Chassis comes online |
+| `200–449` | **Charge** | Three nodes separate and orbit |
+| `450–699` | **Drive** | Four-node directional bus engages |
+| `700–899` | **Critical** | Six locks and stabilizer assemble |
+| `900–999` | **Peak** | The mechanism synchronizes under a white-gold crown |
+
+The ring refills inside each tier, then establishes the next topology. Peak is reached through normal Energy accumulation; verification is not a gate for entering the highest tier.
+
+### Combo
+
+Combo is the short-lived outer arc for consecutive agent steps. It advances through Ignite, Link, Accel, Heat, and Extreme, warns before expiry, and visibly disconnects when the chain breaks. Typing Combo is separate and optional.
+
+## Controls at a glance
 
 | Control | Choices | Purpose |
 | --- | --- | --- |
 | Visual rhythm | Focus / Arcade | Restrained clarity or high-impact choreography |
-| Activity source | Focus / Global / Mix | One task, latest isolated task, or one shared desktop pool |
-| Energy gain | Ten presets from 0.30× to 1.50× | Scale earned Energy across the same five tier boundaries |
-| Input feedback | Off / Sparks / Neon | Optional local cursor effect and independent Typing Combo |
-| Idle behavior | Hide / Quiet orb | Disappear after settling or retain a neutral `0 / Idle` orb |
-| Accessibility | Reduce Motion | Preserve semantic state without spatial motion or particles |
-| Language | Auto / English / 中文 | Localized HUD labels and menu controls |
+| Activity source | Focus / Global / Mix | One task, latest isolated task, or a shared desktop pool |
+| Energy gain | 0.30×–1.50× | Tune accumulation without changing tier boundaries |
+| Input feedback | Off / Sparks / Neon | Optional cursor feedback and independent Typing Combo |
+| Idle behavior | Hide / Quiet orb | Disappear after settling or retain a neutral orb |
+| Accessibility | Reduce Motion | Preserve semantic feedback without spatial motion |
+| Language | Auto / English / 中文 | Localized HUD labels and controls |
 
-Typing Combo and Reduce Motion are shown below. Both are generated from the same native renderer used by the HUD.
+<table>
+  <tr>
+    <th width="50%">Typing Combo</th>
+    <th width="50%">Reduce Motion · Recover</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/typing-combo-dark.png" width="220" alt="Gold Typing Combo on a dark background"></td>
+    <td align="center"><img src="docs/media/reduced-light-recover.png" width="220" alt="Reduced Motion Recover on a light background"></td>
+  </tr>
+</table>
 
-| Typing Combo | Reduce Motion · Recover |
-| --- | --- |
-| ![Gold Typing Combo on a dark background](docs/media/typing-combo-dark.png) | ![Reduced Motion Recover on a light background](docs/media/reduced-light-recover.png) |
+## Current scope
 
-## Current v0.8.0 private Release Candidate
+- Native transparent, click-through HUD for the Codex desktop app on macOS only.
+- Focus, Global, and Mix task-following modes with isolated or shared Energy and Combo.
+- Distinct verified, unverified, cancelled, and no-change completion outcomes.
+- Fixed semantic confirmations for Reduce Motion.
+- Menu-bar controls for language, effects, visibility, size, motion, and positioning.
+- Local authenticated event service with zero third-party runtime packages or analytics.
+- Reproducible demos, render QA, security, stability, compatibility, and performance checks.
 
-The current build is suitable for ongoing personal testing, but it is not a public stable release. Automated lifecycle, rendering, recovery, privacy, and single-machine performance checks are in place. Final publication still depends on hands-on interaction acceptance, a real trusted Hook run after the latest install, Instruments GPU/energy inspection, compatibility testing across the declared support range, and owner decisions listed in the [release checklist](docs/RELEASE_CHECKLIST.md).
+Automated checks are in place, but final publication still depends on hands-on interaction acceptance, a trusted Hook run after installation, Instruments GPU/Energy inspection, compatibility review, and the owner decisions in the [release checklist](docs/RELEASE_CHECKLIST.md).
 
-- Maps Codex lifecycle activity into six semantic states: Observe, Act, Verify, Wait, Recover, and Complete.
-- Uses a five-stage `0–999` Energy scale—Wake, Charge, Drive, Critical, Peak—for useful progress, Confidence for verification evidence, and Risk for change scope; Peak begins at `900` through normal Energy accumulation.
-- Refills the Energy ring inside each tier instead of drawing one slow `0–999` lap: a full ring breaks through, resets for the next tier, and reverses the same sequence while decaying. One connected mechanism evolves across five topologies—Wake starts the chassis, Charge splits out three orbiting nodes, Drive anchors them into a directional energy bus and opens propulsion ports, Critical divides them into six locks around a counter-rotating stabilizer, and Peak phase-synchronizes the whole machine beneath a white-gold crown. Upgrades migrate existing nodes and grow their connections instead of stacking isolated decorations.
-- Optionally counts local typing rhythm while Codex is the foreground app. A large independent `×N` sits beside the orb, optional Sparks/Neon effects fire at the text cursor, and sending collapses the counter into an authenticated Energy stream without reading, storing, or transmitting text.
-- Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
-- Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.
-- Supports Focus (hold the current conversation), Global (follow the latest conversation with isolated state), and Mix (one shared Energy/Combo pool for all Codex app conversations). In Mix, every conversation still gets a brief result-stamped completion cue; the final conversation receives the full Complete family.
-- Decays inactive conversations by real elapsed time before they return to the HUD, then uses a compositor handoff instead of abruptly swapping stale energy values.
-- Gives small and large edits equal Momentum; larger changes increase Risk instead.
-- Surfaces permission requests as an explicit attention state.
-- Measures added and removed lines without storing source code in the HUD event stream.
-- Recognizes common test, build, lint, and type-check commands.
-- Requires successful post-edit verification for an evidence-backed completion.
-- Gives verified, unverified, cancelled, and no-change endings distinct motion rhythms; Focus confirms quietly while Arcade reserves multi-stage impact for evidence-backed success.
-- Keeps the central number and activity label permanently clear. Act drives the shared outer energy bus, Verify locks its nodes in sequence, and Reduced Motion preserves the same topology without spatial animation.
-- Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
-- Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
-- Includes semantic demo and recent-event replay tools for visual tuning.
-- Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy eases back to zero over roughly 45 seconds instead of dropping away.
-- Drops the static Idle orb to a one-second heartbeat, and suspends the browser presentation timer entirely after auto-hide; new activity or connection changes wake it immediately.
-- Keeps reduced-motion feedback semantic: events briefly show a fixed, phase-colored confirmation ring and compact glyph instead of particles, rotation, shaking, or full-screen flashes.
-- Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
-- Supports restrained `focus` and high-energy `arcade` effect presets.
-- Adds a lightweight macOS menu-bar control for language, effects, idle behavior and its hide delay, size, motion, and drag positioning.
-- Keeps saved and preset positions inside the active display's visible area and recovers them after resolution, Dock, or monitor-layout changes.
+<details>
+<summary><strong>Documentation and release evidence</strong></summary>
+
+<br>
+
+[Installation](docs/INSTALLATION.md) ·
+[Architecture](docs/ARCHITECTURE.md) ·
+[Privacy](docs/PRIVACY.md) ·
+[FAQ](docs/FAQ.md) ·
+[Troubleshooting](docs/TROUBLESHOOTING.md) ·
+[Security audit](docs/SECURITY_AUDIT.md) ·
+[Performance](docs/PERFORMANCE.md) ·
+[Stability](docs/STABILITY.md) ·
+[Compatibility](docs/COMPATIBILITY.md) ·
+[Dependencies](docs/DEPENDENCIES.md) ·
+[Media provenance](docs/MEDIA.md) ·
+[Release archive](docs/RELEASE_ARCHIVE.md) ·
+[Security policy](SECURITY.md) ·
+[Contributing](CONTRIBUTING.md)
+
+</details>
 
 ## Try it locally
 
