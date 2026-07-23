@@ -39,7 +39,7 @@ The current build is suitable for ongoing personal testing, but it is not a publ
 - Optionally counts local typing rhythm while Codex is the foreground app. A large independent `×N` sits beside the orb, optional Sparks/Neon effects fire at the text cursor, and sending collapses the counter into an authenticated Energy stream without reading, storing, or transmitting text.
 - Adds a separate short-lived Combo link for consecutive Codex steps; it never replaces Momentum.
 - Gives every Combo increase a visible pulse, expands through five count tiers, warns with a double beat near expiry, and fractures explicitly on disconnect.
-- Supports Focus (hold the current conversation), Global (follow the latest conversation with isolated state), and Mix (one shared Energy/Combo pool for all Codex app conversations).
+- Supports Focus (hold the current conversation), Global (follow the latest conversation with isolated state), and Mix (one shared Energy/Combo pool for all Codex app conversations). In Mix, every conversation still gets a brief result-stamped completion cue; the final conversation receives the full Complete family.
 - Decays inactive conversations by real elapsed time before they return to the HUD, then uses a compositor handoff instead of abruptly swapping stale energy values.
 - Gives small and large edits equal Momentum; larger changes increase Risk instead.
 - Surfaces permission requests as an explicit attention state.
@@ -51,7 +51,7 @@ The current build is suitable for ongoing personal testing, but it is not a publ
 - Streams events to a compact zero-dependency floating HUD with agent state, confidence, evidence, and risk signals.
 - Includes a native macOS transparent, click-through overlay anchored to the Codex window, with an optional global visibility mode.
 - Includes semantic demo and recent-event replay tools for visual tuning.
-- Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy returns to zero.
+- Holds the final result, lets Combo drain and disconnect, then settles into a neutral Idle state while visible energy eases back to zero over roughly 45 seconds instead of dropping away.
 - Drops the static Idle orb to a one-second heartbeat, and suspends the browser presentation timer entirely after auto-hide; new activity or connection changes wake it immediately.
 - Keeps reduced-motion feedback semantic: events briefly show a fixed, phase-colored confirmation ring and compact glyph instead of particles, rotation, shaking, or full-screen flashes.
 - Auto-hides after settling or keeps a quiet `0 / Idle` orb, while Wait, Recover, and reconnect states remain visible.
@@ -172,10 +172,10 @@ Installed plugin hooks must be reviewed and trusted by the user before Codex run
 
 ## Combo semantics
 
-- Typing Combo is local and separate from the agent Combo below. A real `UserPromptSubmit` consumes it into a capped `6/16/32/55/90` Energy charge; it cannot create the verified `999` peak.
+- Typing Combo is local and separate from the agent Combo below. A real `UserPromptSubmit` consumes it into a capped `5/14/27/47/77` Energy charge; it cannot create the verified `999` peak.
 
 - A new Codex tool step starts or extends Combo; edits add one link and successful verification adds two. Every increase pulses the ring, while tier crossings create a larger expansion.
-- Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 12 seconds.
+- Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 14 seconds.
 - Permission waits preserve Combo for 15 seconds before draining, so approval latency is not treated as an instant failure.
 - Failed verification and unverified completion break Combo immediately.
 - An expired link starts again at `1×` with a brief `RELINK` / `重连` bridge; a new turn or Codex session also starts at `1×` but is deliberately not presented as a continuation.

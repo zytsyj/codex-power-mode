@@ -32,7 +32,7 @@ The **When Codex is inactive** setting has three policies: hide it, keep it at t
 
 - **Focus** holds the current Codex task and prevents background tasks from taking over.
 - **Global** follows the latest active Codex desktop task while keeping each task's Energy and Combo isolated.
-- **Mix** combines all Codex desktop tasks into one shared Energy and Combo pool.
+- **Mix** combines all Codex desktop tasks into one shared Energy and Combo pool. Each conversation end still flashes its own completion result without resetting the pool; after the final conversation, the shared energy eases down in Idle rather than disappearing.
 
 ## Why do cursor effects require Accessibility permission?
 

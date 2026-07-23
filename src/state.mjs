@@ -35,11 +35,14 @@ export const initialState = Object.freeze({
   lastFailureAt: null,
   turnStoppedAt: null,
   completion: null,
+  mixedLastCompletion: null,
+  mixedLastCompletionAt: null,
   sessionId: null,
   sessionSource: "unknown"
 });
 
 export const ENERGY_MAX = 999;
+export const ENERGY_GAIN_MULTIPLIER = 0.85;
 export const ENERGY_STAGES = Object.freeze([
   Object.freeze({ name: "idle", lower: 0, upper: 0 }),
   Object.freeze({ name: "awakening", lower: 1, upper: 99 }),
@@ -52,18 +55,19 @@ export const ENERGY_STAGES = Object.freeze([
 ]);
 const clamp = (value, minimum = 0, maximum = 100) => Math.max(minimum, Math.min(maximum, value));
 const clampEnergy = (value) => clamp(value, 0, ENERGY_MAX);
-export const COMBO_DECAY_MS = 12_000;
+export const COMBO_DECAY_MS = 14_000;
 export const COMBO_LOST_MS = 3_200;
 export const COMBO_RELINK_FEEDBACK_MS = 1_600;
 export const VERIFICATION_REWARD_HOLD_MS = 1_800;
 export const FINAL_STATE_HOLD_MS = 3_000;
-export const MOMENTUM_RETURN_MS = 4_000;
+export const MOMENTUM_RETURN_MS = 45_000;
 export const ENERGY_IDLE_GRACE_MS = 20_000;
 export const ENERGY_DECAY_MS = 90_000;
 export const ABANDONED_ACTIVITY_MS = 5 * 60_000;
 export const RECOVERY_TIMEOUT_MS = 15_000;
 
 const COMBO_HOLD_MS = Object.freeze({ observe: 0, act: 15_000, verify: 90_000 });
+const scaledEnergyGain = (value) => Math.round(value * ENERGY_GAIN_MULTIPLIER);
 
 function timestampAfter(timestamp, offsetMs) {
   const value = Date.parse(timestamp);
@@ -134,11 +138,11 @@ export function energyStage(momentum = 0) {
 
 export function typingChargeForCombo(combo = 0) {
   const count = Math.max(0, Math.min(200, Number.isFinite(combo) ? Math.floor(combo) : 0));
-  if (count >= 40) return 90;
-  if (count >= 20) return 55;
-  if (count >= 10) return 32;
-  if (count >= 5) return 16;
-  return count > 0 ? 6 : 0;
+  if (count >= 40) return scaledEnergyGain(90);
+  if (count >= 20) return scaledEnergyGain(55);
+  if (count >= 10) return scaledEnergyGain(32);
+  if (count >= 5) return scaledEnergyGain(16);
+  return count > 0 ? scaledEnergyGain(6) : 0;
 }
 
 export function comboStage(state, now = Date.now()) {
@@ -202,13 +206,15 @@ export function presentationSnapshot(state, now = Date.now()) {
   if (current < idleAt) return { ...state, momentum, idle: false, settled: false, returning: true };
 
   const progress = clamp((current - idleAt) / MOMENTUM_RETURN_MS, 0, 1);
+  const returnedMomentum = Math.round(momentum * (1 - progress));
+  const settled = returnedMomentum <= 0 || progress >= 1;
   return {
     ...state,
     phase: "idle",
     status: "ready",
     completion: null,
     currentActivity: "Waiting for Codex activity",
-    momentum: Math.round(momentum * (1 - progress)),
+    momentum: returnedMomentum,
     combo: 0,
     comboStatus: "idle",
     comboHoldUntil: null,
@@ -218,8 +224,8 @@ export function presentationSnapshot(state, now = Date.now()) {
     verificationReward: null,
     verificationRewardAt: null,
     idle: true,
-    settled: progress >= 1,
-    returning: progress < 1
+    settled,
+    returning: !settled
   };
 }
 
@@ -279,14 +285,18 @@ export function reduceState(previous = initialState, event) {
   };
   state.momentum = carriedEnergy;
   state.evidence = Array.isArray(turnBase.evidence) ? [...turnBase.evidence] : [];
-  if (event.type !== "turn-stop") state.turnStoppedAt = null;
+  if (event.type !== "turn-stop") {
+    state.turnStoppedAt = null;
+    state.mixedLastCompletion = null;
+    state.mixedLastCompletionAt = null;
+  }
 
   if (event.type === "activity-start") {
     state.phase = event.phase || "observe";
     state.status = "working";
     state.currentActivity = activityLabel(event);
     state.steps += 1;
-    const gain = state.phase === "observe" ? 14 : state.phase === "verify" ? 20 : 28;
+    const gain = scaledEnergyGain(state.phase === "observe" ? 14 : state.phase === "verify" ? 20 : 28);
     state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + gain));
     state.completion = null;
     state.lastActivityAt = event.timestamp;
@@ -318,7 +328,7 @@ export function reduceState(previous = initialState, event) {
     state.edits += 1;
     state.addedLines += event.addedLines;
     state.removedLines += event.removedLines;
-    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + 85));
+    state.momentum = Math.min(ENERGY_MAX - 1, clampEnergy(state.momentum + scaledEnergyGain(85)));
     state.confidence = clamp(state.confidence - 12);
     state.risk = clamp(state.risk + scopeRisk(event));
     state.lastEditAt = event.timestamp;
@@ -345,7 +355,7 @@ export function reduceState(previous = initialState, event) {
       state.status = "verified";
       state.currentActivity = `${event.category} passed`;
       state.passedVerifications += 1;
-      state.momentum = clampEnergy(state.momentum + 170);
+      state.momentum = clampEnergy(state.momentum + scaledEnergyGain(170));
       state.confidence = clamp(state.confidence + verificationConfidence(event.category));
       state.risk = clamp(state.risk - 18);
       if (!state.evidence.includes(event.category)) state.evidence.push(event.category);

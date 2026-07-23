@@ -34,7 +34,9 @@ const sessionArbiter = createSessionArbiter(await readState(dataDir));
 const nativeConfigFile = path.join(dataDir, "native", "overlay-config.json");
 
 async function processEvent(incoming, { recordActivity = true } = {}) {
-  const { state: ignoredState, ...event } = incoming;
+  // State and Mix completion metadata are always derived by the service. Never
+  // let a hook payload choose the visible result or overwrite persisted state.
+  const { state: ignoredState, mixCompletion: ignoredMixCompletion, ...event } = incoming;
   if (recordActivity) activity.record(event);
   const previousSession = sessionArbiter.snapshot().activeSessionId;
   const mode = await activitySource();
@@ -43,13 +45,20 @@ async function processEvent(incoming, { recordActivity = true } = {}) {
     ? { previousSessionId: previousSession, currentSessionId: event.sessionId }
     : null;
   if (decision.displayed) {
+    const stoppedSession = mode === "mix" && event.type === "turn-stop"
+      ? await readSessionState(dataDir, event.sessionId)
+      : null;
+    const mixCompletion = ["verified", "unverified", "cancelled", "no-change"].includes(stoppedSession?.completion)
+      ? stoppedSession.completion
+      : null;
+    const displayEvent = mixCompletion ? { ...event, mixCompletion } : event;
     const state = mode === "mix"
-      ? (await recordMixedEventResult(dataDir, event)).state
+      ? (await recordMixedEventResult(dataDir, displayEvent)).state
       : recordActivity
         ? await readSessionState(dataDir, event.sessionId)
         : (await recordSessionEventResult(dataDir, event)).state;
     await writeStateSnapshot(dataDir, state);
-    broadcast({ ...event, state, ...(sessionTransition ? { sessionTransition } : {}) });
+    broadcast({ ...displayEvent, state, ...(sessionTransition ? { sessionTransition } : {}) });
   }
   return { ...decision, sessionTransition };
 }

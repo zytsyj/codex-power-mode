@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, energyStage, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity, typingChargeForCombo } from "../src/state.mjs";
+import { COMBO_DECAY_MS, ENERGY_GAIN_MULTIPLIER, MOMENTUM_RETURN_MS, comboDisplayStatus, comboProgress, comboStage, energyAt, energyLevel, energyStage, initialState, presentationSnapshot, reduceState, shouldCoalesceActivity, typingChargeForCombo } from "../src/state.mjs";
 
 const at = (seconds) => new Date(seconds * 1_000).toISOString();
 
@@ -9,7 +9,7 @@ test("activity events represent Codex states without rewarding code volume", () 
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
   });
   assert.equal(state.phase, "observe");
-  assert.equal(state.momentum, 14);
+  assert.equal(state.momentum, 12);
   assert.equal(state.currentActivity, "Searching the workspace");
 });
 
@@ -19,7 +19,7 @@ test("prompt submission immediately enters understanding", () => {
   });
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
-  assert.equal(state.momentum, 14);
+  assert.equal(state.momentum, 12);
   assert.equal(state.combo, 1);
 });
 
@@ -35,12 +35,13 @@ test("energy stage progress refills inside every tier", () => {
 });
 
 test("typing Combo injects a bounded tiered charge without advancing agent Combo", () => {
-  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [6, 16, 32, 55, 90, 90]);
+  assert.equal(ENERGY_GAIN_MULTIPLIER, 0.85);
+  assert.deepEqual([1, 5, 10, 20, 40, 200].map(typingChargeForCombo), [5, 14, 27, 47, 77, 77]);
   const prior = { ...initialState, momentum: 95, combo: 3, sessionId: "s" };
   const state = reduceState(prior, {
     type: "input-charge", inputCombo: 10, timestamp: at(2), sessionId: "s", sessionSource: "desktop"
   });
-  assert.equal(state.momentum, 127);
+  assert.equal(state.momentum, 122);
   assert.equal(state.combo, 3);
   assert.equal(state.phase, "observe");
   assert.equal(state.currentActivity, "Understanding request");
@@ -147,7 +148,7 @@ test("energy has a grace period, decays by real elapsed time, and materializes b
   const resumed = reduceState(charged, {
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(66), sessionId: "s"
   });
-  assert.equal(resumed.momentum, 314);
+  assert.equal(resumed.momentum, 312);
 });
 
 test("only an evidence-backed edited completion reaches the 999 peak", () => {
@@ -192,7 +193,7 @@ test("turn completes as verified only after post-edit evidence", () => {
   assert.equal(state.turnStoppedAt, at(4));
 });
 
-test("a completed turn becomes idle only after combo feedback and returns momentum to zero", () => {
+test("a completed turn becomes idle after feedback and then slowly returns momentum to zero", () => {
   let state = reduceState(initialState, {
     type: "edit", timestamp: at(2), addedLines: 2, removedLines: 0, sessionId: "s"
   });
@@ -206,7 +207,10 @@ test("a completed turn becomes idle only after combo feedback and returns moment
   assert.equal(returning.phase, "idle");
   assert.equal(returning.status, "ready");
   assert.ok(returning.momentum > 0 && returning.momentum < state.momentum);
-  const settled = presentationSnapshot(state, at(27));
+  const stillReturning = presentationSnapshot(state, at(40));
+  assert.equal(stillReturning.phase, "idle");
+  assert.ok(stillReturning.momentum > 0);
+  const settled = presentationSnapshot(state, at(70));
   assert.equal(settled.momentum, 0);
   assert.equal(settled.combo, 0);
   assert.equal(settled.comboStatus, "idle");
@@ -214,6 +218,7 @@ test("a completed turn becomes idle only after combo feedback and returns moment
   assert.ok(state.combo > 0);
   assert.equal(settled.settled, true);
   assert.equal(state.bestMomentum, settled.bestMomentum);
+  assert.equal(MOMENTUM_RETURN_MS, 45_000);
 });
 
 test("new work cancels the idle countdown", () => {
@@ -223,7 +228,7 @@ test("new work cancels the idle countdown", () => {
   });
   assert.equal(state.turnStoppedAt, null);
   assert.equal(presentationSnapshot(state, at(30)).phase, "observe");
-  assert.equal(state.momentum, 14);
+  assert.equal(state.momentum, 12);
   assert.equal(state.combo, 1);
 });
 
@@ -243,7 +248,7 @@ test("a new turn carries decayed energy while resetting evidence, risk, and edit
   state = reduceState(state, {
     type: "activity-start", phase: "observe", toolGroup: "prompt", timestamp: at(30), sessionId: "s"
   });
-  assert.equal(state.momentum, 946);
+  assert.equal(state.momentum, 944);
   assert.equal(state.combo, 1);
   assert.equal(state.confidence, 0);
   assert.equal(state.risk, 0);
@@ -267,6 +272,7 @@ test("abandoned non-terminal activity settles without hiding attention states", 
   assert.equal(presentationSnapshot(working, at(300)).phase, "observe");
   assert.equal(presentationSnapshot(working, at(305)).phase, "idle");
   assert.equal(presentationSnapshot(working, at(309)).momentum, 0);
+  assert.equal(presentationSnapshot(working, at(350)).momentum, 0);
 
   const waiting = reduceState(working, { type: "permission-request", timestamp: at(2), sessionId: "s" });
   assert.equal(presentationSnapshot(waiting, at(10_000)).phase, "wait");
@@ -327,8 +333,9 @@ test("combo holds during tools and then decays after a useful result", () => {
   });
   assert.equal(state.combo, 2);
   assert.equal(state.comboStatus, "decaying");
-  assert.equal(comboProgress(state, at(18)), 0.5);
-  assert.equal(comboProgress(state, at(24)), 0);
+  assert.equal(COMBO_DECAY_MS, 14_000);
+  assert.ok(Math.abs(comboProgress(state, at(18)) - (8 / 14)) < 1e-9);
+  assert.equal(comboProgress(state, at(26)), 0);
 });
 
 test("an expired combo restarts instead of increasing forever", () => {
@@ -363,8 +370,8 @@ test("an expired combo shows LOST briefly and then returns to READY", () => {
   const state = reduceState(initialState, {
     type: "activity-start", phase: "observe", toolGroup: "search", timestamp: at(1), sessionId: "s"
   });
-  assert.equal(comboDisplayStatus(state, at(13.5)), "broken");
-  assert.equal(comboDisplayStatus(state, at(16.3)), "idle");
+  assert.equal(comboDisplayStatus(state, at(15.5)), "broken");
+  assert.equal(comboDisplayStatus(state, at(18.3)), "idle");
 });
 
 test("failed edits enter recovery and immediately break the combo", () => {

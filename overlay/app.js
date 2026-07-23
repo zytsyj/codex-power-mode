@@ -23,7 +23,7 @@ const intensity = preset === "arcade" ? 1.75 : 1;
 const finalStateHoldMs = 3_000;
 const comboLostMs = 3_200;
 const comboRelinkFeedbackMs = 1_600;
-const momentumReturnMs = 4_000;
+const momentumReturnMs = 45_000;
 const abandonedActivityMs = 5 * 60_000;
 const recoveryTimeoutMs = 15_000;
 const effectBudget = preset === "arcade"
@@ -98,7 +98,7 @@ if (previewMode) {
     comboStatus: comboBroken || recoveryPreview || incompleteOutcome ? "broken" : noChangeComplete ? "idle" : comboHolding ? "holding" : previewReward ? "reward" : verifiedComplete ? "complete" : "decaying",
     comboLastAt: new Date(previewNow).toISOString(),
     comboHoldUntil: comboBroken ? null : new Date(previewNow + (comboHolding ? 60_000 : comboCritical ? -10_000 : 0)).toISOString(),
-    comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : comboCritical ? 2_500 : 12_000)).toISOString(),
+    comboExpiresAt: comboBroken || previewPhase === "complete" && !verifiedComplete ? null : new Date(previewNow + (comboHolding ? 72_000 : comboCritical ? 2_500 : 14_000)).toISOString(),
     comboBrokenAt: comboBroken || recoveryPreview || incompleteOutcome ? new Date(previewNow - (previewStale ? 30_000 : 0)).toISOString() : null,
     comboRelinkedAt: comboRelinked ? new Date(previewNow).toISOString() : null,
     verificationReward: previewReward,
@@ -296,16 +296,18 @@ function presentationAt(next, now = Date.now()) {
   const settledAt = idleAt + momentumReturnMs;
   if (now < idleAt) return { ...next, momentum, idle: false, settled: false, returning: true, idleAt, settledAt };
   const progress = Math.max(0, Math.min(1, (now - idleAt) / momentumReturnMs));
+  const returnedMomentum = Math.round(momentum * (1 - progress));
+  const settled = returnedMomentum <= 0 || progress >= 1;
   return {
     ...next,
     phase: "idle",
     status: "ready",
     completion: null,
     currentActivity: t("standby"),
-    momentum: Math.round(momentum * (1 - progress)),
+    momentum: returnedMomentum,
     idle: true,
-    settled: progress >= 1,
-    returning: progress < 1,
+    settled,
+    returning: !settled,
     idleAt,
     settledAt
   };

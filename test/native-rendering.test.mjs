@@ -24,6 +24,11 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.match(source, /private func playRecoverFragments/);
   assert.match(source, /private func playCompleteFamily/);
   assert.match(source, /private func playCompleteOutcome/);
+  assert.match(source, /private func playMixCompletion/);
+  assert.match(source, /mix-complete-closure/);
+  assert.match(source, /mix-complete-outcome/);
+  assert.match(source, /mix-complete-stamp/);
+  assert.match(source, /preferences\.text\("ONE DONE · VERIFIED", "一项完成 · 已验证"\)/);
   assert.match(source, /complete-family-closure/);
   assert.match(source, /complete-verified-reward/);
   assert.match(source, /complete-unverified-gap/);
@@ -60,6 +65,8 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.doesNotMatch(source, /context\.fill\(bounds\)/);
   assert.doesNotMatch(source, /particle\.color\.withAlphaComponent/);
   assert.doesNotMatch(source, /\("always", preferences\.text\("Always expanded"/);
+  assert.match(source, /let settledAt = idleAt\.addingTimeInterval\(45\)/);
+  assert.doesNotMatch(source, /hasEffects \|\| positioning \|\| comboIsDecaying \|\| hudIsFading \|\| presentation\.returning/);
 });
 
 test("Complete showcase previews the shared family without changing real state", async () => {

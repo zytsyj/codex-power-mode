@@ -11,6 +11,7 @@ import {
   recordSessionEventResult,
   writeStateSnapshot
 } from "../src/storage.mjs";
+import { presentationSnapshot } from "../src/state.mjs";
 
 const eventAt = (milliseconds) => ({
   type: "activity-start",
@@ -144,16 +145,28 @@ test("mix storage shares energy and Combo without letting one parallel stop rese
     let result = await recordMixedEventResult(directory, { ...eventAt(1_000), sessionId: "thread-a" });
     result = await recordMixedEventResult(directory, { ...eventAt(2_000), sessionId: "thread-b" });
     assert.equal(result.state.sessionId, "mix");
-    assert.equal(result.state.momentum, 28);
+    assert.equal(result.state.momentum, 24);
     assert.equal(result.state.combo, 2);
     assert.equal(result.state.mixedConversationCount, 2);
 
     result = await recordMixedEventResult(directory, {
-      type: "turn-stop", timestamp: new Date(3_000).toISOString(), sessionId: "thread-a"
+      type: "turn-stop", timestamp: new Date(3_000).toISOString(), sessionId: "thread-a",
+      mixCompletion: "no-change"
     });
     assert.notEqual(result.state.phase, "complete");
     assert.equal(result.state.combo, 2);
     assert.equal(result.state.mixedConversationCount, 1);
+    assert.equal(result.state.mixedLastCompletion, "no-change");
+
+    result = await recordMixedEventResult(directory, {
+      type: "turn-stop", timestamp: new Date(4_000).toISOString(), sessionId: "thread-b",
+      mixCompletion: "no-change"
+    });
+    assert.equal(result.state.phase, "complete");
+    assert.equal(result.state.mixedConversationCount, 0);
+    const idle = presentationSnapshot(result.state, new Date(8_000).toISOString());
+    assert.equal(idle.phase, "idle");
+    assert.ok(idle.momentum > 0 && idle.momentum < result.state.momentum);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

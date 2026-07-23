@@ -323,11 +323,26 @@ test("mix mode streams one shared pool across Codex conversations", async () => 
     const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
     const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(state.sessionId, "mix");
-    assert.equal(state.momentum, 42);
+    assert.equal(state.momentum, 36);
     assert.equal(state.combo, 2);
     assert.equal(state.mixedConversationCount, 2);
     assert.equal(health.session.activitySource, "mix");
     assert.equal(health.session.activeSessionId, "mix");
+
+    const stopped = await postEvent(dataDir, port, {
+      type: "turn-stop",
+      sessionId: "conversation-a",
+      sessionSource: "desktop",
+      timestamp: new Date(3_000).toISOString(),
+      // This mirrors the trusted per-session state already written by the hook.
+      state: { sessionId: "conversation-a", phase: "complete", completion: "unverified", momentum: 12 }
+    });
+    assert.equal(stopped.status, 202);
+    const afterPartialStop = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
+    assert.equal(afterPartialStop.phase, "act");
+    assert.equal(afterPartialStop.mixedConversationCount, 1);
+    assert.equal(afterPartialStop.mixedLastCompletion, "unverified");
+    assert.equal(afterPartialStop.combo, 2);
   } finally {
     child.kill("SIGTERM");
     await waitForExit(child).catch(() => child.kill("SIGKILL"));
@@ -358,7 +373,7 @@ test("typing charge atomically augments the submitted desktop session without pr
     const state = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/state`)).json();
     const health = await (await authorizedFetch(dataDir, `http://127.0.0.1:${port}/api/health`)).json();
     const history = await readFile(path.join(dataDir, "events.ndjson"), "utf8");
-    assert.equal(state.momentum, 46);
+    assert.equal(state.momentum, 41);
     assert.equal(state.combo, 0);
     assert.equal(health.activity.realEventsReceived, 1);
     assert.match(history, /"inputCombo":10/);

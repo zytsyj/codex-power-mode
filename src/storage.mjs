@@ -1,6 +1,6 @@
 import { appendFile, mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
+import { energyAt, initialState, reduceState, shouldCoalesceActivity } from "./state.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const staleLockAgeMs = 10_000;
@@ -172,11 +172,14 @@ export async function recordMixedEventResult(dataDir, event) {
     if (event.type === "turn-stop" && activeSessions.size > 0) {
       next = {
         ...previous,
+        momentum: energyAt(previous, eventAt),
         sessionId: "mix",
         sessionSource: "desktop",
         currentActivity: "A parallel conversation completed",
         lastActivityAt: event.timestamp,
-        energyUpdatedAt: event.timestamp
+        energyUpdatedAt: event.timestamp,
+        mixedLastCompletion: event.mixCompletion ?? "no-change",
+        mixedLastCompletionAt: event.timestamp
       };
     } else {
       next = reduceState(previous, mixedEvent);

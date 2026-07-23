@@ -258,6 +258,7 @@ private struct PowerState: Decodable {
     let removedLines: Int?
     let verifications: Int?
     let mixedConversationCount: Int?
+    let mixedLastCompletion: String?
 }
 
 private struct PowerEvent: Decodable {
@@ -275,6 +276,7 @@ private struct PowerEvent: Decodable {
     let phase: String?
     let toolGroup: String?
     let inputCombo: Int?
+    let mixCompletion: String?
     let state: PowerState?
     let sessionTransition: SessionTransition?
 }
@@ -782,11 +784,19 @@ private final class OrbLayerRenderer {
         }
         updateSemanticContrast(phase: nextPhase, tier: nextEnergyTier, color: color)
         if let event {
+            completionAnimationGeneration += 1
             if event.sessionTransition != nil { animateSessionTransition(color: color) }
-            animateEventRhythm(event, phase: nextPhase, color: color)
-            animateCoreEvent(nextPhase)
-            playSemanticChoreography(phase: nextPhase, completion: state.completion, color: color)
-            emitFeedback(for: event, phase: nextPhase, color: color)
+            let partialMixCompletion = event.mixCompletion != nil
+                && (state.mixedConversationCount ?? 0) > 0
+                && nextPhase != "complete"
+            if partialMixCompletion {
+                playMixCompletion(completion: event.mixCompletion)
+            } else {
+                animateEventRhythm(event, phase: nextPhase, color: color)
+                animateCoreEvent(nextPhase)
+                playSemanticChoreography(phase: nextPhase, completion: state.completion, color: color)
+                emitFeedback(for: event, phase: nextPhase, color: color)
+            }
         }
         if semanticPhaseChanged {
             animateSemanticReveal(phase: nextPhase, tier: nextEnergyTier)
@@ -2119,6 +2129,94 @@ private final class OrbLayerRenderer {
         }
     }
 
+    private func playMixCompletion(completion: String?) {
+        completionAnimationGeneration += 1
+        let generation = completionAnimationGeneration
+        semanticEffects.sublayers?.forEach { $0.removeFromSuperlayer() }
+        let commonColor = NSColor(calibratedRed: 0.76, green: 0.96, blue: 1, alpha: 1)
+        let outcomeColor: NSColor
+        switch completion {
+        case "verified": outcomeColor = .systemGreen
+        case "unverified": outcomeColor = .systemYellow
+        case "cancelled": outcomeColor = .systemOrange
+        default: outcomeColor = .systemCyan
+        }
+        let closure = completionRing(radius: 40, color: commonColor, width: arcade ? 2.7 : 1.9)
+        if reducedMotion {
+            closure.opacity = 0.86
+        } else {
+            closure.strokeEnd = 0
+            let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+            draw.values = [0, 0.12, 1, 1]
+            draw.keyTimes = [0, 0.18, 0.72, 1]
+            let opacity = CAKeyframeAnimation(keyPath: "opacity")
+            opacity.values = [0, 0.96, 0.82, 0]
+            opacity.keyTimes = [0, 0.12, 0.78, 1]
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [1.04, 0.94, 1, 1.08]
+            scale.keyTimes = [0, 0.46, 0.72, 1]
+            let group = CAAnimationGroup()
+            group.animations = [draw, opacity, scale]
+            group.duration = arcade ? 0.86 : 1.02
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            closure.add(group, forKey: "mix-complete-closure")
+        }
+        let outcomeDelay: CFTimeInterval = reducedMotion ? 0 : arcade ? 0.48 : 0.58
+        DispatchQueue.main.asyncAfter(deadline: .now() + outcomeDelay) { [weak self] in
+            guard let self, self.completionAnimationGeneration == generation else { return }
+            let stamp = self.completionGlyphLayer(self.phaseGlyph("complete", completion: completion), color: outcomeColor)
+            let ring = self.completionRing(
+                radius: 36,
+                color: outcomeColor,
+                width: self.arcade ? 2.2 : 1.45,
+                start: completion == "unverified" ? 0.08 : completion == "cancelled" ? 0.04 : 0,
+                end: completion == "unverified" ? 0.88 : completion == "cancelled" ? 0.46 : 1
+            )
+            if completion == "unverified" { ring.lineDashPattern = [9, 4] }
+            if self.reducedMotion {
+                ring.opacity = 0.82
+                stamp.opacity = 1
+            } else {
+                self.animateCompletionOutcomeRing(
+                    ring,
+                    key: "mix-complete-outcome",
+                    scales: [0.9, 1.06, 1.16],
+                    duration: self.arcade ? 0.72 : 0.9
+                )
+                let reveal = CAKeyframeAnimation(keyPath: "transform.scale")
+                reveal.values = [0.55, self.arcade ? 1.42 : 1.24, 1]
+                reveal.keyTimes = [0, 0.48, 1]
+                reveal.duration = self.arcade ? 0.4 : 0.52
+                reveal.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                stamp.add(reveal, forKey: "mix-complete-stamp")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + (self.reducedMotion ? 1.1 : 1.02)) { [weak stamp, weak ring] in
+                stamp?.removeFromSuperlayer()
+                ring?.removeFromSuperlayer()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) { [weak closure] in
+            closure?.removeFromSuperlayer()
+        }
+    }
+
+    private func completionGlyphLayer(_ glyph: String, color: NSColor) -> CATextLayer {
+        let stamp = CATextLayer()
+        stamp.frame = CGRect(x: 34, y: 67, width: 24, height: 16)
+        stamp.alignmentMode = .center
+        stamp.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        stamp.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
+        stamp.fontSize = 11
+        stamp.string = glyph
+        stamp.foregroundColor = color.cgColor
+        stamp.shadowColor = NSColor.black.cgColor
+        stamp.shadowOpacity = 0.8
+        stamp.shadowRadius = 2
+        stamp.opacity = reducedMotion ? 1 : 0.96
+        semanticEffects.addSublayer(stamp)
+        return stamp
+    }
+
     private func completionRing(radius: CGFloat, color: NSColor, width: CGFloat, start: CGFloat = 0, end: CGFloat = 1) -> CAShapeLayer {
         let ring = CAShapeLayer()
         ring.frame = semanticEffects.bounds
@@ -2672,7 +2770,7 @@ private final class PowerModeView: NSView {
     private var scanBeams: [ScanBeam] = []
     private var timer: Timer?
     private var timerInterval: TimeInterval = 0
-    private var state = PowerState(sessionId: nil, sessionSource: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, energyUpdatedAt: nil, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0, mixedConversationCount: nil)
+    private var state = PowerState(sessionId: nil, sessionSource: nil, phase: "observe", status: "ready", momentum: 0, bestMomentum: 0, energyUpdatedAt: nil, combo: 0, bestCombo: 0, comboStatus: "idle", comboHoldUntil: nil, comboExpiresAt: nil, comboBrokenAt: nil, comboRelinkedAt: nil, verificationReward: nil, confidence: 0, riskLevel: "low", currentActivity: "Waiting for Codex activity", completion: nil, turnStoppedAt: nil, lastActivityAt: nil, lastFailureAt: nil, evidence: [], addedLines: 0, removedLines: 0, verifications: 0, mixedConversationCount: nil, mixedLastCompletion: nil)
     private var eventText = "POWER MODE ONLINE"
     private var flashAlpha: CGFloat = 0
     private var dangerAlpha: CGFloat = 0
@@ -3371,6 +3469,14 @@ private final class PowerModeView: NSView {
 
     private func describe(_ event: PowerEvent) -> String {
         if event.sessionTransition != nil { return preferences.text("TASK SWITCHED", "任务已切换") }
+        if let completion = event.mixCompletion {
+            switch completion {
+            case "verified": return preferences.text("ONE CONVERSATION COMPLETE · VERIFIED", "一个对话完成 · 已验证")
+            case "unverified": return preferences.text("ONE CONVERSATION COMPLETE · CHECK", "一个对话完成 · 待验证")
+            case "cancelled": return preferences.text("ONE CONVERSATION COMPLETE · CANCELLED", "一个对话完成 · 已取消")
+            default: return preferences.text("ONE CONVERSATION COMPLETE · NO CHANGE", "一个对话完成 · 无修改")
+            }
+        }
         switch event.type {
         case "activity-start":
             if event.toolGroup == "prompt" { return preferences.text("UNDERSTANDING REQUEST", "正在理解需求") }
@@ -3434,6 +3540,14 @@ private final class PowerModeView: NSView {
         if positioning { return preferences.text("DRAG", "拖动") }
         if typingComboProgress() > 0 { return preferences.text("TYPING", "输入中") }
         if streamConnected == false { return preferences.text("RECONNECT", "重连中") }
+        if let completion = state.mixedLastCompletion, (state.mixedConversationCount ?? 0) > 0 {
+            switch completion {
+            case "verified": return preferences.text("ONE DONE · VERIFIED", "一项完成 · 已验证")
+            case "unverified": return preferences.text("ONE DONE · CHECK", "一项完成 · 待验证")
+            case "cancelled": return preferences.text("ONE DONE · CANCELLED", "一项完成 · 已取消")
+            default: return preferences.text("ONE DONE · NO CHANGE", "一项完成 · 无修改")
+            }
+        }
         if snapshot.idle || snapshot.phase == "idle" { return preferences.text("IDLE", "待机") }
         if state.status == "needs-attention" || snapshot.phase == "wait" { return preferences.text("APPROVAL", "等待授权") }
         if state.status == "failed" || snapshot.phase == "recover" { return preferences.text("RECOVER", "修复中") }
@@ -3541,10 +3655,12 @@ private final class PowerModeView: NSView {
         let disconnectedAt = comboBrokenAt ?? comboExpiresAt
         let comboEnd = disconnectedAt?.addingTimeInterval(3.2) ?? .distantPast
         let idleAt = max(finalHoldEnd, comboEnd)
-        let settledAt = idleAt.addingTimeInterval(4)
+        let settledAt = idleAt.addingTimeInterval(45)
         guard now >= idleAt else { return (phase, status, momentum, false, false, false, settledAt) }
-        let progress = min(1, max(0, now.timeIntervalSince(idleAt) / 4))
-        return ("idle", "ready", Int((Double(momentum) * (1 - progress)).rounded()), true, progress >= 1, progress < 1, settledAt)
+        let progress = min(1, max(0, now.timeIntervalSince(idleAt) / 45))
+        let returnedMomentum = Int((Double(momentum) * (1 - progress)).rounded())
+        let settled = returnedMomentum <= 0 || progress >= 1
+        return ("idle", "ready", returnedMomentum, true, settled, !settled, settledAt)
     }
 
     private func shouldShowHUD(now: Date) -> Bool {
@@ -3888,7 +4004,7 @@ private final class PowerModeView: NSView {
         // An expanded information card is static by itself. Only transient effects,
         // positioning, decaying Combo, and fades need the 60 Hz path.
         let needsHighFrequency = !reducedMotion
-            && (hasEffects || positioning || comboIsDecaying || presentation.returning || hudIsFading)
+            && (hasEffects || positioning || comboIsDecaying || hudIsFading)
         if hasEffects || positioning || comboIsAnimating || semanticIsAnimating || presentation.returning || previousAlpha != hudAlpha {
             invalidateVisuals(now: now)
         }

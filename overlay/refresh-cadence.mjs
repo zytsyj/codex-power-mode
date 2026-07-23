@@ -6,5 +6,7 @@ export function refreshDelayForState({
   momentumChanging = false
 } = {}) {
   if (!previewMode && connectionOnline && hudHidden) return null;
-  return comboChanging || momentumChanging ? 100 : 1_000;
+  if (comboChanging) return 100;
+  if (momentumChanging) return 250;
+  return 1_000;
 }

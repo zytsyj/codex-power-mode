@@ -8,7 +8,7 @@ test("hidden online HUD sleeps until an external event wakes it", () => {
 
 test("dynamic energy and Combo use responsive refresh cadence", () => {
   assert.equal(refreshDelayForState({ comboChanging: true }), 100);
-  assert.equal(refreshDelayForState({ momentumChanging: true }), 100);
+  assert.equal(refreshDelayForState({ momentumChanging: true }), 250);
 });
 
 test("static and disconnected HUDs retain a low-frequency heartbeat", () => {
