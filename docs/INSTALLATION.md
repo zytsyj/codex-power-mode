@@ -1,6 +1,6 @@
 # Installation and maintenance
 
-Codex Power Mode `0.9.0` is an open-source public beta for the Codex desktop app on macOS.
+Codex Power Mode `0.9.1` is an open-source public beta for the Codex desktop app on macOS.
 
 ## Requirements
 

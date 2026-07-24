@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1 - 2026-07-24
+
+- Split HUD anchoring into two predictable modes: follow the Codex window and hide outside Codex, or remain fixed to the active screen across app and Space changes.
+- Added direct right-click settings on the orb and fixed cross-window placement jumps caused by tracking unrelated foreground application windows.
+- Added a first-run permission guide for Codex Hook trust and optional macOS Accessibility access, including a reliable route to the correct System Settings page and live permission detection without restarting the HUD.
+- Rebuilt the GitHub project page around the current release with English/Chinese switching, native lifecycle and Energy demos, three cursor-effect showcases, complete installation guidance, and clearer public-beta boundaries.
+- Explained the project's path from VS Code Power Mode to Codex-native agent feedback, including the deliberately heavier Energy weight assigned to submitted human Typing Combo input.
+- Added a playful Vibe Coding disclosure: much of the implementation, refactoring, testing, and documentation was produced with Codex, while automated checks do not imply a bug-free stable release.
+- Replaced the license file with the canonical MIT text while keeping the four legacy meme image sets explicitly outside the MIT grant.
+
 ## 0.9.0 - 2026-07-24
 
 - Opened the source code, documentation, and project-authored media under MIT; added a Git-backed Codex marketplace, public contribution and security workflows, immutable CI action pins, and an explicit separate-rights notice for the four retained legacy meme image sets.

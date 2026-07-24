@@ -22,7 +22,7 @@ Watch it understand, inspect, edit, verify, recover, and finish—then add Energ
 </div>
 
 > [!NOTE]
-> Power Mode `0.9.0` is an **open-source public beta**. Source code, documentation, and project-authored media use MIT. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+> Power Mode `0.9.1` is an **open-source public beta**. Source code, documentation, and project-authored media use MIT. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 > [!WARNING]
 > **A small vibe-coding disclaimer:** this is coding candy, not mission-critical instrumentation. It may occasionally miss a Combo, read a state late, twitch, lose the screen, or go mysteriously quiet exactly when you want the fireworks. Power Mode is here to make working with Codex more visible and more fun; it does not know the model's thoughts or the real percentage of work completed. If the HUD has a bad day, Codex should keep working normally. Bugs, rough edges, and delightfully strange reports are welcome.
