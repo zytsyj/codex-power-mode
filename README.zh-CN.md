@@ -51,28 +51,47 @@ Codex 都认真干活了，当然不能只配一个转圈圈。<br>
 
 ## 动态预览
 
-下面所有画面都由原生渲染器使用合成状态生成，不包含提示词、代码、任务名称或个人数据。
+下面都是真实的 Codex 桌面录屏，不是设计稿。录制时使用独立的本地会话和空白任务，因此画面不包含提示词、源码、任务名称或个人数据。
 
 <table>
   <tr>
-    <th width="25%">专注模式</th>
-    <th width="25%">街机模式</th>
-    <th width="25%">能量进化</th>
-    <th width="25%">完成结果</th>
+    <th width="50%">同一台机器，五档能量进化</th>
+    <th width="50%">Codex 干活也有身体语言</th>
   </tr>
   <tr>
-    <td align="center"><img src="docs/media/focus-demo.gif" width="210" alt="专注模式语义状态流程"></td>
-    <td align="center"><img src="docs/media/arcade-demo.gif" width="210" alt="街机模式语义状态流程"></td>
-    <td align="center"><img src="docs/media/energy-demo.gif" width="210" alt="五档能量连续进化"></td>
-    <td align="center"><img src="docs/media/completion-demo.gif" width="210" alt="四种完成结果"></td>
+    <td align="center"><img src="docs/media/real-energy-evolution.gif" width="360" alt="真实录制的五档能量进化"></td>
+    <td align="center"><img src="docs/media/real-agent-states.gif" width="360" alt="真实录制的理解、搜索、修改、执行、验证、等待、恢复和完成状态"></td>
   </tr>
   <tr>
-    <td>克制、清晰，适合长时间工作。</td>
-    <td>更强冲击和更丰富的状态演出。</td>
-    <td>同一套机械结构连续进化五次。</td>
-    <td>已验证、未验证、已取消、无修改。</td>
+    <td>唤醒 → 充能 → 驱动 → 临界 → 巅峰。节点会迁移和重连，不是不断叠加互不相干的装饰。</td>
+    <td>理解、搜索、修改、执行、验证、等待、恢复和完成，都有克制但能辨认的动作。</td>
   </tr>
 </table>
+
+### 两种 Combo，一套共同的推进感
+
+<table>
+  <tr>
+    <th width="33%">Agent Combo</th>
+    <th width="33%">输入 Combo</th>
+    <th width="33%">人的输入变成能量</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/real-agent-combo.gif" width="280" alt="真实录制的 Agent Combo 增长、警告和断连动画"></td>
+    <td align="center"><img src="docs/media/real-typing-combo.gif" width="280" alt="由真实键盘输入触发的输入 Combo"></td>
+    <td align="center"><img src="docs/media/real-typing-injection.gif" width="280" alt="输入 Combo 收束并注入能量球"></td>
+  </tr>
+  <tr>
+    <td>Codex 的动作让外圈经历点火、连接、加速、升温和极限；连击过期时，外环会明确断裂。</td>
+    <td>人的输入节奏拥有独立计数器。Power Mode 只记录节奏，不知道你具体输入了什么。</td>
+    <td>提交时，人的 Combo 会被小球吸收成一笔高权重能量，因为后续所有动作都由这次指令决定方向。</td>
+  </tr>
+</table>
+
+<p align="center">
+  <strong>完成动画也不会给没有验证过的工作乱放烟花。</strong><br><br>
+  <img src="docs/media/real-completion-outcomes.gif" width="520" alt="真实录制的已验证、未验证、已取消和无修改完成结果">
+</p>
 
 ## 快速安装
 
@@ -187,21 +206,69 @@ Mix 中每个对话结束都会短暂显示“已验证、未验证、已取消�
 
 <table>
   <tr>
-    <th width="33%">能量系</th>
-    <th width="33%">抽象系</th>
-    <th width="33%">梗图部门</th>
+    <th width="50%">几何效果开始不对劲</th>
+    <th width="50%">梗图部门正式上班</th>
   </tr>
   <tr>
-    <td align="center"><img src="docs/media/cursor-power-demo.gif" width="220" alt="火花、轨道、涟漪、棱镜和霓虹光标特效"></td>
-    <td align="center"><img src="docs/media/cursor-chaos-demo.gif" width="220" alt="虫洞、故障切片、软体触手和抽象弹字光标特效"></td>
-    <td align="center"><img src="docs/media/cursor-meme-demo.gif" width="220" alt="背手负鼠、新鲜猫、刀盾狗和高雅人士光标特效"></td>
+    <td align="center"><img src="docs/media/real-cursor-geometric.gif" width="390" alt="真实键盘输入触发的火花、霓虹、轨道、涟漪、棱镜、虫洞、故障切片和软触手"></td>
+    <td align="center"><img src="docs/media/real-cursor-memes.gif" width="390" alt="真实键盘输入触发的抽象弹字、背手负鼠、新鲜猫、刀盾狗和高雅人士"></td>
   </tr>
   <tr>
-    <td>火花 · 轨道 · 涟漪 · 棱镜 · 霓虹</td>
-    <td>虫洞 · 故障切片 · 软体触手 · 典急孝乐绷赢</td>
-    <td>背手负鼠 · 新鲜猫 · 刀盾狗 · 高雅人士</td>
+    <td>火花 · 霓虹 · 轨道 · 涟漪 · 棱镜 · 液态虫洞 · 故障切片 · 软触手</td>
+    <td>典急孝乐绷赢 · 背手负鼠 · 新鲜猫 · 刀盾狗 · 高雅人士</td>
   </tr>
 </table>
+
+<details>
+<summary><strong>展开查看全部 13 种独立效果</strong></summary>
+<br>
+<table>
+  <tr>
+    <th>火花</th>
+    <th>霓虹</th>
+    <th>轨道</th>
+    <th>涟漪</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/cursor-gallery/spark.gif" width="190" alt="火花光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/neon.gif" width="190" alt="霓虹光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/orbit.gif" width="190" alt="轨道光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/ripple.gif" width="190" alt="涟漪光标效果"></td>
+  </tr>
+  <tr>
+    <th>棱镜</th>
+    <th>液态虫洞</th>
+    <th>故障切片</th>
+    <th>软触手</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/cursor-gallery/prism.gif" width="190" alt="棱镜光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/wormhole.gif" width="190" alt="液态虫洞光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/glitch.gif" width="190" alt="故障切片光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/tentacle.gif" width="190" alt="软触手光标效果"></td>
+  </tr>
+  <tr>
+    <th>典急孝乐绷赢</th>
+    <th>背手负鼠</th>
+    <th>新鲜猫</th>
+    <th>刀盾狗</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/cursor-gallery/meme.gif" width="190" alt="典急孝乐绷赢光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/possum.gif" width="190" alt="背手负鼠光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/freshcat.gif" width="190" alt="新鲜猫光标效果"></td>
+    <td><img src="docs/media/cursor-gallery/knifeshield.gif" width="190" alt="刀盾狗光标效果"></td>
+  </tr>
+  <tr>
+    <th>高雅人士</th>
+    <th colspan="3">新输入会让旧效果立刻退场，不会变成贴纸大堵车。</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/cursor-gallery/elegant.gif" width="190" alt="高雅人士光标效果"></td>
+    <td colspan="3">上面每一段都是真实键盘录制，输入 Combo 和能量球就在输入框旁同步显示。</td>
+  </tr>
+</table>
+</details>
 
 光标特效是可选功能，也不和大型 Typing Combo 数字绑死。快速输入不会变成贴纸大堵车：新特效出现时，旧特效会立刻退场。四组旧梗图素材随仓库保存在本地，运行时不会联网下载；素材权利边界见[第三方声明](THIRD_PARTY_NOTICES.md)。
 
@@ -253,7 +320,7 @@ flowchart LR
 
 ## 工程可信度
 
-- **150 项自动化测试**，覆盖状态语义、持久化、安全、进程控制、设置、原生契约和发布卫生。
+- **151 项自动化测试**，覆盖状态语义、持久化、安全、进程控制、设置、原生契约和发布卫生。
 - **326 张确定性原生画面**，覆盖主题、模式、状态、能量档位、完成结果、光标样例、Typing Combo 和减少动态效果。
 - 原生合成器峰值预算限制为 **96 个活动图层**和 **88 个动画**。
 - 可复现的兼容性、稳定性、性能、安全、归档和交互检查。

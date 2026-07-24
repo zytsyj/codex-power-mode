@@ -1,8 +1,37 @@
 # Media provenance
 
-The checked-in preview images are first-party frames rendered directly from the native Core Animation implementation. They contain synthetic state only: no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history.
+The repository contains two clearly separated media sets:
+
+1. deterministic first-party QA frames rendered directly from the native Core Animation implementation; and
+2. real macOS screen recordings made specifically for the public README.
+
+Neither set contains a real prompt, source code, task name, user name, local path, or runtime history.
 
 `hero.svg` is a first-party, hand-authored vector composition derived from the same semantic palette and connected-machine geometry. It presents the current Focus, Arcade, and no-orb Classic Power Mode alongside the five-tier Energy evolution. It contains no external assets, embedded fonts, scripts, user data, or runtime content.
+
+## Real README recordings
+
+Files prefixed with `real-` and the GIFs in `docs/media/cursor-gallery/` are screen recordings of the native HUD running beside a blank Codex desktop task. They were captured with:
+
+- a temporary isolated service and data directory, separate from the normal Power Mode installation;
+- synthetic semantic events for Energy, agent states, Agent Combo, disconnect, and completion outcomes;
+- temporary repeated `a` input in an otherwise empty composer for Typing Combo, input injection, and cursor effects;
+- a fixed crop that excludes the sidebar, task history, output panel, and any personal content.
+
+The temporary draft was cleared after every cursor recording. The isolated service and full-screen positioning screenshots were deleted after capture. The normal Power Mode service was restored before the media was checked in.
+
+README overview recordings:
+
+- `real-energy-evolution.gif`
+- `real-agent-states.gif`
+- `real-agent-combo.gif`
+- `real-typing-combo.gif`
+- `real-typing-injection.gif`
+- `real-completion-outcomes.gif`
+- `real-cursor-geometric.gif`
+- `real-cursor-memes.gif`
+
+The thirteen files in `cursor-gallery/` are the corresponding individual cursor-effect recordings. The legacy meme images visible in four of those recordings retain the separate rights status described in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
 ## Reproduce the QA set
 
@@ -39,6 +68,6 @@ Rebuild the GIFs in the ignored `.power-mode/render-demos` directory with:
 npm run render:demos
 ```
 
-The GIFs are deliberately small animated summaries, not recordings of a real Codex window and not frame-perfect captures of every transient particle.
+These seven legacy GIFs are deliberately small animated summaries, not recordings of a real Codex window and not frame-perfect captures of every transient particle. They remain checked in as deterministic visual references even though the README now leads with the real recordings.
 
-Regenerate and visually inspect the matrix and demos after any native visual change. Do not replace these files with screenshots or recordings containing real Codex content.
+Regenerate and visually inspect the matrix and demos after any native visual change. Never check in screenshots or recordings containing real Codex content.
