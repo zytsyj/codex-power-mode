@@ -152,7 +152,15 @@ test("checked-in media is generated, privacy-safe, and documented", async () => 
   assert.match(provenance, /no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history/i);
   assert.match(renderer, /CODEX_POWER_MODE_RENDER_QA_DIR/);
 
-  for (const filename of ["focus-demo.gif", "arcade-demo.gif", "energy-demo.gif", "completion-demo.gif"]) {
+  for (const filename of [
+    "focus-demo.gif",
+    "arcade-demo.gif",
+    "energy-demo.gif",
+    "completion-demo.gif",
+    "cursor-power-demo.gif",
+    "cursor-chaos-demo.gif",
+    "cursor-meme-demo.gif"
+  ]) {
     const bytes = await readFile(path.join(root, "docs/media", filename));
     assert.equal(bytes.subarray(0, 6).toString("ascii"), "GIF87a");
     assert.ok(bytes.length < 100_000, `${filename} must stay compact`);

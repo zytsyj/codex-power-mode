@@ -23,12 +23,15 @@ The six PNG images under `docs/media/` are selected unchanged from that generate
 - `classic-mode-dark.png`
 - `reduced-light-recover.png`
 
-Four compact animated storyboards are composed from the same synthetic frames with macOS ImageIO:
+Seven compact animated storyboards are composed from the same synthetic frames with macOS ImageIO:
 
 - `focus-demo.gif` — Observe → Act → Verify → Complete.
 - `arcade-demo.gif` — cursor/Typing Combo → Observe → Act → Energy breakthrough → Verify → Complete.
 - `energy-demo.gif` — Wake → Charge → Drive → Critical → Peak.
 - `completion-demo.gif` — verified → unverified → cancelled → no-change.
+- `cursor-power-demo.gif` — spark → orbit → ripple → prism → neon milestone.
+- `cursor-chaos-demo.gif` — wormhole → glitch → tentacle → 典 → 赢.
+- `cursor-meme-demo.gif` — Hands-behind Possum → Fresh Cat → Knife-shield Dog → Elegant Person.
 
 Rebuild the GIFs in the ignored `.power-mode/render-demos` directory with:
 

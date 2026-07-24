@@ -4,10 +4,10 @@
 
 # Codex Power Mode
 
-### Native semantic feedback for Codex desktop on macOS
+### A tiny native HUD for people who think “loading…” is not a personality
 
-See the agent understand, inspect, edit, verify, wait, recover, and finish.<br>
-Build Energy through useful work, keep a real Combo, and add optional typing and cursor feedback—without storing your content.
+Codex is doing real work. It deserves better than a spinner.<br>
+Watch it understand, inspect, edit, verify, recover, and finish—then add Energy, Combo, neon sparks, or a suspiciously elegant penguin.
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
@@ -156,15 +156,29 @@ All tasks do not deserve the same celebration:
 
 In Mix, each conversation gets a brief verified/unverified/cancelled/no-change stamp without resetting the shared pool. The last active conversation receives the full completion animation.
 
-## Cursor feedback with personality
+## Serious work, unserious cursor effects
 
-Cursor effects are optional and independent from the large Typing Combo counter. During fast input, a new effect immediately replaces the old one so stickers and particles cannot stack over the editor or input method.
+Some days call for a quiet spark. Other days call for a liquid wormhole, a judgmental orange cat, or a possum silently supervising the pull request.
 
-| Precise | Abstract | Meme |
-| --- | --- | --- |
-| Sparks · Neon · Orbit · Ripple | Prism · Wormhole · Glitch · Tentacle | 典急孝乐绷赢 · Hands-behind Possum · Fresh Cat · Knife-shield Dog · Elegant Person |
+<table>
+  <tr>
+    <th width="33%">Power</th>
+    <th width="33%">Abstract chaos</th>
+    <th width="33%">Meme department</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/cursor-power-demo.gif" width="220" alt="Spark, orbit, ripple, prism, and neon cursor effects"></td>
+    <td align="center"><img src="docs/media/cursor-chaos-demo.gif" width="220" alt="Wormhole, glitch, tentacle, and Chinese meme word cursor effects"></td>
+    <td align="center"><img src="docs/media/cursor-meme-demo.gif" width="220" alt="Possum, cat, dog, and elegant person cursor effects"></td>
+  </tr>
+  <tr>
+    <td>Spark · Orbit · Ripple · Prism · Neon</td>
+    <td>Wormhole · Glitch · Tentacle · 典急孝乐绷赢</td>
+    <td>Possum · Fresh Cat · Knife-shield Dog · Elegant Person</td>
+  </tr>
+</table>
 
-The four legacy sticker families ship locally, so installed effects never fetch images at runtime. Their separate rights status is documented in [Third-party notices](THIRD_PARTY_NOTICES.md).
+Cursor effects are optional and independent from the large Typing Combo counter. Fast input never becomes a sticker traffic jam: every new effect dismisses the previous one immediately. The four legacy sticker families ship locally, so nothing is fetched at runtime; their separate rights status is documented in [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Permissions without surprises
 
@@ -243,6 +257,6 @@ Issues and pull requests are welcome. Keep examples synthetic or redacted. Repor
 
 <div align="center">
 
-**Make agent work legible. Make useful progress feel alive.**
+**Make agent work legible. Make useful progress feel alive. Have a little fun while you are here.**
 
 </div>
