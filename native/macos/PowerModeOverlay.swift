@@ -448,6 +448,12 @@ private final class PowerModePreferences {
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func toggleTypingCombo() { mutate { $0.typingCombo = !($0.typingCombo ?? false) } }
     func enableTypingCombo() { mutate { $0.typingCombo = true } }
+    func disableTypingComboForMissingPermission() {
+        mutate {
+            $0.typingCombo = false
+            if $0.preset == "classic" { $0.preset = "focus" }
+        }
+    }
     func completeOnboarding() { mutate { $0.onboardingVersion = 1 } }
     func setCursorEffect(_ value: String) {
         guard ["off", "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle", "meme", "possum", "freshcat", "knifeshield", "elegant"].contains(value) else { return }
@@ -6172,14 +6178,16 @@ private final class TypingComboMonitor {
     private var eventTap: CFMachPort?
     private var eventTapSource: CFRunLoopSource?
     private var permissionTimer: Timer?
-    private var permissionPollsRemaining = 0
+    private var lastPermissionGranted: Bool?
+    private var permissionRequestPending = false
+    private var permissionRequestPollsRemaining = 0
     private var count = 0
     private var lastHit = Date.distantPast
     private var cachedCaretElement: AXUIElement?
     private var requestedManualAccessibility = false
     private let comboWindow: TimeInterval = 2.0
     private let codexBundleIdentifier = "com.openai.codex"
-    var onPermissionChange: (() -> Void)?
+    var onPermissionChange: ((Bool) -> Void)?
 
     init(view: PowerModeView?, preferences: PowerModePreferences, startMonitoring: Bool = true) {
         self.view = view
@@ -6195,25 +6203,32 @@ private final class TypingComboMonitor {
     var permissionGranted: Bool { AXIsProcessTrusted() }
 
     func preferencesChanged() {
-        stop()
-        guard preferences.settings.typingCombo == true else { return }
-        guard AXIsProcessTrusted() else {
+        permissionTimer?.invalidate()
+        permissionTimer = nil
+        stopEventMonitoring()
+        let trusted = AXIsProcessTrusted()
+        lastPermissionGranted = trusted
+        if preferences.settings.typingCombo == true {
             startPermissionPolling()
-            return
+            if trusted { startEventMonitoring() }
+        } else if permissionRequestPending {
+            startPermissionPolling()
         }
-        startEventMonitoring()
     }
 
     func requestAccessibilityPermission(openSettings: Bool = true, alwaysOpenSettings: Bool = false) {
-        guard preferences.settings.typingCombo == true else { return }
         let wasTrusted = AXIsProcessTrusted()
         if !wasTrusted {
+            permissionRequestPending = true
+            permissionRequestPollsRemaining = 120
+            lastPermissionGranted = false
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
             startPermissionPolling()
         } else {
-            preferencesChanged()
-            onPermissionChange?()
+            permissionRequestPending = false
+            permissionRequestPollsRemaining = 0
+            onPermissionChange?(true)
         }
         if openSettings, (!wasTrusted || alwaysOpenSettings),
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
@@ -6223,22 +6238,39 @@ private final class TypingComboMonitor {
 
     private func startPermissionPolling() {
         permissionTimer?.invalidate()
-        permissionPollsRemaining = 120
-        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] timer in
             Task { @MainActor in
                 guard let self else { timer.invalidate(); return }
-                self.permissionPollsRemaining -= 1
-                guard AXIsProcessTrusted() else {
-                    if self.permissionPollsRemaining <= 0 {
-                        timer.invalidate()
-                        self.permissionTimer = nil
+                let featureEnabled = self.preferences.settings.typingCombo == true
+                if self.permissionRequestPending {
+                    self.permissionRequestPollsRemaining -= 1
+                    if self.permissionRequestPollsRemaining <= 0 {
+                        self.permissionRequestPending = false
+                        self.onPermissionChange?(false)
                     }
+                }
+                guard featureEnabled || self.permissionRequestPending else {
+                    timer.invalidate()
+                    self.permissionTimer = nil
                     return
                 }
-                timer.invalidate()
-                self.permissionTimer = nil
-                self.startEventMonitoring()
-                self.onPermissionChange?()
+                let trusted = AXIsProcessTrusted()
+                if trusted {
+                    let completedPendingRequest = self.permissionRequestPending
+                    self.permissionRequestPending = false
+                    self.permissionRequestPollsRemaining = 0
+                    if featureEnabled { self.startEventMonitoring() }
+                    if completedPendingRequest {
+                        self.lastPermissionGranted = true
+                        self.onPermissionChange?(true)
+                        return
+                    }
+                } else {
+                    self.stopEventMonitoring()
+                }
+                guard trusted != self.lastPermissionGranted else { return }
+                self.lastPermissionGranted = trusted
+                self.onPermissionChange?(trusted)
             }
         }
     }
@@ -6280,7 +6312,13 @@ private final class TypingComboMonitor {
     func stop() {
         permissionTimer?.invalidate()
         permissionTimer = nil
-        permissionPollsRemaining = 0
+        lastPermissionGranted = nil
+        permissionRequestPending = false
+        permissionRequestPollsRemaining = 0
+        stopEventMonitoring()
+    }
+
+    private func stopEventMonitoring() {
         if let fallbackMonitor { NSEvent.removeMonitor(fallbackMonitor) }
         fallbackMonitor = nil
         if let eventTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapSource, .commonModes) }
@@ -6781,6 +6819,11 @@ private final class CodexWindowTracker {
 
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private enum PendingAccessibilityAction {
+        case enableTypingCombo
+        case enterClassicMode
+    }
+
     private var window: NSPanel?
     private var stream: EventStream?
     private var tracker: CodexWindowTracker?
@@ -6797,6 +6840,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     private var diagnosticMenuItems: [NSMenuItem] = []
     private var sessionMenuItem: NSMenuItem?
     private var onboardingVisible = false
+    private var pendingAccessibilityAction: PendingAccessibilityAction?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -6861,7 +6905,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             client?.postTypingCharge(inputCombo: count, sessionId: sessionId)
         }
         typingMonitor = TypingComboMonitor(view: powerView, preferences: preferences)
-        typingMonitor?.onPermissionChange = { [weak self] in self?.requestMenuRebuild() }
+        typingMonitor?.onPermissionChange = { [weak self] granted in
+            self?.accessibilityPermissionChanged(granted: granted)
+        }
+        if preferences.settings.typingCombo == true, typingMonitor?.permissionGranted != true {
+            preferences.disableTypingComboForMissingPermission()
+        }
+        requestMenuRebuild()
         if environment["CODEX_POWER_MODE_POSITIONING_PREVIEW"] != "1",
            (preferences.settings.onboardingVersion ?? 0) < 1 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
@@ -7041,15 +7091,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             ? preferences.text("Counts input rhythm only; never stores text", "只统计输入节奏，不保存文字")
             : preferences.text("Requires macOS Accessibility permission", "需要 macOS 辅助功能权限")
         menu.addItem(typing)
-        if (preferences.settings.typingCombo ?? false), typingMonitor?.permissionGranted != true {
-            let permission = NSMenuItem(
-                title: preferences.text("Grant cursor access…", "授权光标效果…"),
-                action: #selector(requestAccessibility),
-                keyEquivalent: ""
-            )
-            permission.target = self
-            menu.addItem(permission)
-        }
         let cursorEffects = submenu(
             title: preferences.text("Cursor effects", "光标特效"),
             choices: [
@@ -7167,8 +7208,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func toggleEnabled() { preferences?.toggleEnabled() }
     @objc private func selectPreset(_ sender: NSMenuItem) {
         if let value = sender.representedObject as? String {
-            preferences?.setPreset(value)
-            if value == "classic" { typingMonitor?.requestAccessibilityPermission() }
+            if value == "classic", typingMonitor?.permissionGranted != true {
+                pendingAccessibilityAction = .enterClassicMode
+                typingMonitor?.requestAccessibilityPermission()
+            } else {
+                pendingAccessibilityAction = nil
+                preferences?.setPreset(value)
+            }
         }
     }
     @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
@@ -7179,10 +7225,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
     @objc private func toggleCombo() { preferences?.toggleCombo() }
     @objc private func toggleTypingCombo() {
-        preferences?.toggleTypingCombo()
-        if preferences?.settings.typingCombo == true { typingMonitor?.requestAccessibilityPermission() }
+        guard let preferences else { return }
+        if preferences.settings.typingCombo == true {
+            pendingAccessibilityAction = nil
+            preferences.toggleTypingCombo()
+        } else if typingMonitor?.permissionGranted == true {
+            pendingAccessibilityAction = nil
+            preferences.enableTypingCombo()
+        } else {
+            pendingAccessibilityAction = .enableTypingCombo
+            typingMonitor?.requestAccessibilityPermission()
+        }
     }
-    @objc private func requestAccessibility() { typingMonitor?.requestAccessibilityPermission() }
     @objc private func showPermissionOnboardingFromMenu() { showPermissionOnboarding() }
     @objc private func selectCursorEffect(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setCursorEffect(value) } }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
@@ -7235,11 +7289,34 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         case .alertFirstButtonReturn:
             preferences.completeOnboarding()
         case .alertSecondButtonReturn:
-            preferences.enableTypingCombo()
             preferences.completeOnboarding()
+            pendingAccessibilityAction = .enableTypingCombo
             typingMonitor?.requestAccessibilityPermission(alwaysOpenSettings: true)
         default:
             break
+        }
+    }
+
+    private func accessibilityPermissionChanged(granted: Bool) {
+        guard let preferences else { return }
+        if granted {
+            let action = pendingAccessibilityAction
+            pendingAccessibilityAction = nil
+            switch action {
+            case .enableTypingCombo:
+                preferences.enableTypingCombo()
+            case .enterClassicMode:
+                preferences.setPreset("classic")
+            case nil:
+                requestMenuRebuild()
+            }
+        } else {
+            pendingAccessibilityAction = nil
+            if preferences.settings.typingCombo == true {
+                preferences.disableTypingComboForMissingPermission()
+            } else {
+                requestMenuRebuild()
+            }
         }
     }
     @objc private func quitOverlay() { NSApp.terminate(nil) }

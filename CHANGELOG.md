@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Simplified Accessibility into a strict on/off flow: requesting Typing Combo or Classic mode leaves the feature off until access is granted, granting access completes the requested action automatically, and later revocation turns Typing Combo off and returns Classic mode to Focus without another system prompt.
+
 ## 0.9.2 - 2026-07-24
 
 - Stopped the native HUD from requesting macOS Accessibility permission automatically during startup. Existing authorization still activates Typing Combo immediately, while missing authorization is now requested only after an explicit onboarding or menu action, preventing duplicate prompts for upgrading users.

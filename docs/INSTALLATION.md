@@ -60,7 +60,7 @@ If the running version is stale, stop Power Mode with the old installed control 
 
 ## Accessibility permission
 
-Typing Combo is opt-in. Enable it from the menu-bar bolt. Power Mode asks macOS for permission and opens **System Settings → Privacy & Security → Accessibility**; turn on **Codex Power Mode** once. If the system prompt was dismissed, choose **Grant cursor access…** from the bolt menu. Power Mode watches the permission state and starts input rhythm and cursor-local effects as soon as access is granted—there is no app dragging and no HUD restart.
+Typing Combo is opt-in. Enable it from the menu-bar bolt. Power Mode asks macOS for permission and opens **System Settings → Privacy & Security → Accessibility**; the feature remains off until you turn on **Codex Power Mode**. Granting access completes the requested Typing Combo or Classic-mode action automatically. Dismissing the request leaves the feature off, and revoking access later turns Typing Combo off (returning Classic mode to Focus) instead of leaving a non-working enabled state. Retry by choosing Typing Combo or Classic mode again—there is no repeated automatic prompt, app dragging, or HUD restart.
 
 If `doctor` reports that permission is granted but the cursor is unavailable, bring Codex to the foreground and click its message input. Diagnostics report only capability state; they do not print the text or cursor coordinates. Disable Typing Combo to run without Accessibility permission.
 
