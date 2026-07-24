@@ -34,6 +34,8 @@ That made the old Power Mode loop feel oddly stranded. If the work had moved fro
 
 The first prototype simply turned Codex patches into fake high-speed typing. It had sparks and Combo, but it was pretending the old workflow had not changed. So I stopped animating the keyboard and started animating the worker: understanding, searching, editing, testing, waiting, failing, recovering, and finishing. You may not be watching the code anymore, but you can still feel the work moving.
 
+But the human did not become a spectator. When you finish typing a request, the Typing Combo is pulled into the orb as a deliberately high-weight Energy charge. At the default setting, a `40+` input Combo injects `65` Energy—roughly the weight of three to six routine Codex state steps. Codex may perform dozens of actions, but your instruction decides which direction all of them should take, so it deserves more weight than any one mechanical step. Power Mode never reads what you typed; it gives weight to the fact that you shaped and submitted the intent.
+
 That is really all this project is: **Power Mode for the moment when the coder became the director and Codex became the one at the controls.** Classic mode keeps the old keystroke fireworks around for fun. The orb is what came next.
 
 ## See it move
@@ -103,7 +105,7 @@ npm run render:qa
 
 | Native HUD | Semantic model | Feedback | Workflow |
 | --- | --- | --- | --- |
-| Focus, Arcade, and no-orb Classic | 6 agent states and 5 Energy tiers | Agent Combo, Typing Combo, 13 cursor styles | Focus, Global, and Mix activity sources |
+| Focus, Arcade, and no-orb Classic | 6 agent states and 5 Energy tiers | Agent Combo, weighted Typing charge, 13 cursor styles | Focus, Global, and Mix activity sources |
 | Direct drag and right-click settings | 4 honest completion outcomes | Low/Normal/High intensity | Auto-start, health checks, reset, and removal |
 | Light/dark adaptation | Evidence-aware verification | Reduced Motion | English and Chinese controls |
 | Click-through empty space | Smooth decay and return | Immediate effect replacement | Menu-bar settings |
@@ -135,7 +137,7 @@ Energy ranges from `0` to `999`. Reaching `900` always enters the highest tier.
 | `700–899` | **Critical** | Six locks assemble around a stabilizer |
 | `900–999` | **Peak** | The full mechanism phase-synchronizes under a white-gold crown |
 
-Energy rewards useful state transitions and verification—not code volume. Large diffs raise risk instead of farming points.
+Energy rewards useful state transitions and verification—not code volume. Large diffs raise risk instead of farming points. Human input has its own weight: submitting a recent Typing Combo injects a bounded `4–65` Energy without advancing Agent Combo.
 
 ## Three display modes
 
