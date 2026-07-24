@@ -5,7 +5,7 @@ The repository contains two clearly separated media sets:
 1. deterministic first-party QA frames rendered directly from the native Core Animation implementation; and
 2. real macOS screen recordings made specifically for the public README.
 
-Neither set contains a real prompt, source code, task name, user name, local path, or runtime history.
+The checked-in media contains no Codex window, prompt, source code, user name, local path, cursor coordinate, or runtime history.
 
 `hero.svg` is a first-party, hand-authored vector composition derived from the same semantic palette and connected-machine geometry. It presents the current Focus, Arcade, and no-orb Classic Power Mode alongside the five-tier Energy evolution. It contains no external assets, embedded fonts, scripts, user data, or runtime content.
 
