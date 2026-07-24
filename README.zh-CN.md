@@ -127,6 +127,7 @@ flowchart LR
 - Node.js 20 或更高版本
 - macOS Swift 工具链
 - 只有 Typing Combo 和光标局部特效需要辅助功能权限；一键定位到系统设置，授权后无需重启即可生效
+- 首次启动会显示中英文权限引导，说明 Codex Hook 信任和可选的 macOS 辅助功能；之后可从菜单栏闪电图标重新打开
 
 ### 从 GitHub 安装
 

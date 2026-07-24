@@ -127,6 +127,7 @@ The overlay does not inject code into Codex and does not reward code volume. Ver
 - Node.js 20 or newer
 - The macOS Swift toolchain
 - One-click macOS Accessibility onboarding only for Typing Combo and cursor-local effects; permission activates without a HUD restart
+- One-time bilingual permission guide for Codex Hook trust and optional macOS Accessibility, reopenable from the menu-bar bolt
 
 ### Install from GitHub
 

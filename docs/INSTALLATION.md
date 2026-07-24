@@ -20,6 +20,8 @@ codex plugin add codex-power-mode@codex-power-mode
 
 Start a new Codex task after installation so Codex can load the plugin hooks and skill. Review and trust the hooks when Codex asks. The first trusted desktop task starts the authenticated local service and native HUD automatically.
 
+On first launch, Power Mode shows a one-time permission guide covering both confirmations. Codex owns the Hook trust prompt, so it must be approved inside Codex. The guide can continue in basic mode without Accessibility, enable Typing Combo and open the correct Accessibility panel, or defer the choice. Reopen it at any time from the menu-bar bolt under **Permissions & first-time setup…**.
+
 Run the installed control script's `doctor` command to confirm the running version, shared data directory, one service, one HUD, stream connection, Accessibility state, and lifecycle events. In a source checkout, the equivalent is:
 
 ```bash

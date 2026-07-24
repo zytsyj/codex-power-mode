@@ -356,6 +356,7 @@ private struct OverlaySettings: Codable, Equatable {
     var showCombo: Bool?
     var typingCombo: Bool?
     var cursorEffect: String?
+    var onboardingVersion: Int?
     var positionX: Double?
     var positionY: Double?
     var endpoint = "http://127.0.0.1:4737/api/stream"
@@ -443,6 +444,8 @@ private final class PowerModePreferences {
     }
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func toggleTypingCombo() { mutate { $0.typingCombo = !($0.typingCombo ?? false) } }
+    func enableTypingCombo() { mutate { $0.typingCombo = true } }
+    func completeOnboarding() { mutate { $0.onboardingVersion = 1 } }
     func setCursorEffect(_ value: String) {
         guard ["off", "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle", "meme", "possum", "freshcat", "knifeshield", "elegant"].contains(value) else { return }
         mutate { $0.cursorEffect = value }
@@ -6766,6 +6769,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     private var historyMenuItem: NSMenuItem?
     private var diagnosticMenuItems: [NSMenuItem] = []
     private var sessionMenuItem: NSMenuItem?
+    private var onboardingVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -6830,6 +6834,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         }
         typingMonitor = TypingComboMonitor(view: powerView, preferences: preferences)
         typingMonitor?.onPermissionChange = { [weak self] in self?.requestMenuRebuild() }
+        if environment["CODEX_POWER_MODE_POSITIONING_PREVIEW"] != "1",
+           (preferences.settings.onboardingVersion ?? 0) < 1 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                self?.showPermissionOnboarding()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -7096,6 +7106,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         ))
 
         menu.addItem(.separator())
+        let onboarding = NSMenuItem(
+            title: preferences.text("Permissions & first-time setup…", "权限与首次设置…"),
+            action: #selector(showPermissionOnboardingFromMenu),
+            keyEquivalent: ""
+        )
+        onboarding.target = self
+        menu.addItem(onboarding)
+        menu.addItem(.separator())
         let quit = NSMenuItem(title: preferences.text("Quit Power Mode", "退出 Power Mode"), action: #selector(quitOverlay), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -7138,6 +7156,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         if preferences?.settings.typingCombo == true { typingMonitor?.requestAccessibilityPermission() }
     }
     @objc private func requestAccessibility() { typingMonitor?.requestAccessibilityPermission() }
+    @objc private func showPermissionOnboardingFromMenu() { showPermissionOnboarding() }
     @objc private func selectCursorEffect(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setCursorEffect(value) } }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
@@ -7149,6 +7168,52 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
     @objc private func selectInactiveBehavior(_ sender: NSMenuItem) {
         if let value = sender.representedObject as? String { preferences?.setInactiveBehavior(value) }
+    }
+
+    private func showPermissionOnboarding() {
+        guard let preferences, !onboardingVisible else { return }
+        onboardingVisible = true
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.icon = NSImage(systemSymbolName: "bolt.shield.fill", accessibilityDescription: "Codex Power Mode permissions")
+        alert.messageText = preferences.text(
+            "Two security confirmations",
+            "需要确认两项安全权限"
+        )
+        alert.informativeText = preferences.text(
+            """
+            1. Codex Hook trust
+            Codex asks before loading the plugin hooks. Choose Trust in Codex when prompted; Power Mode cannot click this security confirmation for you.
+
+            2. macOS Accessibility (optional)
+            Used only for Typing Combo and cursor-local effects. Power Mode never reads or stores your text. macOS still requires you to turn on the switch yourself.
+            """,
+            """
+            1. Codex Hook 信任
+            Codex 会在载入插件 Hook 前弹出安全确认。出现提示时请在 Codex 中选择“信任”；Power Mode 无法代替你点击。
+
+            2. macOS 辅助功能（可选）
+            仅用于输入连击和光标局部特效，不读取或保存文字。macOS 仍要求你亲自打开权限开关。
+            """
+        )
+        alert.addButton(withTitle: preferences.text("Use basic mode", "使用基础模式"))
+        alert.addButton(withTitle: preferences.text("Enable & grant access…", "启用光标效果并授权…"))
+        alert.addButton(withTitle: preferences.text("Remind me later", "稍后提醒"))
+
+        let response = alert.runModal()
+        onboardingVisible = false
+        switch response {
+        case .alertFirstButtonReturn:
+            preferences.completeOnboarding()
+        case .alertSecondButtonReturn:
+            preferences.enableTypingCombo()
+            preferences.completeOnboarding()
+            typingMonitor?.requestAccessibilityPermission()
+        default:
+            break
+        }
     }
     @objc private func quitOverlay() { NSApp.terminate(nil) }
 

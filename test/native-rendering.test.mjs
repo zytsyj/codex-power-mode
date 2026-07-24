@@ -114,6 +114,12 @@ test("Accessibility onboarding uses a stable app identity and activates without 
   assert.match(overlay, /startPermissionPolling/);
   assert.match(overlay, /self\.startEventMonitoring\(\)/);
   assert.match(overlay, /preferences\.text\("Grant cursor access…", "授权光标效果…"\)/);
+  assert.match(overlay, /preferences\.text\("Permissions & first-time setup…", "权限与首次设置…"\)/);
+  assert.match(overlay, /showPermissionOnboarding\(\)/);
+  assert.match(overlay, /Codex Hook trust/);
+  assert.match(overlay, /macOS Accessibility \(optional\)/);
+  assert.match(overlay, /preferences\.completeOnboarding\(\)/);
+  assert.match(overlay, /preferences\.enableTypingCombo\(\)/);
 });
 
 test("classic Power Mode hides the orb and centers cursor-driven Typing Combo", async () => {
