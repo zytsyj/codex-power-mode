@@ -17,12 +17,22 @@ Watch it understand, inspect, edit, verify, recover, and finish—then add Energ
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
 
-[Quick start](#quick-start) · [See it move](#see-it-move) · [Visual system](#one-visual-system-not-a-loading-spinner) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
+[The idea](#from-editor-fireworks-to-agent-feedback) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Visual system](#one-visual-system-not-a-loading-spinner) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
 > [!NOTE]
 > Power Mode `0.9.0` is an **open-source public beta**. Source code, documentation, and project-authored media use MIT. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+
+## From editor fireworks to agent feedback
+
+The idea started with the old VS Code Power Mode experience: hit a key, get an immediate burst of particles, screen shake, and Combo. It was a wonderfully unnecessary way to make coding feel physical. The magic was not really the explosions—it was the tight little loop between doing something and feeling the editor answer back.
+
+The first Codex prototype took that idea almost literally. A large patch became a burst of virtual typing; edits made sparks, tests charged the meter, and verified work earned a victory finish. It looked lively, but something felt off. Codex is not simply typing on your behalf. Much of the interesting work happens while it is understanding a request, inspecting a project, choosing a change, running tools, checking the result, waiting for approval, or recovering from failure.
+
+So the question changed: **what would Power Mode look like if it reacted to the work itself, not just the keyboard?**
+
+That question became this project. Keystrokes still have a place in **Classic Power Mode**, but the main HUD follows Codex's real lifecycle. Observe pulls energy inward. Act drives the mechanism forward. Verify locks the nodes. Failures visibly recover. Useful work builds Energy, while completion only gets the celebration it actually earned. It keeps the instant delight of the old editor effect, then gives it a visual language made for an agent.
 
 ## See it move
 
