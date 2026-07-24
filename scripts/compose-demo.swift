@@ -29,6 +29,25 @@ private let demos: [(filename: String, frames: [DemoFrame])] = [
             DemoFrame(filename: "matrix-arcade-dark-verify-850.png", delay: 0.65),
             DemoFrame(filename: "complete-arcade-dark-verified.png", delay: 1.05)
         ]
+    ),
+    (
+        "energy-demo.gif",
+        [
+            DemoFrame(filename: "arcade-dark-90.png", delay: 0.7),
+            DemoFrame(filename: "arcade-dark-320.png", delay: 0.7),
+            DemoFrame(filename: "arcade-dark-580.png", delay: 0.7),
+            DemoFrame(filename: "arcade-dark-850.png", delay: 0.7),
+            DemoFrame(filename: "arcade-dark-999.png", delay: 1.15)
+        ]
+    ),
+    (
+        "completion-demo.gif",
+        [
+            DemoFrame(filename: "complete-arcade-dark-verified.png", delay: 1.1),
+            DemoFrame(filename: "complete-arcade-dark-unverified.png", delay: 1.1),
+            DemoFrame(filename: "complete-arcade-dark-cancelled.png", delay: 1.1),
+            DemoFrame(filename: "complete-arcade-dark-no-change.png", delay: 1.1)
+        ]
     )
 ]
 
@@ -82,4 +101,4 @@ for demo in demos {
         frames: demo.frames
     )
 }
-fputs("Rendered synthetic Focus and Arcade demos to \(outputDirectory.path)\n", stdout)
+fputs("Rendered synthetic Focus, Arcade, Energy, and completion demos to \(outputDirectory.path)\n", stdout)
