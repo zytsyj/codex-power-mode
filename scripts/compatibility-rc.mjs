@@ -32,7 +32,7 @@ if (process.platform !== "darwin") throw new Error("RC compatibility rendering c
 run(process.execPath, [path.join(root, "scripts", "render-qa.mjs"), "--output", frames]);
 
 const filenames = (await readdir(frames)).filter((filename) => filename.endsWith(".png")).sort();
-assert.equal(filenames.length, 228, `Expected 228 native QA frames, found ${filenames.length}`);
+assert.equal(filenames.length, 326, `Expected 326 native QA frames, found ${filenames.length}`);
 const dimensions = new Set();
 for (const filename of filenames) {
   const bytes = await readFile(path.join(frames, filename));
@@ -47,8 +47,26 @@ assert.ok(includesEvery(filenames, ["focus-light", "focus-dark", "arcade-light",
 assert.ok(includesEvery(filenames, ["-observe-", "-act-", "-verify-", "-wait-", "-recover-", "-complete-"]));
 assert.ok(includesEvery(filenames, ["-90.png", "-320.png", "-580.png", "-850.png", "-999.png"]));
 assert.ok(includesEvery(filenames, ["-verified.png", "-unverified.png", "-cancelled.png", "-no-change.png"]));
-assert.ok(includesEvery(filenames, ["cursor-focus-light-spark", "cursor-focus-dark-neon", "cursor-arcade-light-neon-milestone"]));
+assert.ok(includesEvery(filenames, [
+  "cursor-focus-light-spark",
+  "cursor-focus-dark-neon",
+  "cursor-arcade-light-orbit",
+  "cursor-focus-dark-ripple",
+  "cursor-arcade-dark-prism",
+  "cursor-focus-light-wormhole",
+  "cursor-arcade-dark-glitch",
+  "cursor-focus-dark-tentacle",
+  "cursor-focus-light-meme-dian",
+  "cursor-focus-dark-meme-ji",
+  "cursor-arcade-dark-meme-ying",
+  "cursor-focus-dark-possum",
+  "cursor-focus-dark-fresh-cat",
+  "cursor-focus-dark-knife-shield-dog",
+  "cursor-focus-dark-elegant-person",
+  "cursor-arcade-light-neon-milestone"
+]));
 assert.ok(includesEvery(filenames, ["typing-focus-light-cyan", "typing-arcade-dark-gold", "typing-reduced-dark-violet"]));
+assert.ok(includesEvery(filenames, ["classic-light-typing-combo", "classic-dark-typing-combo"]));
 
 const sourceControl = path.join(root, "scripts", "power-mode.mjs");
 const status = controlStatus(sourceControl, root);
@@ -71,11 +89,19 @@ const report = {
     nativeFrames: filenames.length,
     dimensions: [...dimensions].sort(),
     themes: ["light", "dark"],
-    motionProfiles: ["focus", "arcade", "reduced-motion"],
+    motionProfiles: ["focus", "arcade", "classic", "reduced-motion"],
     semanticStates: ["observe", "act", "verify", "wait", "recover", "complete"],
     energyTiers: ["wake", "charge", "drive", "critical", "peak"],
     completionOutcomes: ["verified", "unverified", "cancelled", "no-change"],
-    cursorSamples: ["spark", "neon", "neon-milestone"],
+    cursorSamples: [
+      "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle",
+      "meme-dian", "meme-ji", "meme-xiao", "meme-le", "meme-beng", "meme-ying",
+      "possum",
+      "fresh-cat",
+      "knife-shield-dog",
+      "elegant-person",
+      "neon-milestone"
+    ],
     typingComboPalettes: ["cyan", "violet", "pink", "gold"],
     serviceHealthy: doctorChecks.service === "ok",
     hudConnected: doctorChecks["hud-connection"] === "ok",
@@ -88,7 +114,7 @@ const report = {
     realEventsReceived
   },
   manualPending: [
-    "Spark and Neon tracking the real Codex insertion point",
+    "All nineteen cursor-effect samples tracking the real Codex insertion point",
     "Typing Combo injection from a real UserPromptSubmit",
     "dragging and saved position across restart",
     "multiple-display attach, detach, and visible-frame changes",

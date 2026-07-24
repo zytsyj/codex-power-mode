@@ -7,7 +7,7 @@ Start with `npm run doctor` from the matching source checkout or the installed p
 - Confirm the local service and native HUD are running.
 - Check the idle behavior and the **When Codex is inactive** setting.
 - Bring Codex to the foreground and start a trusted desktop task.
-- Use the menu-bar bolt to reset the saved position, especially after display changes.
+- Drag the visible orb directly to reposition it. Use the menu-bar bolt to reset the saved position, especially after display changes.
 
 ## Hooks are waiting
 

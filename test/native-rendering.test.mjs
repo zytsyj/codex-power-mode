@@ -71,6 +71,29 @@ test("native HUD uses compositor-driven orb layers instead of frame-by-frame dra
   assert.doesNotMatch(source, /hasEffects \|\| positioning \|\| comboIsDecaying \|\| hudIsFading \|\| presentation\.returning/);
 });
 
+test("native HUD is directly draggable while empty overlay space stays click-through", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /guard shouldShowHUD\(now: Date\(\)\) else \{ return false \}/);
+  assert.match(source, /if !positioning \{ beginPositioning\(\) \}/);
+  assert.match(source, /installStatusItem\(\)[\s\S]*installMouseMonitors\(\)[\s\S]*updateMouseCapture\(\)/);
+  assert.match(source, /panel\.ignoresMouseEvents = !view\.hudContains\(windowPoint: windowPoint\)/);
+  assert.doesNotMatch(source, /guard positioning, let panel = window, let view = panel\.contentView as\? PowerModeView else \{ return \}/);
+});
+
+test("classic Power Mode hides the orb and centers cursor-driven Typing Combo", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /private var classicMode: Bool \{ preferences\.settings\.preset == "classic" \}/);
+  assert.match(source, /if value == "classic" \{ \$0\.typingCombo = true \}/);
+  assert.match(source, /orbRenderer\.setVisible\(false, animated: false\)/);
+  assert.match(source, /typingRenderer\.layout\(in: bounds, beside: hudRect, centered: classicMode\)/);
+  assert.match(source, /if classicMode \{ return positioning \|\| typingComboProgress\(now: now\) > 0 \}/);
+  assert.match(source, /typingRenderer\.showPositioningAnchor\(\)/);
+  assert.match(source, /typingRenderer\.clearCombo\(\)/);
+  assert.match(source, /Classic Power Mode · cursor \+ typing Combo/);
+});
+
 test("Complete showcase previews the shared family without changing real state", async () => {
   const source = await readFile(controllerSource, "utf8");
 
@@ -107,8 +130,9 @@ test("native HUD settings self-test exercises isolated persistence and validatio
   assert.match(source, /func reloaded\(\) -> PowerModePreferences/);
   assert.match(source, /let persisted = reloaded\(\)/);
   assert.match(source, /persisted\.settings\.activitySource == "mix"/);
+  assert.match(source, /persisted\.settings\.preset == "classic"/);
   assert.match(source, /persisted\.settings\.inactiveBehavior == "follow"/);
-  assert.match(source, /persisted\.settings\.cursorEffect == "neon"/);
+  assert.match(source, /persisted\.settings\.cursorEffect == "elegant"/);
   assert.match(source, /reset\.settings\.positionX == nil/);
 });
 
@@ -163,6 +187,45 @@ test("typing Combo follows the foreground Codex app without relying on an AX tex
   assert.match(source, /forKey: neon \? "caret-neon" : "caret-spark-glyph"/);
   assert.match(source, /forKey: "cursor-combo-milestone"/);
   assert.match(source, /let particleCount = neon/);
+  assert.match(source, /case "orbit":/);
+  assert.match(source, /case "ripple":/);
+  assert.match(source, /case "prism":/);
+  assert.match(source, /case "wormhole":/);
+  assert.match(source, /case "glitch":/);
+  assert.match(source, /case "tentacle":/);
+  assert.match(source, /case "meme":/);
+  assert.match(source, /case "possum":/);
+  assert.match(source, /case "freshcat":/);
+  assert.match(source, /case "knifeshield":/);
+  assert.match(source, /case "elegant":/);
+  assert.match(source, /forKey: "cursor-orbit-arc"/);
+  assert.match(source, /forKey: "cursor-orbit-particle"/);
+  assert.match(source, /forKey: "cursor-ripple-core"/);
+  assert.match(source, /forKey: "cursor-ripple-ring"/);
+  assert.match(source, /forKey: "cursor-prism-core"/);
+  assert.match(source, /forKey: "cursor-prism-ray"/);
+  assert.match(source, /forKey: "cursor-wormhole-loop"/);
+  assert.match(source, /forKey: "cursor-glitch-shard"/);
+  assert.match(source, /forKey: "cursor-tentacle-arm"/);
+  assert.match(source, /let words = \["典", "急", "孝", "乐", "绷", "赢"\]/);
+  assert.match(source, /private weak var activeMemeText: CATextLayer\?/);
+  assert.match(source, /activeMemeText\?\.removeAllAnimations\(\)/);
+  assert.match(source, /activeMemeText\?\.removeFromSuperlayer\(\)/);
+  assert.match(source, /forKey: "cursor-meme-word"/);
+  assert.match(source, /private weak var activePossumSticker: CALayer\?/);
+  assert.match(source, /hands-behind-possum-cutout\.png/);
+  assert.match(source, /macOS input-method candidates normally open above the insertion point/);
+  assert.match(source, /y: point\.y - \(milestone \? 48 : 42\)/);
+  assert.match(source, /forKey: "cursor-possum-inspect"/);
+  assert.match(source, /private weak var activeFreshCatSticker: CALayer\?/);
+  assert.match(source, /fresh-cat-cutout\.png/);
+  assert.match(source, /forKey: "cursor-fresh-cat-press"/);
+  assert.match(source, /private weak var activeKnifeShieldDog: CALayer\?/);
+  assert.match(source, /knife-shield-dog-cutout\.png/);
+  assert.match(source, /forKey: "cursor-knife-shield-dog-waddle"/);
+  assert.match(source, /private weak var activeElegantPerson: CALayer\?/);
+  assert.match(source, /elegant-person-cutout\.png/);
+  assert.match(source, /forKey: "cursor-elegant-person-bow"/);
   assert.match(source, /typingRenderer\.inject\(to: reactorCenter\(\), count: count\)/);
   assert.match(source, /private let lifetimeFill = CAGradientLayer\(\)/);
   assert.match(source, /private func typingPalette\(for count: Int\)/);

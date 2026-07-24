@@ -10,14 +10,15 @@ Run on macOS:
 npm run compatibility:rc
 ```
 
-The command regenerates all 228 native frames and verifies PNG integrity plus coverage for:
+The command regenerates all 326 native frames and verifies PNG integrity plus coverage for:
 
 - light and dark appearances;
-- Focus, Arcade, and Reduce Motion;
+- Focus, Arcade, Classic, and Reduce Motion;
 - Observe, Act, Verify, Wait, Recover, and Complete;
 - all five Energy tiers and four completion outcomes;
-- Spark, Neon, and Neon milestone cursor samples;
-- cyan, violet, pink, and gold Typing Combo palettes.
+- all thirteen cursor styles plus meme-word and milestone samples;
+- cyan, violet, pink, and gold Typing Combo palettes;
+- light/dark Classic Power Mode with a centered Typing Combo and no orb.
 
 It also records aggregate installed-service health, HUD connection, Accessibility permission, and single-instance results. The ignored JSON report contains no task identifiers, prompt or code contents, commands, key values, cursor coordinates, tokens, or local paths.
 
@@ -25,10 +26,10 @@ It also records aggregate installed-service health, HUD connection, Accessibilit
 
 | Area | Automated evidence | Hands-on evidence still required |
 | --- | --- | --- |
-| Theme and motion | 228 native light/dark Focus/Arcade/Reduce Motion frames | Observe transition rhythm and legibility on the target displays |
+| Theme and motion | 326 native light/dark Focus/Arcade/Classic/Reduce Motion frames | Observe transition rhythm and legibility on the target displays |
 | Semantic and Energy states | Six states, five tiers, four completion outcomes | Real lifecycle ordering from a trusted Codex desktop task |
 | Typing feedback | Static Spark/Neon and Combo palette frames; Accessibility health | Effects following the real insertion point; real `UserPromptSubmit` injection |
-| Floating behavior | Position/config/state logic tests plus isolated position save, reload, and reset | Drag gesture, multiple-display attach/detach, Dock and visible-frame changes |
+| Floating behavior | Direct-drag hit-target/click-through tests plus isolated position save, reload, and reset | Drag gesture, multiple-display attach/detach, Dock and visible-frame changes |
 | Foreground and idle policy | Isolated save/reload coverage for hide/stay/follow and hide/quiet-orb settings | Policy timing and behavior in the live app |
 | Language | English/Chinese strings compile; automatic/English/Chinese preference persistence | English, Chinese, and automatic selection reviewed in the live menu/HUD |
 | Lifecycle maintenance | Isolated install/upgrade and real service-reconnect checks | Clean install, upgrade, stop, permission revocation, and uninstall on the final support range |

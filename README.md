@@ -1,255 +1,228 @@
 <div align="center">
 
-<img src="docs/media/hero.svg" width="100%" alt="Codex Power Mode — semantic agent states and five-tier Energy evolution">
+<img src="docs/media/hero.svg" width="100%" alt="Codex Power Mode — a native semantic HUD with Focus, Arcade, and Classic modes">
 
 # Codex Power Mode
 
-**A semantic activity HUD for Codex.**<br>
-See the agent understand, act, verify, wait, recover, and complete—at a glance.
+**A native semantic HUD that makes Codex activity visible.**
+
+Understand what the agent is doing, watch useful work build Energy, and turn typing into tactile feedback—without reading or storing your content.
+
+[English](README.md) · [简体中文](README.zh-CN.md)
 
 [![macOS](https://img.shields.io/badge/macOS-native-111827?style=flat-square&logo=apple&logoColor=white)](docs/INSTALLATION.md)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-1f6f4a?style=flat-square&logo=nodedotjs&logoColor=white)](package.json)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
-[![Status](https://img.shields.io/badge/status-private_RC-7c3aed?style=flat-square)](docs/RELEASE_CHECKLIST.md)
-[![License](https://img.shields.io/badge/license-UNLICENSED-4b5563?style=flat-square)](#known-limitations)
+[![Version](https://img.shields.io/badge/version-0.8.0-7c3aed?style=flat-square)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-private_preview-f59e0b?style=flat-square)](docs/RELEASE_CHECKLIST.md)
 
-[Install](docs/INSTALLATION.md) · [How it works](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+[Install](#installation) · [Modes](#three-display-modes) · [How it works](#how-it-works) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
 > [!IMPORTANT]
-> This is a private incubation project and is intentionally not open source yet. The current build is a private Release Candidate for personal testing, not a public release.
+> This repository is a private Release Candidate and is intentionally not open source yet. It is available for personal testing, but the project remains private and `UNLICENSED`; redistribution and public installation are not authorized.
+
+## See Codex work—not just spin
+
+Power Mode converts trusted Codex desktop lifecycle events into a compact, native macOS overlay. It distinguishes understanding, reading, editing, verification, waiting, recovery, and completion instead of reducing every task to a generic loading indicator.
 
 <table>
   <tr>
-    <th width="50%">Focus · restrained clarity</th>
-    <th width="50%">Arcade · expressive feedback</th>
+    <th width="33%">Focus</th>
+    <th width="33%">Arcade</th>
+    <th width="33%">Classic Power Mode</th>
   </tr>
   <tr>
-    <td align="center"><img src="docs/media/focus-demo.gif" width="240" alt="Focus lifecycle: Observe, Act, Verify, Complete"></td>
-    <td align="center"><img src="docs/media/arcade-demo.gif" width="240" alt="Arcade lifecycle with Typing Combo, Energy tiers, Verify, and Complete"></td>
+    <td align="center"><img src="docs/media/focus-demo.gif" width="240" alt="Focus mode lifecycle"></td>
+    <td align="center"><img src="docs/media/arcade-demo.gif" width="240" alt="Arcade mode lifecycle and Energy evolution"></td>
+    <td align="center"><img src="docs/media/classic-mode-dark.png" width="240" alt="Classic Power Mode typing Combo"></td>
+  </tr>
+  <tr>
+    <td>Quiet, legible semantic motion.</td>
+    <td>Stronger impacts and richer choreography.</td>
+    <td>No orb—only cursor effects and Typing Combo.</td>
   </tr>
 </table>
 
-Power Mode reads trusted Codex lifecycle signals—not prompt text, simulated typing, or raw source code—and turns them into a compact visual rhythm. Useful work builds **Energy**, consecutive agent steps maintain **Combo**, verification creates evidence-backed completion, and inactivity settles visibly back to Idle.
+## What the current version includes
 
-## Why Power Mode?
+- **Three display modes.** Focus, Arcade, and the new no-orb Classic Power Mode.
+- **Five Energy tiers.** Wake, Charge, Drive, Critical, and Peak evolve one connected mechanism from `1` to `999`; `900+` is always Peak.
+- **Six semantic states.** Observe, Act, Verify, Wait, Recover, and Complete each have a distinct, stable visual grammar.
+- **Two independent Combos.** Agent Combo reflects consecutive Codex steps; Typing Combo reflects local input rhythm.
+- **Four completion outcomes.** Verified, unverified, cancelled, and no-change tasks never share a misleading finish.
+- **Thirteen cursor styles.** Sparks, Neon, Orbit, Ripple, Prism, Wormhole, Glitch, Tentacle, meme words, Hands-behind Possum, Fresh Cat, Knife-shield Dog, and Elegant Person.
+- **Direct positioning.** Drag the orb—or the active Classic counter—where you want it. Empty overlay space remains click-through.
+- **Multi-task policies.** Focus one conversation, follow the latest, or combine desktop conversations into a shared Mix pool.
+- **Accessibility controls.** Reduced Motion, light/dark adaptation, bilingual HUD controls, scaling, auto-hide, and inactive-app policies.
 
-| Semantic, not decorative | Local by design | Calm or expressive |
-| --- | --- | --- |
-| Six distinct states explain what Codex is doing instead of showing a generic spinner. | The service binds to localhost, uses per-install authentication, and stores no prompt or command text. | Focus keeps motion restrained; Arcade adds stronger impact without changing the underlying state model. |
+## Energy that visibly evolves
 
-## One orb, two independent signals
+Energy is not a decorative progress number. Each tier changes the same connected machine while preserving its identity.
 
-### Agent state
-
-`Observe` → `Act` → `Verify` → `Complete`
-
-Attention paths remain explicit: `Wait` requests input, while `Recover` shows failed work being repaired. Every new event gets one short state-specific action; stable state geometry remains readable after the transient animation leaves.
-
-### Energy evolution
-
-| Energy | Tier | Visual evolution |
+| Energy | Tier | Evolution |
 | ---: | --- | --- |
-| `1–199` | **Wake** | Chassis comes online |
-| `200–449` | **Charge** | Three nodes separate and orbit |
-| `450–699` | **Drive** | Four-node directional bus engages |
-| `700–899` | **Critical** | Six locks and stabilizer assemble |
+| `1–199` | **Wake** | The chassis comes online |
+| `200–449` | **Charge** | Three nodes separate and begin to orbit |
+| `450–699` | **Drive** | A four-node directional bus engages |
+| `700–899` | **Critical** | Six locks and a stabilizer assemble |
 | `900–999` | **Peak** | The mechanism synchronizes under a white-gold crown |
 
-The ring refills inside each tier, then establishes the next topology. Peak is reached through normal Energy accumulation; verification is not a gate for entering the highest tier.
+<p align="center">
+  <img src="docs/media/arcade-dark-act.png" width="220" alt="Arcade mode during Act">
+  &nbsp;&nbsp;
+  <img src="docs/media/focus-light-verify.png" width="220" alt="Focus mode during Verify">
+  &nbsp;&nbsp;
+  <img src="docs/media/arcade-dark-complete.png" width="220" alt="Verified completion">
+</p>
 
-### Combo
+## Three display modes
 
-Combo is the short-lived outer arc for consecutive agent steps. It advances through Ignite, Link, Accel, Heat, and Extreme, warns before expiry, and visibly disconnects when the chain breaks. Typing Combo is separate and optional.
+### Focus
 
-## Controls at a glance
+The default. It keeps motion restrained and prioritizes readable state changes for long sessions.
 
-| Control | Choices | Purpose |
+### Arcade
+
+Uses the same state and Energy model with denser particles, stronger breakthroughs, and more expressive completion beats.
+
+### Classic Power Mode
+
+Removes the Energy orb and semantic mechanism entirely. Only the selected cursor effect and a centered Typing Combo remain. Selecting Classic automatically enables Typing Combo; when the Combo expires, the overlay leaves no invisible hit target behind.
+
+## Cursor feedback with personality
+
+Choose a restrained cursor-local effect or something deliberately playful. Sticker modes ship with their complete local assets, so a checkout works without downloading images at runtime.
+
+| Precise | Abstract | Meme |
 | --- | --- | --- |
-| Visual rhythm | Focus / Arcade | Restrained clarity or high-impact choreography |
-| Activity source | Focus / Global / Mix | One task, latest isolated task, or a shared desktop pool |
-| Energy gain | 0.30×–1.50× | Tune accumulation without changing tier boundaries |
-| Input feedback | Off / Sparks / Neon | Optional cursor feedback and independent Typing Combo |
-| Idle behavior | Hide / Quiet orb | Disappear after settling or retain a neutral orb |
-| Accessibility | Reduce Motion | Preserve semantic feedback without spatial motion |
-| Language | Auto / English / 中文 | Localized HUD labels and controls |
+| Sparks · Neon · Orbit · Ripple | Prism · Wormhole · Glitch · Tentacle | 典急孝乐绷赢 · 背手负鼠 · 新鲜猫 · 刀盾狗 · 高雅人士 |
 
-<table>
-  <tr>
-    <th width="50%">Typing Combo</th>
-    <th width="50%">Reduce Motion · Recover</th>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/media/typing-combo-dark.png" width="220" alt="Gold Typing Combo on a dark background"></td>
-    <td align="center"><img src="docs/media/reduced-light-recover.png" width="220" alt="Reduced Motion Recover on a light background"></td>
-  </tr>
-</table>
+Cursor feedback is independent of the large Typing Combo counter. A new effect replaces the previous one immediately to prevent visual stacking during fast input.
 
-## Current scope
+## How it works
 
-- Native transparent, click-through HUD for the Codex desktop app on macOS only.
-- Focus, Global, and Mix task-following modes with isolated or shared Energy and Combo.
-- Distinct verified, unverified, cancelled, and no-change completion outcomes.
-- Fixed semantic confirmations for Reduce Motion.
-- Menu-bar controls for language, effects, visibility, size, motion, and positioning.
-- Local authenticated event service with zero third-party runtime packages or analytics.
-- Reproducible demos, render QA, security, stability, compatibility, and performance checks.
+```mermaid
+flowchart LR
+    A["Trusted Codex lifecycle hooks"] --> B["Local authenticated service"]
+    B --> C["Semantic state + Energy + Combo"]
+    C --> D["Native macOS overlay"]
+    E["Local typing rhythm<br/>optional Accessibility"] --> D
+```
 
-Automated checks are in place, but final publication still depends on hands-on interaction acceptance, a trusted Hook run after installation, Instruments GPU/Energy inspection, compatibility review, and the owner decisions in the [release checklist](docs/RELEASE_CHECKLIST.md).
+- Hooks reduce activity to semantic events and aggregate counts.
+- A loopback-only service maintains per-conversation or shared state.
+- The native Core Animation HUD follows the relevant Codex window.
+- The browser preview exists for development; the product experience is the native overlay.
 
-<details>
-<summary><strong>Documentation and release evidence</strong></summary>
+The overlay does not inject code into Codex and does not reward code volume. Verification quality, useful steps, timing, and task outcomes drive the visible feedback.
 
-<br>
+## Installation
 
-[Installation](docs/INSTALLATION.md) ·
-[Architecture](docs/ARCHITECTURE.md) ·
-[Privacy](docs/PRIVACY.md) ·
-[FAQ](docs/FAQ.md) ·
-[Troubleshooting](docs/TROUBLESHOOTING.md) ·
-[Security audit](docs/SECURITY_AUDIT.md) ·
-[Performance](docs/PERFORMANCE.md) ·
-[Stability](docs/STABILITY.md) ·
-[Compatibility](docs/COMPATIBILITY.md) ·
-[Dependencies](docs/DEPENDENCIES.md) ·
-[Media provenance](docs/MEDIA.md) ·
-[Release archive](docs/RELEASE_ARCHIVE.md) ·
-[Security policy](SECURITY.md) ·
-[Contributing](CONTRIBUTING.md)
+### Requirements
 
-</details>
+- macOS with the Codex desktop app
+- Node.js 20 or newer
+- The macOS Swift toolchain
+- Accessibility permission only for Typing Combo and cursor-local effects
 
-## Try it locally
+### Private preview
 
-Requires Node.js 20 or newer.
+The current owner build is installed from a configured personal marketplace:
 
 ```bash
-npm start
+codex plugin add codex-power-mode@personal
+```
+
+Open a new Codex task, review and trust the lifecycle hooks, then verify the installation:
+
+```bash
+npm run doctor
+```
+
+The first trusted desktop task starts one authenticated local service and one native HUD. See the full [installation and maintenance guide](docs/INSTALLATION.md) for upgrades, reset, removal, and permission troubleshooting.
+
+### Source checkout
+
+```bash
+npm install
+npm run check
+npm run native
+```
+
+Useful development commands:
+
+```bash
 npm run demo
 npm run showcase
 npm run showcase:energy
-npm run replay
-npm run render:demos
+npm run showcase:complete
 npm run render:qa
-npm run archive:rc
-npm run readiness:rc
-npm run security:rc
-npm run perf:rc
-npm run stability:rc
-npm run compatibility:rc
-```
-
-The HUD runs on `http://127.0.0.1:4737` and binds only to localhost.
-Use `npm run showcase` to compare semantic states, or `npm run showcase:energy` to step through all five Energy tiers. Demo, both showcases, and replay are transient previews: they never change the connected task, energy, Combo, event history, or personal best, and the real HUD state is restored when playback ends.
-
-For the native macOS overlay:
-
-```bash
-npm run native
-npm run demo
 npm run status
-npm run doctor
-npm run native:stop
 ```
 
-The native executable is compiled locally with the installed Swift toolchain and cached under the ignored `.power-mode/` directory. It follows the foremost Codex window and does not modify or inject code into the Codex app. **When Codex is inactive** offers three explicit policies: hide the HUD, keep it over the last Codex window position, or re-anchor it to the current foreground app. The two visible policies remain above other apps across displays and Stage Manager groups.
+## Local and private by design
 
-On macOS, the Codex `SessionStart` hook automatically ensures both the event service and native overlay are running. Existing processes are reused, so opening another session does not create duplicate overlays.
+- The service binds only to `127.0.0.1` and authenticates every local client.
+- Prompts, responses, source code, patch contents, command text, typed characters, key values, clipboard data, credentials, and cursor coordinates are not persisted.
+- Accessibility is used only to count eligible rhythm and locate the active insertion point while Codex is foreground.
+- Runtime state stays outside the repository and can be removed with the bounded purge command.
+- There are no third-party runtime packages, analytics, or telemetry.
 
-`UserPromptSubmit` moves the HUD into Observe immediately after a message is sent, with “Understanding your request” feedback before the first tool call. Power Mode records the lifecycle transition but never stores the prompt text.
+Read the complete [privacy model](docs/PRIVACY.md), [architecture](docs/ARCHITECTURE.md), and [security audit](docs/SECURITY_AUDIT.md).
 
-`npm run status` reports service health, the native overlay PID and launch configuration, `hudDisplay` for the state currently shown after settling/decay, `taskState` for the last raw task state, and how many demo versus real Codex lifecycle events the running service has received. If `realEventsReceived` remains `0` after Codex uses a tool, review and trust the plugin hooks in Codex.
+## Quality gates
 
-`npm run doctor` gives a short, non-technical health report for the service, native HUD, installed version, data directory, duplicate processes, event-stream connection, and trusted Codex lifecycle hooks. Use `npm run doctor -- --json` for automation.
+The current implementation is guarded by:
 
-`npm run readiness:rc` gives one conservative release-candidate summary. It marks reports from older cachebuster builds as stale and keeps automated checks, a real trusted Hook, hands-on interaction, Instruments review, and owner publication decisions separate. It never changes repository visibility or publishes anything.
+- **146 automated tests** covering lifecycle semantics, persistence, security, process control, settings, rendering contracts, and release hygiene.
+- **326 deterministic native frames** across light/dark themes, Focus, Arcade, Classic, Reduced Motion, all semantic states, Energy tiers, completion outcomes, cursor samples, and Typing Combo palettes.
+- **Native compositor budgets** capped at 96 live layers and 88 animations under a synthetic peak scenario.
+- Reproducible compatibility, stability, performance, security, archive, and interaction checks.
 
-## Maintenance and removal
+Synthetic checks are not presented as proof of real Hook or hands-on behavior. Remaining publication gates are tracked in the [release checklist](docs/RELEASE_CHECKLIST.md).
 
-- `npm run stop` safely stops the native HUD and the authenticated local service without deleting settings or history.
-- `npm run reset:settings -- --yes` restores display settings and position to defaults, restarts the HUD, and preserves history and personal bests. Without `--yes`, it only explains that confirmation is required.
-- `npm run purge:data -- --yes` stops Power Mode and removes its local settings, history, and installation token. It refuses broad or unrecognized directories and does not uninstall the plugin itself.
-- Remove the plugin package with `codex plugin remove codex-power-mode@personal`. To remove local data too, run the purge command first.
+## Controls
 
-After an upgrade, `npm run doctor` confirms the installed version, data directory, service/HUD connection, and single-instance state. A notice that hooks are waiting is normal until the next trusted Codex desktop task emits a lifecycle event.
+All everyday settings live under the macOS menu-bar bolt.
 
-### Typing Combo permission troubleshooting
+| Control | Options |
+| --- | --- |
+| Display mode | Focus · Arcade · Classic Power Mode |
+| Activity source | Focus · Global · Mix |
+| Energy gain | `0.30×` through `1.50×` |
+| Effect intensity | Low · Normal · High |
+| Cursor effect | Off plus thirteen visual styles |
+| Idle | Hide · Quiet orb · immediate/2s/6s delay |
+| Inactive Codex | Hide · Stay over Codex · Follow foreground app |
+| Accessibility | Reduce Motion |
+| Language | Automatic · English · 中文 |
+| Position | Direct drag · guided positioning · reset |
 
-Run `npm run doctor`. When Typing Combo is enabled, it checks the installed native HUD's macOS Accessibility trust without prompting or exposing cursor coordinates. If permission is missing, open **System Settings → Privacy & Security → Accessibility**, enable the installed `codex-power-mode-overlay`, then restart Power Mode. If permission is granted but cursor effects are unavailable, bring Codex to the foreground and click inside its message input box; the next diagnostic distinguishes that focus state from a missing permission. Typing Combo can also be turned off from the menu-bar bolt, in which case Accessibility permission is not required.
+## Platform and project status
 
-The macOS menu-bar bolt is the settings entry point. Power Mode only tracks conversations opened in the Codex desktop app; CLI and subagent activity is ignored. **Status & connection** separates the current HUD display from the raw task state and lists the last real event, task origin, following policy, connection health, and full session identity. **Activity source** offers Focus, Global, and Mix: Focus protects the current conversation, Global follows the latest conversation while keeping each score isolated, and Mix combines every Codex app conversation into one shared Energy and Combo pool. **Energy gain** offers ten bounded multipliers from 0.30× to 1.50×; a change applies to the next real lifecycle event without restarting the service or HUD, and any Energy source can enter Peak at `900`. **Effect intensity** independently controls particle density and impact without changing the Focus/Arcade rhythm, and **Show Combo** can remove the agent Combo ring without spending high-frequency redraws on its hidden decay. **Typing Combo** is a separate opt-in feature that requests macOS Accessibility access, activates only while Codex is the foreground app, ignores control/navigation keys, and records only a capped count and timestamp. **Idle behavior** can keep a quiet orb or hide the HUD; when hiding is selected, **Auto-hide delay** chooses whether it disappears immediately or leaves the settled Idle orb visible for 2 or 6 seconds. **When Codex is inactive** separately controls whether the HUD hides, stays at the last Codex anchor, or follows the active app. Choose **Adjust position…** (or press `⌥⌘P`), drag the HUD inside the Codex window, and release to lock it back into click-through mode. The menu also reports historical best energy and Combo. Settings are saved immediately in the versioned `overlay-config.json` and survive overlay restarts.
+Power Mode currently supports the Codex desktop app on macOS only. Codex CLI, VS Code, subagents, Windows, and Linux are outside the current product boundary.
 
-Optional environment variables:
+The native binary is compiled locally and is not yet distributed as a signed or notarized application. A public installation channel and open-source license have not been approved.
 
-- `CODEX_POWER_MODE_EDGE`: `top-right` (default), `top-left`, `bottom-right`, `bottom-left`, or `center`.
-- `CODEX_POWER_MODE_REDUCED_MOTION=1`: update the HUD without particles, flashes, or spatial motion while preserving distinct static state markers.
-- `CODEX_POWER_MODE_FOLLOW_WHEN_INACTIVE=1`: keep the overlay visible while Codex is behind another app.
-- `CODEX_POWER_MODE_PRESET=arcade`: increase particle density, replay cadence, and finisher intensity. The default is `focus`.
-- `CODEX_POWER_MODE_INTENSITY=low|normal|high`: tune effect density independently of the semantic preset.
-- `CODEX_POWER_MODE_ENERGY_GAIN=0.3|0.4|0.5|0.6|0.72|0.85|1|1.15|1.3|1.5`: choose the Energy gain multiplier. The default is balanced `0.72`.
-- `CODEX_POWER_MODE_SHOW_COMBO=0`: hide the Combo bar and its decay animation.
-- `CODEX_POWER_MODE_TYPING_COMBO=1`: enable the macOS-only input rhythm Combo. Accessibility permission is required; text and key values are never stored or sent.
-- `CODEX_POWER_MODE_CURSOR_EFFECT=off|spark|neon`: choose the cursor-local typing effect independently from the large Typing Combo counter.
-- `CODEX_POWER_MODE_SCALE`: scale the floating HUD from `0.75` to `1.6`. The default is `1.15` (about 94pt collapsed).
-  The HUD automatically scales down when needed to stay inside narrow Codex windows.
-- `CODEX_POWER_MODE_IDLE`: `hide` (default) or `orb`.
-- `CODEX_POWER_MODE_LANGUAGE`: `auto` (default), `zh-CN`, or `en`.
-- `CODEX_POWER_MODE_ACTIVITY_SOURCE`: `focused` (default), `global`, or `mix`.
-- `CODEX_POWER_MODE_ENABLED=0`: disable drawing while keeping the local service available.
-- `CODEX_POWER_MODE_OBSERVE_THROTTLE_MS`: minimum interval between identical Observe animations. Defaults to `900`; set to `0` to disable coalescing.
-- `CODEX_POWER_MODE_PORT`: local event-service port used consistently by the server, hooks, browser HUD, and native overlay. Defaults to `4737`.
-- `CODEX_POWER_MODE_AUTO_NATIVE=0`: keep automatic session startup limited to the event service instead of launching the macOS overlay.
+## Documentation
 
-Manual runs store state under `~/.codex/power-mode` by default so runtime history is never bundled into the plugin source. Installed hooks continue to use the Codex-provided `PLUGIN_DATA` directory.
+| Use | Build | Trust | Release |
+| --- | --- | --- | --- |
+| [Installation](docs/INSTALLATION.md) | [Architecture](docs/ARCHITECTURE.md) | [Privacy](docs/PRIVACY.md) | [Release checklist](docs/RELEASE_CHECKLIST.md) |
+| [FAQ](docs/FAQ.md) | [Media & QA](docs/MEDIA.md) | [Security](SECURITY.md) | [Compatibility](docs/COMPATIBILITY.md) |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dependencies](docs/DEPENDENCIES.md) | [Security audit](docs/SECURITY_AUDIT.md) | [Performance](docs/PERFORMANCE.md) |
+| [Maintenance](docs/INSTALLATION.md#stop-reset-and-remove) | [Contributing](CONTRIBUTING.md) | [Third-party notices](THIRD_PARTY_NOTICES.md) | [Stability](docs/STABILITY.md) |
 
-## Plugin layout
+## Contributing
 
-```text
-.codex-plugin/plugin.json   Plugin metadata
-hooks/hooks.json            Codex lifecycle hook declarations
-hooks/*.mjs                 Session and tool event handlers
-skills/power-mode/          User-facing Power Mode workflow
-src/                        Event parsing, scoring, and persistence
-overlay/                    Real-time visual HUD
-scripts/                    Server and control command
-test/                       Node test suite
-```
+External contributions are not accepted during private incubation. The contribution guide documents the engineering and privacy standards that will apply if the repository is opened later.
 
-Installed plugin hooks must be reviewed and trusted by the user before Codex runs them. Power Mode hooks are observational: they do not block or rewrite tool calls.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and the [FAQ](docs/FAQ.md).
 
-## Privacy and safety
+<div align="center">
 
-- All state stays on the local machine.
-- The HUD listens on `127.0.0.1` only.
-- Each installation creates a private `0600` service token. Hooks, diagnostics, and the native HUD authenticate every API and event-stream request.
-- The browser HUD receives a separate process-scoped, stream-only token through a same-origin bootstrap; cross-origin pages cannot subscribe to HUD state or post events.
-- Patch source text is reduced to line and character counts before persistence; command contents are not stored.
-- The local service rejects malformed lifecycle events, sensitive prompt/command fields, oversized payloads, and invalid JSON without interrupting Codex work.
-- Hook failures never block Codex work.
-- There are no runtime dependencies or analytics.
-- Focus and Arcade enforce separate particle, shockwave, and scan budgets so bursts cannot accumulate without bound during rapid tool activity.
-- Energy spans Wake, Charge, Drive, Critical, and the `900–999` Peak. A high-contrast 300-degree gauge fills within the current tier and resets only after the new topology establishes. Its bright progress head accelerates near a breakthrough. All nodes, buses, ports, stabilizers, and crown elements share one current-tier palette and one motion clock; semantic states change how that same machine moves rather than drawing another effect through the central value.
-- Repeated identical read/search activity is throttled, while Act, Verify, Wait, Recover, and Complete events are never hidden by that throttle.
+Built for people who want agent activity to feel legible, responsive, and alive.
 
-## Combo semantics
-
-- Typing Combo is local and separate from the agent Combo below. At the balanced multiplier, a real `UserPromptSubmit` consumes it into a capped `4/12/23/40/65` Energy charge; the selected Energy gain multiplier scales that reward and may naturally cross the `900` Peak boundary.
-
-- A new Codex tool step starts or extends Combo; edits add one link and successful verification adds two. Every increase pulses the ring, while tier crossings create a larger expansion.
-- Observe begins draining immediately. Act gets a 15-second tool hold, Verify gets a 90-second hold, then the bar drains over 14 seconds.
-- Permission waits preserve Combo for 15 seconds before draining, so approval latency is not treated as an instant failure.
-- Failed verification and unverified completion break Combo immediately.
-- An expired link starts again at `1×` with a brief `RELINK` / `重连` bridge; a new turn or Codex session also starts at `1×` but is deliberately not presented as a continuation.
-- Combo progresses through Ignite (`1–4×`), Link (`5–9×`), Accel (`10–19×`), Heat (`20–39×`), and Extreme (`40×+`). Its critical cadence emits a double warning near expiry, then the outer ring visibly fractures once after a break.
-- Passing checks use three reward tiers: restrained confirmation without a recent edit, green Boost when evidence backs the latest change, and a gold Record beat when that evidence also sets a personal best.
-
-## Known limitations
-
-- Power Mode supports the Codex desktop app on macOS only. Codex CLI, VS Code, subagents, Windows, and Linux are intentionally outside the current product boundary.
-- The latest installed Hook is verified only when a new trusted Codex desktop task naturally emits lifecycle activity. Preview commands and synthetic render tests never count as real Hook acceptance.
-- The current performance numbers are an Apple-silicon single-machine baseline. Full Xcode Instruments GPU/Energy Log inspection and a final supported macOS/Codex range remain open RC gates.
-- Typing Combo and cursor-local effects require optional macOS Accessibility permission. Core lifecycle feedback works without that permission.
-- The project remains private and `UNLICENSED`; no permission to redistribute or publish has been granted yet.
-
-See the [FAQ](docs/FAQ.md) for expected behavior and the [release checklist](docs/RELEASE_CHECKLIST.md) for the remaining public-readiness gates.
+</div>

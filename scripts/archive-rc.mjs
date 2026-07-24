@@ -34,7 +34,7 @@ const personalPathPatterns = [
   /\/home\/(?!example\/|runner\/|tester\/)[A-Za-z0-9._-]+\//
 ];
 const privateKeyPattern = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/;
-const allowedBinary = /^docs\/media\/[^/]+\.(?:png|gif)$/;
+const allowedBinary = /^(?:docs\/media\/[^/]+\.(?:png|gif)|assets\/meme-stickers\/[^/]+\.png)$/;
 
 try {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
@@ -87,8 +87,12 @@ try {
 
   const media = files.filter((filename) => /\.(?:png|gif)$/i.test(filename));
   assert.ok(media.length > 0, "RC archive must include the documented first-party preview media");
-  assert.ok(media.every((filename) => allowedBinary.test(filename)), "Media outside docs/media is not declared");
-  const mediaDocs = `${await readFile(path.join(root, "docs", "MEDIA.md"), "utf8")}\n${await readFile(path.join(root, "docs", "DEPENDENCIES.md"), "utf8")}`;
+  assert.ok(media.every((filename) => allowedBinary.test(filename)), "Media outside the declared directories is not allowed");
+  const mediaDocs = [
+    await readFile(path.join(root, "docs", "MEDIA.md"), "utf8"),
+    await readFile(path.join(root, "docs", "DEPENDENCIES.md"), "utf8"),
+    await readFile(path.join(root, "assets", "meme-stickers", "README.md"), "utf8")
+  ].join("\n");
   for (const filename of media) assert.ok(mediaDocs.includes(path.basename(filename)), `Missing provenance for ${filename}`);
 
   const report = {
@@ -102,7 +106,7 @@ try {
       sha256: createHash("sha256").update(archiveBytes).digest("hex"),
       entries: files.length,
       trackedEntries: files.filter((filename) => tracked.has(filename)).length,
-      firstPartyMediaEntries: media.length,
+      mediaEntries: media.length,
       retained: false
     },
     checks: {

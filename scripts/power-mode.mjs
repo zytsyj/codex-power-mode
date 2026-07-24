@@ -403,7 +403,8 @@ async function startNative() {
         ...process.env,
         CODEX_POWER_MODE_URL: streamEndpoint,
         CODEX_POWER_MODE_TOKEN: await ensureServiceToken(dataDir),
-        CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile
+        CODEX_POWER_MODE_CONFIG_PATH: nativeConfigFile,
+        CODEX_POWER_MODE_ASSET_ROOT: path.join(root, "assets")
       }
     });
     child.unref();

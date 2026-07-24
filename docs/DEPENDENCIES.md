@@ -13,9 +13,11 @@ Node.js, macOS, Apple frameworks, Swift, and Codex are platform prerequisites. T
 
 The optional first-party media build additionally uses the macOS ImageIO and UniformTypeIdentifiers system frameworks to compose synthetic PNG frames into GIFs. Those frameworks are not shipped with the plugin.
 
-## Bundled third-party code and assets
+## Bundled code and assets
 
-None. The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, fonts, images, videos, native libraries, or precompiled executables. The small preview PNGs under `docs/media/` are first-party output generated from the project's native renderer; their provenance is recorded in `docs/MEDIA.md`.
+The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, copied source code, fonts, videos, native libraries, or precompiled executables. The small preview PNGs under `docs/media/` are first-party output generated from the project's native renderer; their provenance is recorded in `docs/MEDIA.md`.
+
+Four user-supplied meme images and their derived transparent cutouts are bundled under `assets/meme-stickers/` for cursor effects. Their origin and transformations are recorded at file level, and their unresolved redistribution status is called out in `THIRD_PARTY_NOTICES.md`. They must be reviewed or replaced before a public release.
 
 The browser preview's CSS names `Inter` as an optional preferred local font, followed by operating-system fonts. No Inter font file is downloaded or distributed.
 
@@ -39,4 +41,4 @@ This list is not a license selection. Do not replace `LICENSE`, change the manif
 
 ## Updating this inventory
 
-Any change that introduces a package, copied snippet, font, image, animation asset, native library, generated bundle, or new CI action must update this document and any required notice file in the same change. Run `npm run check`; the dependency inventory test guards the current zero-package baseline and private-license boundary.
+Any change that introduces a package, copied snippet, font, image, animation asset, native library, generated bundle, or new CI action must update this document and any required notice file in the same change. Run `npm run check`; the dependency inventory test guards the current zero-package baseline, bundled-media disclosure, and private-license boundary.

@@ -41,7 +41,13 @@ try {
     "-framework", "Foundation", "-framework", "QuartzCore"
   ]);
   if (compiled) {
-    run(binary, [], { env: { ...process.env, CODEX_POWER_MODE_RENDER_QA_DIR: output } });
+    run(binary, [], {
+      env: {
+        ...process.env,
+        CODEX_POWER_MODE_RENDER_QA_DIR: output,
+        CODEX_POWER_MODE_ASSET_ROOT: path.join(root, "assets")
+      }
+    });
   }
 } finally {
   await rm(buildDir, { recursive: true, force: true });

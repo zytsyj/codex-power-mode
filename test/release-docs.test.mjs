@@ -8,6 +8,7 @@ const root = path.resolve(import.meta.dirname, "..");
 test("public-release documentation exists while publication remains explicitly blocked", async () => {
   const required = [
     "README.md",
+    "README.zh-CN.md",
     "SECURITY.md",
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
@@ -28,22 +29,28 @@ test("public-release documentation exists while publication remains explicitly b
   const manifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const readme = await readFile(path.join(root, "README.md"), "utf8");
+  const chineseReadme = await readFile(path.join(root, "README.zh-CN.md"), "utf8");
   const checklist = await readFile(path.join(root, "docs/RELEASE_CHECKLIST.md"), "utf8");
   assert.equal(manifest.license, "UNLICENSED");
   assert.equal(packageManifest.private, true);
   assert.match(readme, /not open source yet/);
+  assert.match(readme, /\[简体中文\]\(README\.zh-CN\.md\)/);
+  assert.match(chineseReadme, /\[English\]\(README\.md\)/);
   assert.match(checklist, /Choose and approve an open-source license/);
   assert.match(checklist, /owner explicitly authorizes publication/);
 });
 
 test("README and FAQ describe the private RC without unsupported platform promises", async () => {
   const readme = await readFile(path.join(root, "README.md"), "utf8");
+  const chineseReadme = await readFile(path.join(root, "README.zh-CN.md"), "utf8");
   const faq = await readFile(path.join(root, "docs/FAQ.md"), "utf8");
 
   assert.match(readme, /private Release Candidate/);
   assert.match(readme, /Codex desktop app on macOS only/);
   assert.match(readme, /project remains private and `UNLICENSED`/);
   assert.match(readme, /\[FAQ\]\(docs\/FAQ\.md\)/);
+  assert.match(readme, /Classic Power Mode/);
+  assert.match(chineseReadme, /经典 Power Mode/);
   assert.doesNotMatch(readme, /Native overlays for Windows and Linux/);
   assert.match(faq, /does not persist prompts, code, key values, command text, authentication data, or cursor coordinates/i);
   assert.match(faq, /Demo, showcase, replay, direct HTTP requests, and synthetic tests intentionally do not satisfy this gate/);
@@ -86,7 +93,7 @@ test("compatibility evidence separates synthetic coverage from real and manual a
   assert.equal(packageManifest.scripts["compatibility:rc"], "node scripts/compatibility-rc.mjs --output .power-mode/compatibility-rc.json --frames .power-mode/compatibility-render");
   assert.match(compatibility, /Synthetic preview data is never presented as proof/i);
   assert.match(compatibility, /Hands-on evidence still required/);
-  assert.match(runner, /Expected 228 native QA frames/);
+  assert.match(runner, /Expected 326 native QA frames/);
   assert.match(runner, /pending-new-trusted-task/);
 });
 
@@ -126,6 +133,7 @@ test("checked-in media is generated, privacy-safe, and documented", async () => 
   const media = [
     "arcade-dark-act.png",
     "arcade-dark-complete.png",
+    "classic-mode-dark.png",
     "focus-light-verify.png",
     "reduced-light-recover.png",
     "typing-combo-dark.png"
@@ -198,5 +206,7 @@ test("dependency inventory matches the zero-package private baseline", async () 
   assert.match(inventory, /actions\/checkout@v5/);
   assert.match(inventory, /actions\/setup-node@v5/);
   assert.match(inventory, /project remains `UNLICENSED`/);
-  assert.match(notices, /currently distributes no third-party/i);
+  assert.match(inventory, /Four user-supplied meme images/i);
+  assert.match(notices, /User-supplied meme images/i);
+  assert.match(notices, /must be reviewed or replaced before any public release/i);
 });

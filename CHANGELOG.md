@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rebuilt the GitHub project landing page around the current three-mode experience, added complete English and Simplified Chinese READMEs with language switching, and replaced the legacy single-orb hero with a current Focus/Arcade/Classic overview.
+- Added Classic Power Mode, a no-orb display mode that keeps cursor effects and a centered Typing Combo, automatically enables input rhythm tracking, remains fully click-through while idle, and supports direct counter dragging.
+- Added six compact geometric cursor effects, a direct Chinese meme-word mode cycling through `典 / 急 / 孝 / 乐 / 绷 / 赢`, plus hands-behind-possum, fresh-cat, knife-shield-dog, and elegant-person stickers; repository-bundled transparent cutouts work offline, stay below the input baseline, and immediately replace their previous instance during rapid input.
+- Made the visible HUD orb directly draggable without opening settings; only the orb hit target captures the mouse, empty overlay space remains click-through, and release saves the snapped position.
 - Moved Peak to the normal `900–999` Energy tier, removed the post-edit verification gate and forced `999` completion jump, and aligned native, browser, documentation, and tests with the new boundary.
 - Added a conservative RC readiness summary that detects stale cachebuster evidence and keeps automated, trusted Hook, hands-on, Instruments, and owner-decision gates separate.
 - Added an ephemeral Release Candidate source-archive drill that packages only tracked files, removes the candidate after inspection, and blocks runtime state, compiled binaries, credentials, personal paths, private repository metadata, undeclared binary assets, or missing media provenance; removed private repository URLs from the plugin manifest.
@@ -13,7 +17,7 @@
 - Added an isolated native settings persistence self-test covering save/reload, validation, position reset, language, idle, inactive-app, motion, Combo, and cursor preferences without touching installed user settings.
 - Extracted the native event-stream retry policy into a Swift-tested 1/2/4/8/16/30-second schedule with a 10-second healthy-connection reset, and added both reconnect and placement self-tests to macOS CI.
 - Added a bounded live reconnect check that rejects three local stream attempts, measures the real 1/2/4-second cadence, and verifies automatic recovery without injecting lifecycle activity or changing settings.
-- Added a reproducible 234-frame RC compatibility report that verifies native theme, motion, state, Energy, completion, cursor, and Typing Combo coverage while explicitly separating synthetic evidence from real lifecycle and hands-on acceptance.
+- Added a reproducible 324-frame RC compatibility report that verifies native theme, motion, state, Energy, completion, cursor, and Typing Combo coverage while explicitly separating synthetic evidence from real lifecycle and hands-on acceptance.
 - Added a bounded RC stability check that forces an authenticated service restart, verifies native HUD reconnection and settings preservation, and stress-tests concurrent startup without touching real task state.
 - Added a reproducible macOS RC performance sampler, regression budgets, and documented single-machine baseline covering idle, the complete semantic lifecycle, Typing Combo, and Energy breakthroughs without touching real task data.
 - Added compact reproducible Focus and Arcade GIF storyboards composed entirely from privacy-safe synthetic native frames with macOS system tooling.

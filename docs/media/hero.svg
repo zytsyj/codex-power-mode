@@ -1,145 +1,198 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
   <title id="title">Codex Power Mode</title>
-  <desc id="desc">A dark energy-themed banner showing the five Power Mode energy tiers and a glowing Peak orb.</desc>
+  <desc id="desc">A cinematic banner presenting Focus, Arcade, and Classic Power Mode with semantic states, Energy evolution, cursor effects, and Typing Combo.</desc>
   <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#05070d"/>
       <stop offset=".48" stop-color="#0b1020"/>
-      <stop offset="1" stop-color="#080912"/>
+      <stop offset="1" stop-color="#070810"/>
     </linearGradient>
-    <radialGradient id="violet-field" cx="70%" cy="48%" r="58%">
-      <stop offset="0" stop-color="#8b5cf6" stop-opacity=".22"/>
-      <stop offset=".45" stop-color="#3b82f6" stop-opacity=".08"/>
-      <stop offset="1" stop-color="#03050a" stop-opacity="0"/>
+    <radialGradient id="fieldA" cx="18%" cy="12%" r="80%">
+      <stop offset="0" stop-color="#1d4ed8" stop-opacity=".2"/>
+      <stop offset=".52" stop-color="#1d4ed8" stop-opacity=".02"/>
+      <stop offset="1" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="fieldB" cx="82%" cy="50%" r="58%">
+      <stop offset="0" stop-color="#a855f7" stop-opacity=".18"/>
+      <stop offset=".55" stop-color="#7c3aed" stop-opacity=".025"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#52d9ff"/>
-      <stop offset=".28" stop-color="#5399ff"/>
-      <stop offset=".55" stop-color="#a879ff"/>
-      <stop offset=".78" stop-color="#ff8351"/>
+      <stop offset=".25" stop-color="#5399ff"/>
+      <stop offset=".5" stop-color="#a879ff"/>
+      <stop offset=".75" stop-color="#ff8351"/>
       <stop offset="1" stop-color="#ffd66b"/>
     </linearGradient>
-    <linearGradient id="peak-ring" x1=".15" y1=".05" x2=".85" y2=".95">
-      <stop offset="0" stop-color="#fff8d9"/>
-      <stop offset=".38" stop-color="#ffd66b"/>
-      <stop offset=".72" stop-color="#ff9f5b"/>
-      <stop offset="1" stop-color="#a879ff"/>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cf9cff"/>
+      <stop offset=".5" stop-color="#a879ff"/>
+      <stop offset="1" stop-color="#5f87ff"/>
     </linearGradient>
-    <radialGradient id="core" cx="45%" cy="38%" r="68%">
-      <stop offset="0" stop-color="#fffdf4"/>
-      <stop offset=".2" stop-color="#ffd66b"/>
-      <stop offset=".46" stop-color="#5b3c2a"/>
-      <stop offset=".7" stop-color="#111321"/>
-      <stop offset="1" stop-color="#05060b"/>
-    </radialGradient>
-    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
-      <path d="M36 0H0V36" fill="none" stroke="#9fb7ff" stroke-opacity=".055" stroke-width="1"/>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff6cd"/>
+      <stop offset=".45" stop-color="#ffd66b"/>
+      <stop offset="1" stop-color="#ff8351"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#b6c7ff" stroke-opacity=".045"/>
     </pattern>
-    <filter id="soft-glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="10" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="hard-glow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <filter id="soft" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="16"/>
     </filter>
     <clipPath id="frame">
-      <rect x="1" y="1" width="1198" height="418" rx="28"/>
+      <rect x="1" y="1" width="1198" height="498" rx="30"/>
     </clipPath>
   </defs>
 
   <g clip-path="url(#frame)">
-    <rect width="1200" height="420" fill="url(#background)"/>
-    <rect width="1200" height="420" fill="url(#violet-field)"/>
-    <rect width="1200" height="420" fill="url(#grid)"/>
+    <rect width="1200" height="500" fill="url(#bg)"/>
+    <rect width="1200" height="500" fill="url(#fieldA)"/>
+    <rect width="1200" height="500" fill="url(#fieldB)"/>
+    <rect width="1200" height="500" fill="url(#grid)"/>
+    <circle cx="1000" cy="65" r="190" fill="#7c3aed" fill-opacity=".08" filter="url(#soft)"/>
+    <circle cx="122" cy="452" r="190" fill="#0ea5e9" fill-opacity=".07" filter="url(#soft)"/>
 
-    <g opacity=".5">
-      <path d="M0 328C210 281 342 359 522 313S845 214 1200 258" fill="none" stroke="url(#spectrum)" stroke-opacity=".2"/>
-      <path d="M0 344C214 296 356 378 536 331S856 232 1200 274" fill="none" stroke="url(#spectrum)" stroke-opacity=".09"/>
+    <g transform="translate(70 62)" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <g>
+        <rect width="178" height="28" rx="14" fill="#8b5cf6" fill-opacity=".11" stroke="#a879ff" stroke-opacity=".32"/>
+        <circle cx="17" cy="14" r="4" fill="#a879ff" filter="url(#glow)"/>
+        <text x="30" y="18.5" fill="#d9c5ff" font-size="11" font-weight="700" letter-spacing="1.5">NATIVE CODEX HUD</text>
+      </g>
+      <text y="103" fill="#f8fafc" font-size="64" font-weight="780" letter-spacing="-3">POWER MODE</text>
+      <text y="142" fill="#bcc7df" font-size="19" font-weight="450">Make agent activity visible, legible, and alive.</text>
+
+      <g transform="translate(0 184)">
+        <g>
+          <circle cx="5" cy="5" r="5" fill="#52d9ff" filter="url(#glow)"/>
+          <text x="20" y="10" fill="#c8f4ff" font-size="13" font-weight="700">OBSERVE</text>
+        </g>
+        <path d="M91 5h25" stroke="#52617e" stroke-width="1.5"/>
+        <g transform="translate(129)">
+          <circle cx="5" cy="5" r="5" fill="#a879ff" filter="url(#glow)"/>
+          <text x="20" y="10" fill="#ddcaff" font-size="13" font-weight="700">ACT</text>
+        </g>
+        <path d="M198 5h25" stroke="#52617e" stroke-width="1.5"/>
+        <g transform="translate(236)">
+          <circle cx="5" cy="5" r="5" fill="#58d9a2" filter="url(#glow)"/>
+          <text x="20" y="10" fill="#c7f8df" font-size="13" font-weight="700">VERIFY</text>
+        </g>
+        <path d="M324 5h25" stroke="#52617e" stroke-width="1.5"/>
+        <g transform="translate(362)">
+          <circle cx="5" cy="5" r="5" fill="#ffd66b" filter="url(#glow)"/>
+          <text x="20" y="10" fill="#ffedb5" font-size="13" font-weight="700">COMPLETE</text>
+        </g>
+      </g>
+
+      <g transform="translate(0 258)">
+        <text y="0" fill="#7583a4" font-size="10" font-weight="750" letter-spacing="2">ENERGY EVOLUTION</text>
+        <rect y="20" width="465" height="5" rx="2.5" fill="#232b3f"/>
+        <rect y="20" width="465" height="5" rx="2.5" fill="url(#spectrum)" filter="url(#glow)"/>
+        <g font-size="10" font-weight="700" text-anchor="middle">
+          <circle cx="3" cy="22.5" r="5" fill="#52d9ff"/>
+          <text x="3" y="50" fill="#7f91b2" text-anchor="start">WAKE</text>
+          <circle cx="116" cy="22.5" r="5" fill="#5399ff"/>
+          <text x="116" y="50" fill="#7f91b2">CHARGE</text>
+          <circle cx="232" cy="22.5" r="5" fill="#a879ff"/>
+          <text x="232" y="50" fill="#7f91b2">DRIVE</text>
+          <circle cx="348" cy="22.5" r="5" fill="#ff8351"/>
+          <text x="348" y="50" fill="#7f91b2">CRITICAL</text>
+          <circle cx="465" cy="22.5" r="7" fill="#ffd66b" filter="url(#glow)"/>
+          <text x="465" y="50" fill="#ffd66b">PEAK</text>
+        </g>
+      </g>
+
+      <g transform="translate(0 342)" font-size="11" font-weight="650">
+        <rect width="126" height="30" rx="15" fill="#0ea5e9" fill-opacity=".08" stroke="#52d9ff" stroke-opacity=".24"/>
+        <text x="18" y="19" fill="#a9dff1">LOCAL ONLY</text>
+        <rect x="136" width="154" height="30" rx="15" fill="#22c55e" fill-opacity=".07" stroke="#58d9a2" stroke-opacity=".22"/>
+        <text x="154" y="19" fill="#aee8ca">ZERO RUNTIME DEPS</text>
+        <rect x="300" width="128" height="30" rx="15" fill="#a855f7" fill-opacity=".08" stroke="#a879ff" stroke-opacity=".24"/>
+        <text x="319" y="19" fill="#d4b9ff">MACOS NATIVE</text>
+      </g>
     </g>
 
-    <g transform="translate(74 74)">
-      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <text x="0" y="18" fill="#95a4c8" font-size="15" font-weight="700" letter-spacing="4">CODEX // SEMANTIC HUD</text>
-        <text x="0" y="91" fill="#f8fafc" font-size="60" font-weight="760" letter-spacing="-2.5">POWER MODE</text>
-        <text x="2" y="132" fill="#b8c2db" font-size="20" font-weight="450">See the agent think in states. Feel useful work build energy.</text>
-
-        <g transform="translate(2 180)">
-          <rect width="112" height="34" rx="17" fill="#52d9ff" fill-opacity=".09" stroke="#52d9ff" stroke-opacity=".4"/>
-          <circle cx="18" cy="17" r="4" fill="#52d9ff" filter="url(#hard-glow)"/>
-          <text x="31" y="22" fill="#bdefff" font-size="13" font-weight="650">OBSERVE</text>
-
-          <rect x="124" width="82" height="34" rx="17" fill="#a879ff" fill-opacity=".09" stroke="#a879ff" stroke-opacity=".42"/>
-          <circle cx="142" cy="17" r="4" fill="#a879ff" filter="url(#hard-glow)"/>
-          <text x="155" y="22" fill="#d9c5ff" font-size="13" font-weight="650">ACT</text>
-
-          <rect x="218" width="98" height="34" rx="17" fill="#58d9a2" fill-opacity=".08" stroke="#58d9a2" stroke-opacity=".38"/>
-          <circle cx="236" cy="17" r="4" fill="#58d9a2" filter="url(#hard-glow)"/>
-          <text x="249" y="22" fill="#bcf4d9" font-size="13" font-weight="650">VERIFY</text>
-
-          <rect x="328" width="108" height="34" rx="17" fill="#ffd66b" fill-opacity=".08" stroke="#ffd66b" stroke-opacity=".36"/>
-          <circle cx="346" cy="17" r="4" fill="#ffd66b" filter="url(#hard-glow)"/>
-          <text x="359" y="22" fill="#ffebb1" font-size="13" font-weight="650">COMPLETE</text>
+    <g transform="translate(608 57)" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <g>
+        <rect width="158" height="386" rx="25" fill="#0d1220" fill-opacity=".78" stroke="#52d9ff" stroke-opacity=".19"/>
+        <text x="20" y="35" fill="#d8e6ff" font-size="13" font-weight="750">FOCUS</text>
+        <text x="20" y="55" fill="#68799a" font-size="10">CALM + LEGIBLE</text>
+        <g transform="translate(79 167)">
+          <circle r="55" fill="#52d9ff" fill-opacity=".035"/>
+          <circle r="45" fill="none" stroke="#52d9ff" stroke-opacity=".16"/>
+          <path d="M-41 4A42 42 0 0 1 27-32" fill="none" stroke="#52d9ff" stroke-width="6" stroke-linecap="round" filter="url(#glow)"/>
+          <circle r="29" fill="#070a11" stroke="#52d9ff" stroke-opacity=".28"/>
+          <circle cx="-28" cy="-30" r="4" fill="#bdefff" filter="url(#glow)"/>
+          <circle cx="31" cy="25" r="4" fill="#52d9ff" filter="url(#glow)"/>
+          <text y="7" fill="#eefcff" font-size="19" font-weight="760" text-anchor="middle">320</text>
+          <text y="24" fill="#52d9ff" font-size="7" font-weight="750" letter-spacing="1.2" text-anchor="middle">CHARGE</text>
         </g>
+        <g transform="translate(18 292)">
+          <rect width="122" height="1" fill="#52617e" fill-opacity=".3"/>
+          <text y="30" fill="#94a5c5" font-size="10">Semantic states</text>
+          <text y="50" fill="#94a5c5" font-size="10">Quiet motion</text>
+          <text y="70" fill="#94a5c5" font-size="10">Direct drag</text>
+        </g>
+      </g>
 
-        <g transform="translate(2 252)">
-          <text x="0" y="0" fill="#657392" font-size="11" font-weight="700" letter-spacing="1.8">ENERGY EVOLUTION</text>
-          <rect x="0" y="18" width="434" height="5" rx="2.5" fill="#252c40"/>
-          <rect x="0" y="18" width="434" height="5" rx="2.5" fill="url(#spectrum)" filter="url(#hard-glow)"/>
-          <g font-size="11" font-weight="650" text-anchor="middle">
-            <circle cx="4" cy="20.5" r="5.5" fill="#52d9ff"/>
-            <text x="4" y="47" fill="#8ca0bf" text-anchor="start">WAKE</text>
-            <circle cx="110" cy="20.5" r="5.5" fill="#5399ff"/>
-            <text x="110" y="47" fill="#8ca0bf">CHARGE</text>
-            <circle cx="218" cy="20.5" r="5.5" fill="#a879ff"/>
-            <text x="218" y="47" fill="#8ca0bf">DRIVE</text>
-            <circle cx="326" cy="20.5" r="5.5" fill="#ff8351"/>
-            <text x="326" y="47" fill="#8ca0bf">CRITICAL</text>
-            <circle cx="434" cy="20.5" r="7" fill="#ffd66b" filter="url(#hard-glow)"/>
-            <text x="434" y="47" fill="#ffd66b">PEAK</text>
+      <g transform="translate(174)">
+        <rect width="158" height="386" rx="25" fill="#100e1b" fill-opacity=".82" stroke="#a879ff" stroke-opacity=".25"/>
+        <text x="20" y="35" fill="#eadfff" font-size="13" font-weight="750">ARCADE</text>
+        <text x="20" y="55" fill="#826f9d" font-size="10">RICH + EXPRESSIVE</text>
+        <g transform="translate(79 167)">
+          <circle r="65" fill="#a879ff" fill-opacity=".04"/>
+          <circle r="55" fill="none" stroke="#a879ff" stroke-opacity=".12" stroke-dasharray="2 8"/>
+          <path d="M-47-12A49 49 0 0 1 34-35" fill="none" stroke="url(#violet)" stroke-width="7" stroke-linecap="round" filter="url(#glow)"/>
+          <path d="M43 20A49 49 0 0 1-31 39" fill="none" stroke="url(#violet)" stroke-width="7" stroke-linecap="round" filter="url(#glow)"/>
+          <circle r="34" fill="#080711" stroke="#a879ff" stroke-opacity=".34"/>
+          <g fill="#e2c8ff" filter="url(#glow)">
+            <circle cx="-29" cy="-31" r="4"/>
+            <circle cx="32" cy="-27" r="4"/>
+            <circle cx="32" cy="25" r="4"/>
+            <circle cx="-25" cy="31" r="4"/>
           </g>
+          <text y="7" fill="#fff6ff" font-size="19" font-weight="760" text-anchor="middle">580</text>
+          <text y="24" fill="#c99fff" font-size="7" font-weight="750" letter-spacing="1.2" text-anchor="middle">DRIVE</text>
+        </g>
+        <g transform="translate(18 292)">
+          <rect width="122" height="1" fill="#665277" fill-opacity=".38"/>
+          <text y="30" fill="#ac98c0" font-size="10">Energy evolution</text>
+          <text y="50" fill="#ac98c0" font-size="10">Impact choreography</text>
+          <text y="70" fill="#ac98c0" font-size="10">Completion outcomes</text>
+        </g>
+      </g>
+
+      <g transform="translate(348)">
+        <rect width="158" height="386" rx="25" fill="#121019" fill-opacity=".82" stroke="#ff73d3" stroke-opacity=".22"/>
+        <text x="20" y="35" fill="#ffe2f7" font-size="13" font-weight="750">CLASSIC</text>
+        <text x="20" y="55" fill="#936f8a" font-size="10">CURSOR + COMBO</text>
+        <g transform="translate(79 164)">
+          <circle r="58" fill="#ff73d3" fill-opacity=".04"/>
+          <g filter="url(#glow)">
+            <circle cx="-35" cy="-35" r="3" fill="#a879ff"/>
+            <path d="M-52-22l13 5-9 11" fill="none" stroke="#52d9ff" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="44" cy="-18" r="3" fill="#ffd66b"/>
+            <path d="M43-35l5 10 11-3" fill="none" stroke="#ff8351" stroke-width="3" stroke-linecap="round"/>
+          </g>
+          <text y="7" fill="#ff73d3" font-size="32" font-weight="800" text-anchor="middle">×24</text>
+          <rect x="-42" y="30" width="84" height="4" rx="2" fill="#39213d"/>
+          <rect x="-42" y="30" width="61" height="4" rx="2" fill="url(#violet)" filter="url(#glow)"/>
+        </g>
+        <g transform="translate(18 292)">
+          <rect width="122" height="1" fill="#70445f" fill-opacity=".34"/>
+          <text y="30" fill="#bd9aae" font-size="10">No Energy orb</text>
+          <text y="50" fill="#bd9aae" font-size="10">Cursor effects</text>
+          <text y="70" fill="#bd9aae" font-size="10">Typing Combo</text>
         </g>
       </g>
     </g>
 
-    <circle cx="930" cy="210" r="156" fill="#6d4aff" fill-opacity=".04"/>
-    <circle cx="930" cy="210" r="132" fill="none" stroke="#8d6cff" stroke-opacity=".12"/>
-    <circle cx="930" cy="210" r="112" fill="none" stroke="#ffd66b" stroke-opacity=".16" stroke-width="2" stroke-dasharray="2 12"/>
-    <circle cx="930" cy="210" r="92" fill="#ffd66b" fill-opacity=".05" filter="url(#soft-glow)"/>
-
-    <path d="M850 161 A94 94 0 0 1 1001 148" fill="none" stroke="url(#peak-ring)" stroke-width="9" stroke-linecap="round" filter="url(#soft-glow)"/>
-    <path d="M1010 259 A94 94 0 0 1 859 272" fill="none" stroke="url(#peak-ring)" stroke-width="9" stroke-linecap="round" filter="url(#soft-glow)"/>
-    <circle cx="930" cy="210" r="73" fill="none" stroke="#ffd66b" stroke-opacity=".3" stroke-width="2"/>
-    <circle cx="930" cy="210" r="55" fill="url(#core)" stroke="#fff7cf" stroke-opacity=".32"/>
-
-    <g fill="#fff5c7" stroke="#ffd66b" stroke-width="2" filter="url(#hard-glow)">
-      <circle cx="882" cy="156" r="5"/>
-      <circle cx="978" cy="156" r="5"/>
-      <circle cx="992" cy="244" r="5"/>
-      <circle cx="868" cy="244" r="5"/>
-    </g>
-    <g fill="none" stroke="#ffd66b" stroke-opacity=".65" stroke-width="2.5" stroke-linecap="round">
-      <path d="M886 160 L914 190"/>
-      <path d="M974 160 L946 190"/>
-      <path d="M988 241 L950 224"/>
-      <path d="M872 241 L910 224"/>
-    </g>
-
-    <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" text-anchor="middle">
-      <text x="930" y="217" fill="#fffdf4" font-size="34" font-weight="760">945</text>
-      <text x="930" y="239" fill="#ffd66b" font-size="10" font-weight="750" letter-spacing="2.2">PEAK</text>
-    </g>
-
-    <path d="M918 102 L930 91 L942 102" fill="none" stroke="#fff7cf" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#hard-glow)"/>
-
-    <g fill="#dbe6ff">
-      <circle cx="1117" cy="77" r="1.5" opacity=".7"/>
-      <circle cx="1057" cy="36" r="1" opacity=".45"/>
-      <circle cx="765" cy="92" r="1.5" opacity=".35"/>
-      <circle cx="713" cy="334" r="1" opacity=".45"/>
-      <circle cx="1155" cy="334" r="1.5" opacity=".4"/>
-    </g>
-    <rect x="820" y="96" width="220" height="228" rx="32" fill="#0a0b13" fill-opacity=".22" stroke="#ffd66b" stroke-opacity=".08"/>
+    <path d="M0 464C234 415 362 496 570 451S930 400 1200 439" fill="none" stroke="url(#spectrum)" stroke-opacity=".16"/>
   </g>
-  <rect x="1" y="1" width="1198" height="418" rx="28" fill="none" stroke="#9fb7ff" stroke-opacity=".16" stroke-width="2"/>
+
+  <rect x="1" y="1" width="1198" height="498" rx="30" fill="none" stroke="#9fb7ff" stroke-opacity=".16" stroke-width="2"/>
 </svg>

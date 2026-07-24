@@ -34,8 +34,8 @@ test("interaction RC starts with a privacy-safe pending checklist and normalized
   const session = createInteractionSession(configuration, "0.8.0-test", new Date("2026-07-22T18:00:00Z"));
   const summary = summarizeInteractionSession(session);
 
-  assert.equal(interactionChecks.length, 15);
-  assert.equal(summary.counts.pending, 15);
+  assert.equal(interactionChecks.length, 26);
+  assert.equal(summary.counts.pending, 26);
   assert.equal(summary.counts.passed, 0);
   assert.deepEqual(session.baselineConfiguration, configuration);
   assert.equal(Object.hasOwn(session, "notes"), false);

@@ -100,6 +100,21 @@ test("native config accepts the shared Mix activity source", () => {
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ACTIVITY_SOURCE: "mix" }).activitySource, "mix");
 });
 
+test("classic Power Mode keeps only cursor feedback and forces Typing Combo on", () => {
+  const classic = nativeConfigFromEnvironment({
+    CODEX_POWER_MODE_PRESET: "classic",
+    CODEX_POWER_MODE_TYPING_COMBO: "0"
+  });
+  assert.equal(classic.preset, "classic");
+  assert.equal(classic.typingCombo, true);
+});
+
+test("native config accepts every cursor effect", () => {
+  for (const cursorEffect of ["off", "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle", "meme", "possum", "freshcat", "knifeshield", "elegant"]) {
+    assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_CURSOR_EFFECT: cursorEffect }).cursorEffect, cursorEffect);
+  }
+});
+
 test("native config preserves an unset custom position across restarts", () => {
   const restarted = nativeConfigFromEnvironment({}, {
     schemaVersion: 1,

@@ -216,7 +216,27 @@ private func runEnergyRenderQA(directory: String) {
                     filename: "transition-\(variant.name)-\(theme)-\(crossing.label).png"
                 )
             }
-            for cursorSample in [(effect: "spark", count: 12, label: "spark"), (effect: "neon", count: 12, label: "neon"), (effect: "neon", count: 20, label: "neon-milestone")] {
+            for cursorSample in [
+                (effect: "spark", count: 12, label: "spark"),
+                (effect: "neon", count: 12, label: "neon"),
+                (effect: "orbit", count: 12, label: "orbit"),
+                (effect: "ripple", count: 12, label: "ripple"),
+                (effect: "prism", count: 12, label: "prism"),
+                (effect: "wormhole", count: 12, label: "wormhole"),
+                (effect: "glitch", count: 12, label: "glitch"),
+                (effect: "tentacle", count: 12, label: "tentacle"),
+                (effect: "meme", count: 12, label: "meme-dian"),
+                (effect: "meme", count: 13, label: "meme-ji"),
+                (effect: "meme", count: 14, label: "meme-xiao"),
+                (effect: "meme", count: 15, label: "meme-le"),
+                (effect: "meme", count: 16, label: "meme-beng"),
+                (effect: "meme", count: 17, label: "meme-ying"),
+                (effect: "possum", count: 18, label: "possum"),
+                (effect: "freshcat", count: 19, label: "fresh-cat"),
+                (effect: "knifeshield", count: 19, label: "knife-shield-dog"),
+                (effect: "elegant", count: 19, label: "elegant-person"),
+                (effect: "neon", count: 20, label: "neon-milestone")
+            ] {
                 let preferences = PowerModePreferences(environment: [
                     "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
                 ])
@@ -246,6 +266,19 @@ private func runEnergyRenderQA(directory: String) {
                 writeFrame(host: host, filename: "typing-\(variant.name)-\(theme)-\(comboSample.label).png")
             }
         }
+    }
+    for dark in [false, true] {
+        let preferences = PowerModePreferences(environment: [
+            "CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE": "0"
+        ])
+        preferences.setPreset("classic")
+        let host = CALayer()
+        host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+        host.backgroundColor = (dark ? NSColor(calibratedWhite: 0.055, alpha: 1) : NSColor(calibratedWhite: 0.96, alpha: 1)).cgColor
+        let typing = TypingFeedbackRenderer(hostLayer: host, preferences: preferences)
+        typing.layout(in: host.bounds, beside: CGRect(x: 44, y: 44, width: 92, height: 92), centered: true)
+        typing.update(count: 24, progress: 0.72)
+        writeFrame(host: host, filename: "classic-\(dark ? "dark" : "light")-typing-combo.png")
     }
     fputs("Rendered native Energy and semantic QA frames to \(directory)\n", stdout)
 }
@@ -333,10 +366,14 @@ private final class PowerModePreferences {
     private(set) var settings: OverlaySettings
     private let fileURL: URL?
     private let systemReduceMotionOverride: Bool?
+    let assetRootURL: URL?
     var onChange: (() -> Void)?
 
     init(environment: [String: String]) {
         fileURL = environment["CODEX_POWER_MODE_CONFIG_PATH"].map { URL(fileURLWithPath: $0) }
+        assetRootURL = (environment["CODEX_POWER_MODE_ASSET_ROOT"]
+            ?? ProcessInfo.processInfo.environment["CODEX_POWER_MODE_ASSET_ROOT"])
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
         switch environment["CODEX_POWER_MODE_SYSTEM_REDUCE_MOTION_OVERRIDE"] {
         case "0": systemReduceMotionOverride = false
         case "1": systemReduceMotionOverride = true
@@ -366,7 +403,13 @@ private final class PowerModePreferences {
 
     func text(_ english: String, _ chinese: String) -> String { isChinese ? chinese : english }
 
-    func setPreset(_ value: String) { mutate { $0.preset = value } }
+    func setPreset(_ value: String) {
+        guard ["focus", "arcade", "classic"].contains(value) else { return }
+        mutate {
+            $0.preset = value
+            if value == "classic" { $0.typingCombo = true }
+        }
+    }
     func setIdleBehavior(_ value: String) { mutate { $0.idleBehavior = value } }
     func setAutoHideDelay(_ value: Double) {
         guard [0.0, 2.0, 6.0].contains(value) else { return }
@@ -401,7 +444,7 @@ private final class PowerModePreferences {
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
     func toggleTypingCombo() { mutate { $0.typingCombo = !($0.typingCombo ?? false) } }
     func setCursorEffect(_ value: String) {
-        guard ["off", "spark", "neon"].contains(value) else { return }
+        guard ["off", "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle", "meme", "possum", "freshcat", "knifeshield", "elegant"].contains(value) else { return }
         mutate { $0.cursorEffect = value }
     }
     func setPosition(x: Double, y: Double) { mutate { $0.positionX = x; $0.positionY = y } }
@@ -467,13 +510,22 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     preferences.setInactiveBehavior("follow")
     preferences.toggleCombo()
     preferences.toggleTypingCombo()
+    preferences.setPreset("classic")
     preferences.setCursorEffect("off")
     preferences.setCursorEffect("spark")
     preferences.setCursorEffect("neon")
+    preferences.setCursorEffect("orbit")
+    preferences.setCursorEffect("ripple")
+    preferences.setCursorEffect("prism")
+    preferences.setCursorEffect("wormhole")
+    preferences.setCursorEffect("glitch")
+    preferences.setCursorEffect("tentacle")
+    preferences.setCursorEffect("meme")
+    preferences.setCursorEffect("elegant")
     preferences.setPosition(x: 345, y: 678)
 
     let persisted = reloaded()
-    precondition(persisted.settings.preset == "arcade")
+    precondition(persisted.settings.preset == "classic")
     precondition(persisted.settings.idleBehavior == "orb")
     precondition(persisted.settings.autoHideDelay == 6)
     precondition(persisted.settings.language == "zh-CN")
@@ -487,7 +539,7 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     precondition(persisted.settings.inactiveBehavior == "follow")
     precondition(persisted.settings.showCombo == false)
     precondition(persisted.settings.typingCombo == true)
-    precondition(persisted.settings.cursorEffect == "neon")
+    precondition(persisted.settings.cursorEffect == "elegant")
     precondition(persisted.settings.positionX == 345)
     precondition(persisted.settings.positionY == 678)
 
@@ -3005,6 +3057,12 @@ private final class TypingFeedbackRenderer {
     private let lifetimeFill = CAGradientLayer()
     private let lifetimeCap = CALayer()
     private let effects = CALayer()
+    private weak var activeMemeText: CATextLayer?
+    private weak var activePossumSticker: CALayer?
+    private weak var activeFreshCatSticker: CALayer?
+    private weak var activeKnifeShieldDog: CALayer?
+    private weak var activeElegantPerson: CALayer?
+    private var memeStickerImages: [String: NSImage] = [:]
     private var comboAnchor = CGPoint.zero
     private let lifetimeDuration: TimeInterval = 2
 
@@ -3058,11 +3116,11 @@ private final class TypingFeedbackRenderer {
         hostLayer.addSublayer(root)
     }
 
-    func layout(in bounds: CGRect, beside hud: CGRect) {
+    func layout(in bounds: CGRect, beside hud: CGRect, centered: Bool = false) {
         root.frame = bounds
         effects.frame = bounds
         let placeLeft = hud.midX > bounds.midX
-        let proposedX = placeLeft ? hud.minX - 58 : hud.maxX + 58
+        let proposedX = centered ? hud.midX : placeLeft ? hud.minX - 58 : hud.maxX + 58
         comboAnchor = CGPoint(
             x: min(bounds.maxX - 60, max(bounds.minX + 60, proposedX)),
             y: min(bounds.maxY - 40, max(bounds.minY + 40, hud.midY))
@@ -3070,6 +3128,22 @@ private final class TypingFeedbackRenderer {
         comboGlow.position = comboAnchor
         comboValue.position = comboAnchor
         lifetimeTrack.position = CGPoint(x: comboAnchor.x, y: comboAnchor.y - 25)
+    }
+
+    func showPositioningAnchor() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        comboGlow.string = "×0"
+        comboGlow.foregroundColor = NSColor.systemCyan.withAlphaComponent(0.18).cgColor
+        comboValue.string = "×0"
+        comboValue.foregroundColor = NSColor.systemCyan.withAlphaComponent(0.72).cgColor
+        lifetimeTrack.backgroundColor = NSColor.systemCyan.withAlphaComponent(0.12).cgColor
+        CATransaction.commit()
+        setVisible(true)
+    }
+
+    func clearCombo() {
+        setVisible(false)
     }
 
     func update(count: Int, progress: CGFloat, pulse: Bool = false) {
@@ -3166,13 +3240,46 @@ private final class TypingFeedbackRenderer {
         guard let point,
               preferences.settings.cursorEffect != "off",
               !preferences.reduceMotionEnabled else { return }
-        let neon = (preferences.settings.cursorEffect ?? "spark") == "neon"
+        let effect = preferences.settings.cursorEffect ?? "spark"
         let arcade = preferences.settings.preset == "arcade"
         let milestone = count == 5 || count == 10 || count == 20 || count == 40 || count == 80 || count == 120 || count == 200
         let color: NSColor = count >= 40 ? .systemYellow
             : count >= 20 ? NSColor(calibratedRed: 0.98, green: 0.30, blue: 0.72, alpha: 1)
             : count >= 10 ? NSColor(calibratedRed: 0.62, green: 0.38, blue: 1, alpha: 1)
             : .systemCyan
+
+        if milestone && effect != "meme" && effect != "possum" && effect != "freshcat" && effect != "knifeshield" && effect != "elegant" {
+            emitCursorMilestone(at: point, color: color, effect: effect, arcade: arcade)
+        }
+        switch effect {
+        case "orbit":
+            emitOrbitCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "ripple":
+            emitRippleCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "prism":
+            emitPrismCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "wormhole":
+            emitWormholeCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "glitch":
+            emitGlitchCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "tentacle":
+            emitTentacleCursorEffect(at: point, color: color, arcade: arcade, milestone: milestone)
+        case "meme":
+            emitMemeCursorEffect(at: point, count: count, arcade: arcade, milestone: milestone)
+        case "possum":
+            emitPossumCursorEffect(at: point, arcade: arcade, milestone: milestone)
+        case "freshcat":
+            emitFreshCatCursorEffect(at: point, arcade: arcade, milestone: milestone)
+        case "knifeshield":
+            emitKnifeShieldDogCursorEffect(at: point, arcade: arcade, milestone: milestone)
+        case "elegant":
+            emitElegantPersonCursorEffect(at: point, arcade: arcade, milestone: milestone)
+        default:
+            emitClassicCursorEffect(at: point, count: count, color: color, neon: effect == "neon", arcade: arcade, milestone: milestone)
+        }
+    }
+
+    private func emitClassicCursorEffect(at point: CGPoint, count: Int, color: NSColor, neon: Bool, arcade: Bool, milestone: Bool) {
         let secondary = neon ? NSColor.systemCyan : NSColor.white
         let glyph = CAShapeLayer()
         glyph.frame = effects.bounds
@@ -3208,33 +3315,7 @@ private final class TypingFeedbackRenderer {
         glyphPulse.duration = neon ? 0.42 : 0.28
         glyphPulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
         glyph.add(glyphPulse, forKey: neon ? "caret-neon" : "caret-spark-glyph")
-        DispatchQueue.main.asyncAfter(deadline: .now() + glyphPulse.duration + 0.03) { [weak glyph] in glyph?.removeFromSuperlayer() }
-
-        if milestone {
-            let milestoneRing = CAShapeLayer()
-            milestoneRing.frame = effects.bounds
-            milestoneRing.path = CGPath(ellipseIn: CGRect(x: point.x - 9, y: point.y - 9, width: 18, height: 18), transform: nil)
-            milestoneRing.fillColor = NSColor.clear.cgColor
-            milestoneRing.strokeColor = color.cgColor
-            milestoneRing.lineWidth = arcade ? 2.4 : 1.7
-            milestoneRing.lineDashPattern = neon ? [5, 3] : nil
-            milestoneRing.shadowColor = color.cgColor
-            milestoneRing.shadowOpacity = 1
-            milestoneRing.shadowRadius = arcade ? 9 : 6
-            effects.addSublayer(milestoneRing)
-            let milestoneScale = CABasicAnimation(keyPath: "transform.scale")
-            milestoneScale.fromValue = 0.62
-            milestoneScale.toValue = arcade ? 2.65 : 2.1
-            let milestoneFade = CABasicAnimation(keyPath: "opacity")
-            milestoneFade.fromValue = 1
-            milestoneFade.toValue = 0
-            let milestonePulse = CAAnimationGroup()
-            milestonePulse.animations = [milestoneScale, milestoneFade]
-            milestonePulse.duration = arcade ? 0.5 : 0.42
-            milestonePulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            milestoneRing.add(milestonePulse, forKey: "cursor-combo-milestone")
-            DispatchQueue.main.asyncAfter(deadline: .now() + milestonePulse.duration + 0.03) { [weak milestoneRing] in milestoneRing?.removeFromSuperlayer() }
-        }
+        scheduleRemoval(glyph, after: glyphPulse.duration)
 
         let particleCount = neon
             ? (milestone ? (arcade ? 8 : 6) : (arcade ? 4 : 3))
@@ -3273,7 +3354,645 @@ private final class TypingFeedbackRenderer {
             group.duration = neon ? (milestone ? 0.5 : 0.38) : (milestone ? 0.36 : 0.26)
             group.timingFunction = CAMediaTimingFunction(name: .easeOut)
             spark.add(group, forKey: neon ? "cursor-neon-particle" : "cursor-spark")
-            DispatchQueue.main.asyncAfter(deadline: .now() + group.duration + 0.03) { [weak spark] in spark?.removeFromSuperlayer() }
+            scheduleRemoval(spark, after: group.duration)
+        }
+    }
+
+    private func emitCursorMilestone(at point: CGPoint, color: NSColor, effect: String, arcade: Bool) {
+        let ring = CAShapeLayer()
+        ring.frame = effects.bounds
+        ring.path = CGPath(ellipseIn: CGRect(x: point.x - 9, y: point.y - 9, width: 18, height: 18), transform: nil)
+        ring.fillColor = NSColor.clear.cgColor
+        ring.strokeColor = color.cgColor
+        ring.lineWidth = arcade ? 2.4 : 1.7
+        ring.lineDashPattern = effect == "neon" ? [5, 3] : effect == "orbit" ? [2, 4] : nil
+        ring.shadowColor = color.cgColor
+        ring.shadowOpacity = 1
+        ring.shadowRadius = arcade ? 9 : 6
+        effects.addSublayer(ring)
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 0.62
+        scale.toValue = arcade ? 2.65 : 2.1
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        let pulse = CAAnimationGroup()
+        pulse.animations = [scale, fade]
+        pulse.duration = arcade ? 0.5 : 0.42
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        ring.add(pulse, forKey: "cursor-combo-milestone")
+        scheduleRemoval(ring, after: pulse.duration)
+    }
+
+    private func emitOrbitCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let radius: CGFloat = milestone ? 17 : 11
+        let arc = CAShapeLayer()
+        arc.frame = CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2)
+        arc.path = CGPath(ellipseIn: arc.bounds.insetBy(dx: 1.5, dy: 1.5), transform: nil)
+        arc.fillColor = NSColor.clear.cgColor
+        arc.strokeColor = color.withAlphaComponent(0.76).cgColor
+        arc.lineWidth = arcade ? 1.8 : 1.35
+        arc.lineCap = .round
+        arc.strokeStart = 0.08
+        arc.strokeEnd = 0.72
+        arc.shadowColor = color.cgColor
+        arc.shadowOpacity = 0.8
+        arc.shadowRadius = 4
+        effects.addSublayer(arc)
+        let rotation = CABasicAnimation(keyPath: "transform.rotation")
+        rotation.fromValue = -CGFloat.pi * 0.18
+        rotation.toValue = CGFloat.pi * (arcade ? 1.35 : 0.92)
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0, 0.9, 0.72, 0]
+        fade.keyTimes = [0, 0.16, 0.72, 1]
+        let arcGroup = CAAnimationGroup()
+        arcGroup.animations = [rotation, fade]
+        arcGroup.duration = milestone ? 0.58 : 0.46
+        arcGroup.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        arc.add(arcGroup, forKey: "cursor-orbit-arc")
+        scheduleRemoval(arc, after: arcGroup.duration)
+
+        let particleCount = arcade ? 3 : 2
+        for index in 0..<particleCount {
+            let particle = CALayer()
+            let size: CGFloat = index == 0 ? 4 : 3
+            particle.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            particle.cornerRadius = size / 2
+            particle.position = point
+            let particleColor = index == 1 ? NSColor.white : color
+            particle.backgroundColor = particleColor.cgColor
+            particle.shadowColor = particleColor.cgColor
+            particle.shadowOpacity = 1
+            particle.shadowRadius = 4
+            effects.addSublayer(particle)
+            let phase = CGFloat(index) * (.pi * 2 / CGFloat(particleCount))
+            let positions = (0...8).map { step -> CGPoint in
+                let angle = phase + CGFloat(step) / 8 * .pi * (arcade ? 2.4 : 1.85)
+                return CGPoint(
+                    x: point.x + cos(angle) * radius,
+                    y: point.y + sin(angle) * radius * 0.68
+                )
+            }
+            let orbit = CAKeyframeAnimation(keyPath: "position")
+            orbit.values = positions
+            orbit.calculationMode = .paced
+            let particleFade = CAKeyframeAnimation(keyPath: "opacity")
+            particleFade.values = [0, 1, 0.86, 0]
+            particleFade.keyTimes = [0, 0.14, 0.76, 1]
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [0.45, 1, 0.76]
+            scale.keyTimes = [0, 0.28, 1]
+            let group = CAAnimationGroup()
+            group.animations = [orbit, particleFade, scale]
+            group.duration = arcGroup.duration
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            particle.add(group, forKey: "cursor-orbit-particle")
+            scheduleRemoval(particle, after: group.duration)
+        }
+    }
+
+    private func emitRippleCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let core = CALayer()
+        core.bounds = CGRect(x: 0, y: 0, width: 5, height: 5)
+        core.position = point
+        core.cornerRadius = 2.5
+        core.backgroundColor = NSColor.white.cgColor
+        core.shadowColor = color.cgColor
+        core.shadowOpacity = 1
+        core.shadowRadius = 7
+        effects.addSublayer(core)
+        let coreScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        coreScale.values = [0.35, 1.3, 0.72]
+        coreScale.keyTimes = [0, 0.32, 1]
+        let coreFade = CAKeyframeAnimation(keyPath: "opacity")
+        coreFade.values = [0, 1, 0]
+        coreFade.keyTimes = [0, 0.18, 1]
+        let coreGroup = CAAnimationGroup()
+        coreGroup.animations = [coreScale, coreFade]
+        coreGroup.duration = 0.38
+        core.add(coreGroup, forKey: "cursor-ripple-core")
+        scheduleRemoval(core, after: coreGroup.duration)
+
+        let ringCount = milestone || arcade ? 3 : 2
+        for index in 0..<ringCount {
+            let baseRadius = CGFloat(5 + index * 3)
+            let ring = CAShapeLayer()
+            ring.frame = CGRect(x: point.x - baseRadius, y: point.y - baseRadius, width: baseRadius * 2, height: baseRadius * 2)
+            ring.path = CGPath(ellipseIn: ring.bounds.insetBy(dx: 1, dy: 1), transform: nil)
+            ring.fillColor = NSColor.clear.cgColor
+            ring.strokeColor = (index == 1 ? NSColor.white : color).withAlphaComponent(0.86).cgColor
+            ring.lineWidth = arcade ? 1.65 : 1.25
+            ring.shadowColor = color.cgColor
+            ring.shadowOpacity = 0.72
+            ring.shadowRadius = 4
+            effects.addSublayer(ring)
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = 0.52
+            scale.toValue = 1.75 + CGFloat(index) * 0.34
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 0.82, 0.58, 0]
+            fade.keyTimes = [0, 0.18, 0.62, 1]
+            let group = CAAnimationGroup()
+            group.animations = [scale, fade]
+            group.duration = 0.4 + Double(index) * 0.055
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ring.add(group, forKey: "cursor-ripple-ring")
+            scheduleRemoval(ring, after: group.duration)
+        }
+    }
+
+    private func emitPrismCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let prismColors = [
+            NSColor.systemCyan,
+            color,
+            countColorForPrism(milestone: milestone)
+        ]
+        let spread: CGFloat = arcade ? 1.18 : 1
+        for index in 0..<3 {
+            let direction = CGFloat(index - 1)
+            let ray = CAShapeLayer()
+            ray.frame = effects.bounds
+            let path = CGMutablePath()
+            path.move(to: point)
+            path.addLine(to: CGPoint(x: point.x + direction * 7 * spread, y: point.y + 8))
+            path.addLine(to: CGPoint(x: point.x + direction * 15 * spread, y: point.y + 18 + CGFloat(index % 2) * 3))
+            ray.path = path
+            ray.fillColor = NSColor.clear.cgColor
+            ray.strokeColor = prismColors[index].withAlphaComponent(0.9).cgColor
+            ray.lineWidth = index == 1 ? 1.8 : 1.35
+            ray.lineCap = .round
+            ray.lineJoin = .round
+            ray.shadowColor = prismColors[index].cgColor
+            ray.shadowOpacity = 0.9
+            ray.shadowRadius = 5
+            effects.addSublayer(ray)
+            let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+            draw.values = [0, 1, 1]
+            draw.keyTimes = [0, 0.42, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 0.72, 0]
+            fade.keyTimes = [0, 0.16, 0.66, 1]
+            let group = CAAnimationGroup()
+            group.animations = [draw, fade]
+            group.duration = milestone ? 0.52 : 0.4
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ray.add(group, forKey: "cursor-prism-ray")
+            scheduleRemoval(ray, after: group.duration)
+        }
+
+        let core = CAShapeLayer()
+        core.frame = effects.bounds
+        let diamond = CGMutablePath()
+        diamond.move(to: CGPoint(x: point.x, y: point.y - 4))
+        diamond.addLine(to: CGPoint(x: point.x + 4, y: point.y))
+        diamond.addLine(to: CGPoint(x: point.x, y: point.y + 4))
+        diamond.addLine(to: CGPoint(x: point.x - 4, y: point.y))
+        diamond.closeSubpath()
+        core.path = diamond
+        core.fillColor = color.withAlphaComponent(0.42).cgColor
+        core.strokeColor = NSColor.white.withAlphaComponent(0.92).cgColor
+        core.lineWidth = 1
+        core.shadowColor = color.cgColor
+        core.shadowOpacity = 1
+        core.shadowRadius = 6
+        effects.addSublayer(core)
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = [0.38, 1.28, 0.8]
+        scale.keyTimes = [0, 0.36, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0, 1, 0]
+        fade.keyTimes = [0, 0.18, 1]
+        let group = CAAnimationGroup()
+        group.animations = [scale, fade]
+        group.duration = milestone ? 0.52 : 0.4
+        core.add(group, forKey: "cursor-prism-core")
+        scheduleRemoval(core, after: group.duration)
+    }
+
+    private func countColorForPrism(milestone: Bool) -> NSColor {
+        milestone
+            ? NSColor(calibratedRed: 1, green: 0.76, blue: 0.24, alpha: 1)
+            : NSColor(calibratedRed: 1, green: 0.30, blue: 0.72, alpha: 1)
+    }
+
+    private func emitWormholeCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let wormholeColors = [color, NSColor.systemCyan, NSColor.systemPink]
+        let loopCount = arcade || milestone ? 3 : 2
+        for index in 0..<loopCount {
+            let radius = CGFloat(7 + index * 4)
+            let loop = CAShapeLayer()
+            loop.frame = CGRect(x: point.x - radius, y: point.y - radius * 0.62, width: radius * 2, height: radius * 1.24)
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: 1, y: loop.bounds.midY))
+            path.addCurve(
+                to: CGPoint(x: loop.bounds.maxX - 1, y: loop.bounds.midY),
+                control1: CGPoint(x: loop.bounds.width * 0.25, y: -CGFloat(index + 1)),
+                control2: CGPoint(x: loop.bounds.width * 0.68, y: loop.bounds.maxY + CGFloat(index + 1))
+            )
+            path.addCurve(
+                to: CGPoint(x: 1, y: loop.bounds.midY),
+                control1: CGPoint(x: loop.bounds.width * 0.74, y: -CGFloat(index)),
+                control2: CGPoint(x: loop.bounds.width * 0.24, y: loop.bounds.maxY + CGFloat(index))
+            )
+            loop.path = path
+            loop.fillColor = NSColor.clear.cgColor
+            loop.strokeColor = wormholeColors[index].withAlphaComponent(0.82).cgColor
+            loop.lineWidth = index == 0 ? 1.8 : 1.2
+            loop.lineCap = .round
+            loop.strokeStart = 0.05
+            loop.strokeEnd = 0.78
+            loop.shadowColor = wormholeColors[index].cgColor
+            loop.shadowOpacity = 0.9
+            loop.shadowRadius = 5
+            effects.addSublayer(loop)
+            let rotation = CABasicAnimation(keyPath: "transform.rotation")
+            rotation.fromValue = CGFloat(index) * 0.34
+            rotation.toValue = (index.isMultiple(of: 2) ? 1 : -1) * CGFloat.pi * (arcade ? 1.25 : 0.86)
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [0.72, 1.18, 0.72]
+            scale.keyTimes = [0, 0.42, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 0.66, 0]
+            fade.keyTimes = [0, 0.16, 0.72, 1]
+            let group = CAAnimationGroup()
+            group.animations = [rotation, scale, fade]
+            group.duration = milestone ? 0.58 : 0.46
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            loop.add(group, forKey: "cursor-wormhole-loop")
+            scheduleRemoval(loop, after: group.duration)
+        }
+    }
+
+    private func emitGlitchCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let glitchColors = [NSColor.systemCyan, color, NSColor.systemPink, NSColor.white]
+        let shardCount = arcade || milestone ? 6 : 4
+        for index in 0..<shardCount {
+            let shard = CALayer()
+            let width = CGFloat(5 + (index * 7) % 10)
+            shard.bounds = CGRect(x: 0, y: 0, width: width, height: index.isMultiple(of: 3) ? 2 : 1)
+            shard.position = CGPoint(x: point.x + CGFloat((index % 3) - 1) * 2, y: point.y + CGFloat(index - shardCount / 2) * 3)
+            let shardColor = glitchColors[index % glitchColors.count]
+            shard.backgroundColor = shardColor.withAlphaComponent(0.92).cgColor
+            shard.shadowColor = shardColor.cgColor
+            shard.shadowOpacity = 1
+            shard.shadowRadius = 4
+            effects.addSublayer(shard)
+            let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
+            let shift = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            shift.values = [0, direction * 11, -direction * 5, direction * 16]
+            shift.keyTimes = [0, 0.28, 0.58, 1]
+            let scaleX = CAKeyframeAnimation(keyPath: "transform.scale.x")
+            scaleX.values = [0.7, 1.35, 0.62, 1.1]
+            scaleX.keyTimes = [0, 0.24, 0.62, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 0.22, 0.86, 0]
+            fade.keyTimes = [0, 0.12, 0.38, 0.62, 1]
+            let group = CAAnimationGroup()
+            group.animations = [shift, scaleX, fade]
+            group.duration = milestone ? 0.48 : 0.34
+            group.timingFunction = CAMediaTimingFunction(name: .linear)
+            shard.add(group, forKey: "cursor-glitch-shard")
+            scheduleRemoval(shard, after: group.duration)
+        }
+    }
+
+    private func emitTentacleCursorEffect(at point: CGPoint, color: NSColor, arcade: Bool, milestone: Bool) {
+        let armCount = arcade || milestone ? 4 : 3
+        let armColors = [color, NSColor.systemCyan, NSColor.systemPink, NSColor.white]
+        for index in 0..<armCount {
+            let angle = -CGFloat.pi * 0.92 + CGFloat(index) * CGFloat.pi * 0.58
+            let length: CGFloat = milestone ? 22 : 16
+            let tangent = CGPoint(x: cos(angle), y: sin(angle))
+            let normal = CGPoint(x: -tangent.y, y: tangent.x)
+            let arm = CAShapeLayer()
+            arm.frame = effects.bounds
+            let path = CGMutablePath()
+            path.move(to: point)
+            path.addCurve(
+                to: CGPoint(x: point.x + tangent.x * length, y: point.y + tangent.y * length),
+                control1: CGPoint(x: point.x + tangent.x * length * 0.3 + normal.x * 6, y: point.y + tangent.y * length * 0.3 + normal.y * 6),
+                control2: CGPoint(x: point.x + tangent.x * length * 0.72 - normal.x * 5, y: point.y + tangent.y * length * 0.72 - normal.y * 5)
+            )
+            arm.path = path
+            arm.fillColor = NSColor.clear.cgColor
+            arm.strokeColor = armColors[index].withAlphaComponent(0.86).cgColor
+            arm.lineWidth = index == 0 ? 1.8 : 1.25
+            arm.lineCap = .round
+            arm.shadowColor = armColors[index].cgColor
+            arm.shadowOpacity = 0.9
+            arm.shadowRadius = 5
+            effects.addSublayer(arm)
+            let draw = CAKeyframeAnimation(keyPath: "strokeEnd")
+            draw.values = [0, 1, 0.72]
+            draw.keyTimes = [0, 0.48, 1]
+            let retract = CAKeyframeAnimation(keyPath: "strokeStart")
+            retract.values = [0, 0, 0.82]
+            retract.keyTimes = [0, 0.5, 1]
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 0.82, 0]
+            fade.keyTimes = [0, 0.16, 0.72, 1]
+            let group = CAAnimationGroup()
+            group.animations = [draw, retract, fade]
+            group.duration = milestone ? 0.54 : 0.43
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            arm.add(group, forKey: "cursor-tentacle-arm")
+            scheduleRemoval(arm, after: group.duration)
+        }
+    }
+
+    private func emitMemeCursorEffect(at point: CGPoint, count: Int, arcade: Bool, milestone: Bool) {
+        activeMemeText?.removeAllAnimations()
+        activeMemeText?.removeFromSuperlayer()
+        activeMemeText = nil
+        let words = ["典", "急", "孝", "乐", "绷", "赢"]
+        let colors: [NSColor] = [
+            NSColor(calibratedRed: 1, green: 0.78, blue: 0.22, alpha: 1),
+            NSColor.systemRed,
+            NSColor(calibratedRed: 0.74, green: 0.48, blue: 1, alpha: 1),
+            NSColor.systemCyan,
+            NSColor.systemPink,
+            NSColor(calibratedRed: 0.42, green: 0.94, blue: 0.62, alpha: 1)
+        ]
+        let index = abs(count) % words.count
+        let word = words[index]
+        let wordColor = colors[index]
+        let text = CATextLayer()
+        text.bounds = CGRect(x: 0, y: 0, width: milestone ? 48 : 38, height: milestone ? 38 : 30)
+        text.position = CGPoint(x: point.x + 12, y: point.y + 15)
+        text.alignmentMode = .center
+        text.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        text.font = NSFont.systemFont(ofSize: milestone ? 25 : 20, weight: .black)
+        text.fontSize = milestone ? 25 : 20
+        text.string = word
+        text.foregroundColor = wordColor.cgColor
+        text.shadowColor = wordColor.cgColor
+        text.shadowOpacity = 1
+        text.shadowRadius = arcade ? 8 : 5
+        text.shadowOffset = .zero
+        effects.addSublayer(text)
+        activeMemeText = text
+
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        switch word {
+        case "典": scale.values = [1.55, 0.88, 1.04, 1]
+        case "急": scale.values = [0.72, 1.24, 0.94, 1]
+        case "孝": scale.values = [1, 0.84, 1.08, 1]
+        case "乐": scale.values = [0.5, 1.42, 0.9, 1]
+        case "绷": scale.values = [0.34, 1.72, 0.76, 1]
+        default: scale.values = [0.58, 1.16, 1.3, 1]
+        }
+        scale.keyTimes = [0, 0.28, 0.62, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1, 1, 0.86, 0]
+        fade.keyTimes = [0, 0.46, 0.72, 1]
+        let motion: CAKeyframeAnimation
+        switch word {
+        case "典":
+            motion = CAKeyframeAnimation(keyPath: "transform.rotation")
+            motion.values = [-0.18, 0.06, -0.02, 0]
+            motion.keyTimes = [0, 0.3, 0.62, 1]
+        case "急":
+            motion = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            motion.values = [0, -4, 4, -3, 3, 0]
+            motion.keyTimes = [0, 0.18, 0.34, 0.5, 0.66, 1]
+        case "孝":
+            motion = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            motion.values = [0, -3, 4, 0]
+            motion.keyTimes = [0, 0.3, 0.62, 1]
+        case "乐":
+            motion = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            motion.values = [0, 6, -5, 2, 0]
+            motion.keyTimes = [0, 0.22, 0.44, 0.68, 1]
+        case "绷":
+            motion = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            motion.values = [0, -8, 8, 0]
+            motion.keyTimes = [0, 0.34, 0.62, 1]
+        default:
+            motion = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            motion.values = [0, 0, 5, -11]
+            motion.keyTimes = [0, 0.4, 0.66, 1]
+        }
+        let group = CAAnimationGroup()
+        group.animations = [scale, fade, motion]
+        group.duration = milestone ? 0.58 : arcade ? 0.5 : 0.44
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        text.add(group, forKey: "cursor-meme-word")
+        scheduleRemoval(text, after: group.duration)
+    }
+
+    private func emitPossumCursorEffect(at point: CGPoint, arcade: Bool, milestone: Bool) {
+        activePossumSticker?.removeAllAnimations()
+        activePossumSticker?.removeFromSuperlayer()
+        activePossumSticker = nil
+        guard let image = memeStickerImage(named: "hands-behind-possum-cutout.png") else {
+            emitMemeCursorEffect(at: point, count: 12, arcade: arcade, milestone: milestone)
+            return
+        }
+        let sticker = CALayer()
+        let stickerSize = milestone
+            ? CGSize(width: 48, height: 76)
+            : CGSize(width: 40, height: 64)
+        sticker.bounds = CGRect(origin: .zero, size: stickerSize)
+        // macOS input-method candidates normally open above the insertion point.
+        // Keep the entire sticker below the input baseline, including its shadow
+        // and small rotation, so it never covers the candidate window.
+        sticker.position = CGPoint(
+            x: point.x + 28,
+            y: point.y - (milestone ? 48 : 42)
+        )
+        sticker.contents = image
+        sticker.contentsGravity = .resize
+        // The bundled PNG deliberately keeps its source pixels intact. Crop only
+        // the transparent canvas at render time so the silhouette reads at cursor scale.
+        sticker.contentsRect = CGRect(x: 0.168, y: 0, width: 0.561, height: 0.902)
+        sticker.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        sticker.shadowColor = NSColor.black.cgColor
+        sticker.shadowOpacity = 0.72
+        sticker.shadowRadius = arcade ? 8 : 5
+        sticker.shadowOffset = CGSize(width: 0, height: -2)
+        effects.addSublayer(sticker)
+        activePossumSticker = sticker
+
+        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+        scale.values = [0.74, 1.08, 0.98, 1.025, 1]
+        scale.keyTimes = [0, 0.24, 0.46, 0.72, 1]
+        let walk = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        walk.values = [18, 5, 0, -2, -8]
+        walk.keyTimes = [0, 0.24, 0.46, 0.74, 1]
+        let inspect = CAKeyframeAnimation(keyPath: "transform.rotation")
+        inspect.values = [-0.08, 0.025, -0.018, 0.018, 0]
+        inspect.keyTimes = [0, 0.28, 0.52, 0.72, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1, 1, 1, 0.82, 0]
+        fade.keyTimes = [0, 0.45, 0.7, 0.84, 1]
+        let group = CAAnimationGroup()
+        group.animations = [scale, walk, inspect, fade]
+        group.duration = milestone ? 0.82 : arcade ? 0.74 : 0.68
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        sticker.add(group, forKey: "cursor-possum-inspect")
+        scheduleRemoval(sticker, after: group.duration)
+    }
+
+    private func emitFreshCatCursorEffect(at point: CGPoint, arcade: Bool, milestone: Bool) {
+        activeFreshCatSticker?.removeAllAnimations()
+        activeFreshCatSticker?.removeFromSuperlayer()
+        activeFreshCatSticker = nil
+        guard let image = memeStickerImage(named: "fresh-cat-cutout.png") else {
+            emitMemeCursorEffect(at: point, count: 15, arcade: arcade, milestone: milestone)
+            return
+        }
+
+        let sticker = CALayer()
+        let size: CGFloat = milestone ? 62 : 54
+        sticker.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+        // Match the possum's IME-safe placement: the complete face remains below
+        // the insertion baseline, leaving macOS candidate windows unobstructed.
+        sticker.position = CGPoint(
+            x: point.x + 36,
+            y: point.y - (milestone ? 44 : 39)
+        )
+        sticker.contents = image
+        sticker.contentsGravity = .resizeAspect
+        sticker.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        sticker.shadowColor = NSColor.black.cgColor
+        sticker.shadowOpacity = 0.58
+        sticker.shadowRadius = arcade ? 7 : 4
+        sticker.shadowOffset = CGSize(width: 0, height: -2)
+        effects.addSublayer(sticker)
+        activeFreshCatSticker = sticker
+
+        let press = CAKeyframeAnimation(keyPath: "transform.scale")
+        press.values = [0.82, 1.12, 1.02, 0.98, 1]
+        press.keyTimes = [0, 0.25, 0.48, 0.74, 1]
+        let approach = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        approach.values = [18, 4, 0, -2, -7]
+        approach.keyTimes = [0, 0.25, 0.48, 0.75, 1]
+        let unimpressedTilt = CAKeyframeAnimation(keyPath: "transform.rotation")
+        unimpressedTilt.values = [0.075, -0.025, 0.018, -0.012, 0]
+        unimpressedTilt.keyTimes = [0, 0.30, 0.53, 0.76, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1, 1, 1, 0.80, 0]
+        fade.keyTimes = [0, 0.48, 0.72, 0.86, 1]
+        let group = CAAnimationGroup()
+        group.animations = [press, approach, unimpressedTilt, fade]
+        group.duration = milestone ? 0.82 : arcade ? 0.72 : 0.66
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        sticker.add(group, forKey: "cursor-fresh-cat-press")
+        scheduleRemoval(sticker, after: group.duration)
+    }
+
+    private func emitKnifeShieldDogCursorEffect(at point: CGPoint, arcade: Bool, milestone: Bool) {
+        activeKnifeShieldDog?.removeAllAnimations()
+        activeKnifeShieldDog?.removeFromSuperlayer()
+        activeKnifeShieldDog = nil
+        guard let image = memeStickerImage(named: "knife-shield-dog-cutout.png") else {
+            emitMemeCursorEffect(at: point, count: 16, arcade: arcade, milestone: milestone)
+            return
+        }
+
+        let dog = CALayer()
+        let dogSize = milestone
+            ? CGSize(width: 70, height: 49)
+            : CGSize(width: 62, height: 43)
+        dog.bounds = CGRect(origin: .zero, size: dogSize)
+        dog.position = CGPoint(
+            x: point.x + 39,
+            y: point.y - (milestone ? 38 : 34)
+        )
+        dog.contents = image
+        dog.contentsGravity = .resize
+        dog.contentsRect = CGRect(x: 0.156, y: 0.238, width: 0.715, height: 0.498)
+        dog.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        dog.shadowColor = NSColor.black.cgColor
+        dog.shadowOpacity = 0.58
+        dog.shadowRadius = arcade ? 6 : 4
+        dog.shadowOffset = CGSize(width: 0, height: -2)
+        effects.addSublayer(dog)
+        activeKnifeShieldDog = dog
+        let duration = milestone ? 0.86 : arcade ? 0.76 : 0.70
+
+        let crouch = CAKeyframeAnimation(keyPath: "transform.scale")
+        crouch.values = [0.76, 1.08, 0.96, 1.025, 1]
+        crouch.keyTimes = [0, 0.25, 0.48, 0.72, 1]
+        let slide = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        slide.values = [18, 5, 0, -2, -7]
+        slide.keyTimes = [0, 0.25, 0.50, 0.74, 1]
+        let wobble = CAKeyframeAnimation(keyPath: "transform.rotation")
+        wobble.values = [-0.055, 0.038, -0.026, 0.014, 0]
+        wobble.keyTimes = [0, 0.28, 0.50, 0.73, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1, 1, 1, 0.82, 0]
+        fade.keyTimes = [0, 0.48, 0.72, 0.86, 1]
+        let group = CAAnimationGroup()
+        group.animations = [crouch, slide, wobble, fade]
+        group.duration = duration
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        dog.add(group, forKey: "cursor-knife-shield-dog-waddle")
+        scheduleRemoval(dog, after: duration)
+    }
+
+    private func emitElegantPersonCursorEffect(at point: CGPoint, arcade: Bool, milestone: Bool) {
+        activeElegantPerson?.removeAllAnimations()
+        activeElegantPerson?.removeFromSuperlayer()
+        activeElegantPerson = nil
+        guard let image = memeStickerImage(named: "elegant-person-cutout.png") else {
+            emitMemeCursorEffect(at: point, count: 17, arcade: arcade, milestone: milestone)
+            return
+        }
+
+        let person = CALayer()
+        let personSize = milestone
+            ? CGSize(width: 58, height: 70)
+            : CGSize(width: 52, height: 63)
+        person.bounds = CGRect(origin: .zero, size: personSize)
+        person.position = CGPoint(
+            x: point.x + 34,
+            y: point.y - (milestone ? 48 : 44)
+        )
+        person.contents = image
+        person.contentsGravity = .resize
+        person.contentsRect = CGRect(x: 0.162, y: 0.080, width: 0.688, height: 0.824)
+        person.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        person.shadowColor = NSColor.black.cgColor
+        person.shadowOpacity = 0.62
+        person.shadowRadius = arcade ? 7 : 4
+        person.shadowOffset = CGSize(width: 0, height: -2)
+        effects.addSublayer(person)
+        activeElegantPerson = person
+
+        let arrive = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        arrive.values = [17, 4, 0, -2, -6]
+        arrive.keyTimes = [0, 0.24, 0.48, 0.74, 1]
+        let bow = CAKeyframeAnimation(keyPath: "transform.scale.y")
+        bow.values = [0.82, 1.06, 0.96, 1.025, 1]
+        bow.keyTimes = [0, 0.24, 0.48, 0.72, 1]
+        let composedTilt = CAKeyframeAnimation(keyPath: "transform.rotation")
+        composedTilt.values = [0.045, -0.024, 0.015, -0.008, 0]
+        composedTilt.keyTimes = [0, 0.28, 0.50, 0.74, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [1, 1, 1, 0.82, 0]
+        fade.keyTimes = [0, 0.48, 0.72, 0.86, 1]
+        let group = CAAnimationGroup()
+        group.animations = [arrive, bow, composedTilt, fade]
+        group.duration = milestone ? 0.84 : arcade ? 0.74 : 0.68
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        person.add(group, forKey: "cursor-elegant-person-bow")
+        scheduleRemoval(person, after: group.duration)
+    }
+
+    private func memeStickerImage(named name: String) -> NSImage? {
+        if let cached = memeStickerImages[name] { return cached }
+        guard let url = preferences.assetRootURL?
+            .appendingPathComponent("meme-stickers", isDirectory: true)
+            .appendingPathComponent(name),
+              let image = NSImage(contentsOf: url) else { return nil }
+        memeStickerImages[name] = image
+        return image
+    }
+
+    private func scheduleRemoval(_ layer: CALayer, after duration: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.03) { [weak layer] in
+            layer?.removeFromSuperlayer()
         }
     }
 
@@ -3427,6 +4146,7 @@ private final class PowerModeView: NSView {
     var onTypingCharge: ((Int, String) -> Void)?
     private var reducedMotion: Bool { preferences.reduceMotionEnabled }
     private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
+    private var classicMode: Bool { preferences.settings.preset == "classic" }
     private var effectIntensity: CGFloat {
         switch preferences.settings.effectIntensity ?? "normal" {
         case "low": return 0.62
@@ -3449,7 +4169,7 @@ private final class PowerModeView: NSView {
             orbRenderer = OrbLayerRenderer(hostLayer: layer, preferences: preferences)
             typingRenderer = TypingFeedbackRenderer(hostLayer: layer, preferences: preferences)
             orbRenderer.layout(in: currentHudRect())
-            typingRenderer.layout(in: bounds, beside: currentHudRect())
+            typingRenderer.layout(in: bounds, beside: currentHudRect(), centered: classicMode)
             orbRenderer.apply(state: state, presentation: presentationSnapshot(), label: localizedOrbActivity())
             orbRenderer.setVisible(false, animated: false)
         }
@@ -3482,19 +4202,28 @@ private final class PowerModeView: NSView {
     override func layout() {
         super.layout()
         orbRenderer?.layout(in: currentHudRect())
-        typingRenderer?.layout(in: bounds, beside: currentHudRect())
+        typingRenderer?.layout(in: bounds, beside: currentHudRect(), centered: classicMode)
     }
 
     private func refreshCompositor(event: PowerEvent? = nil, now: Date = Date()) {
         guard usesCompositorRenderer, orbRenderer != nil else { return }
         let presentation = presentationSnapshot(now: now)
-        orbRenderer.layout(in: currentHudRect(now: now))
-        orbRenderer.setConnected(streamConnected == true)
-        orbRenderer.apply(state: state, presentation: presentation, label: localizedOrbActivity(presentation), event: event)
+        let hudRect = currentHudRect(now: now)
+        orbRenderer.layout(in: hudRect)
+        if classicMode {
+            orbRenderer.setVisible(false, animated: false)
+        } else {
+            orbRenderer.setConnected(streamConnected == true)
+            orbRenderer.apply(state: state, presentation: presentation, label: localizedOrbActivity(presentation), event: event)
+            orbRenderer.setVisible(shouldShowHUD(now: now))
+        }
         let typingProgress = typingComboProgress(now: now)
-        typingRenderer.layout(in: bounds, beside: currentHudRect(now: now))
-        typingRenderer.update(count: typingProgress > 0 ? typingComboCount : 0, progress: typingProgress)
-        orbRenderer.setVisible(shouldShowHUD(now: now))
+        typingRenderer.layout(in: bounds, beside: hudRect, centered: classicMode)
+        if classicMode && positioning && typingProgress <= 0 {
+            typingRenderer.showPositioningAnchor()
+        } else {
+            typingRenderer.update(count: typingProgress > 0 ? typingComboCount : 0, progress: typingProgress)
+        }
     }
 
     private func feedbackBounds() -> CGRect {
@@ -3681,15 +4410,16 @@ private final class PowerModeView: NSView {
 
     func hudContains(windowPoint: CGPoint) -> Bool {
         if dragOffset != nil { return true }
+        guard shouldShowHUD(now: Date()) else { return false }
         let local = convert(windowPoint, from: nil)
         return currentHudRect().insetBy(dx: -8, dy: -14).contains(local)
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard positioning else { return }
         let point = convert(event.locationInWindow, from: nil)
         let rect = currentHudRect()
         guard rect.insetBy(dx: -8, dy: -14).contains(point) else { return }
+        if !positioning { beginPositioning() }
         dragOffset = CGPoint(x: point.x - rect.minX, y: point.y - rect.minY)
     }
 
@@ -3793,8 +4523,12 @@ private final class PowerModeView: NSView {
         typingComboCount = 0
         typingComboLastAt = nil
         typingComboExpiresAt = nil
-        typingRenderer.inject(to: reactorCenter(), count: count)
-        orbRenderer.playTypingInjection(count: count)
+        if classicMode {
+            typingRenderer.clearCombo()
+        } else {
+            typingRenderer.inject(to: reactorCenter(), count: count)
+            orbRenderer.playTypingInjection(count: count)
+        }
         hudExpandedUntil = Date().addingTimeInterval(2.4)
         onTypingCharge?(count, sessionId)
     }
@@ -4284,6 +5018,7 @@ private final class PowerModeView: NSView {
 
     private func shouldShowHUD(now: Date) -> Bool {
         guard preferences.settings.enabled else { return false }
+        if classicMode { return positioning || typingComboProgress(now: now) > 0 }
         if typingComboProgress(now: now) > 0 { return true }
         if positioning || streamConnected != true { return true }
         if preferences.settings.idleBehavior != "hide" { return true }
@@ -6042,6 +6777,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             self?.rebuildMenu()
         }
         installStatusItem()
+        // Keep only the visible HUD hit target interactive. The rest of the
+        // transparent panel remains click-through, while the orb can be dragged
+        // directly without first enabling a menu-based positioning mode.
+        installMouseMonitors()
+        updateMouseCapture()
         if environment["CODEX_POWER_MODE_POSITIONING_PREVIEW"] == "1" {
             setPositioning(true)
         }
@@ -6069,7 +6809,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     @objc private func screenParametersChanged() {
         tracker?.screenParametersChanged()
         window?.contentView?.needsDisplay = true
-        if positioning { updateMouseCapture() }
+        updateMouseCapture()
     }
 
     private func installStatusItem() {
@@ -6127,8 +6867,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         menu.addItem(enabled)
 
         menu.addItem(submenu(
-            title: preferences.text("Effect", "效果"),
-            choices: [("focus", "Focus"), ("arcade", "Arcade")],
+            title: preferences.text("Display mode", "显示模式"),
+            choices: [
+                ("focus", "Focus"),
+                ("arcade", "Arcade"),
+                ("classic", preferences.text("Classic Power Mode · cursor + typing Combo", "经典 Power Mode · 光标特效 + 输入连击"))
+            ],
             selected: preferences.settings.preset,
             action: #selector(selectPreset)
         ))
@@ -6163,6 +6907,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         let combo = NSMenuItem(title: preferences.text("Show Combo", "显示 Combo"), action: #selector(toggleCombo), keyEquivalent: "")
         combo.target = self
         combo.state = (preferences.settings.showCombo ?? true) ? .on : .off
+        combo.isEnabled = preferences.settings.preset != "classic"
         menu.addItem(combo)
         let typing = NSMenuItem(title: preferences.text("Typing Combo", "输入连击"), action: #selector(toggleTypingCombo), keyEquivalent: "")
         typing.target = self
@@ -6176,7 +6921,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             choices: [
                 ("off", preferences.text("Off", "关闭")),
                 ("spark", preferences.text("Sparks", "火花")),
-                ("neon", preferences.text("Neon burst", "霓虹爆发"))
+                ("neon", preferences.text("Neon burst", "霓虹爆发")),
+                ("orbit", preferences.text("Orbit", "轨道环绕")),
+                ("ripple", preferences.text("Ripple", "能量涟漪")),
+                ("prism", preferences.text("Prism", "棱镜折射")),
+                ("wormhole", preferences.text("Liquid wormhole", "液态虫洞")),
+                ("glitch", preferences.text("Glitch slices", "故障切片")),
+                ("tentacle", preferences.text("Soft tentacles", "软体触手")),
+                ("meme", preferences.text("Chinese meme words", "抽象文字")),
+                ("possum", preferences.text("Hands-behind possum", "背手负鼠")),
+                ("freshcat", preferences.text("Fresh cat", "新鲜猫")),
+                ("knifeshield", preferences.text("Knife-shield dog", "刀盾狗")),
+                ("elegant", preferences.text("Elegant person", "高雅人士"))
             ],
             selected: preferences.settings.cursorEffect ?? "spark",
             action: #selector(selectCursorEffect)
@@ -6330,8 +7086,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             updateMouseCapture()
         } else {
             view.cancelPositioning()
-            removeMouseMonitors()
-            panel.ignoresMouseEvents = true
+            panel.ignoresMouseEvents = false
+            updateMouseCapture()
         }
         rebuildMenu()
     }
@@ -6355,7 +7111,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
 
     private func updateMouseCapture() {
-        guard positioning, let panel = window, let view = panel.contentView as? PowerModeView else { return }
+        guard let panel = window, let view = panel.contentView as? PowerModeView else { return }
         let windowPoint = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
         panel.ignoresMouseEvents = !view.hudContains(windowPoint: windowPoint)
     }
