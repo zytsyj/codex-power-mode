@@ -17,22 +17,24 @@ Watch it understand, inspect, edit, verify, recover, and finish—then add Energ
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
 
-[The idea](#from-editor-fireworks-to-agent-feedback) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Visual system](#one-visual-system-not-a-loading-spinner) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
+[Why it moved to Codex](#when-vs-code-stopped-being-the-main-stage) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Visual system](#one-visual-system-not-a-loading-spinner) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
 > [!NOTE]
 > Power Mode `0.9.0` is an **open-source public beta**. Source code, documentation, and project-authored media use MIT. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
-## From editor fireworks to agent feedback
+## When VS Code stopped being the main stage
 
-The idea started with the old VS Code Power Mode experience: hit a key, get an immediate burst of particles, screen shake, and Combo. It was a wonderfully unnecessary way to make coding feel physical. The magic was not really the explosions—it was the tight little loop between doing something and feeling the editor answer back.
+I used to spend the day inside VS Code. I read the code, I wrote the code, and Power Mode made every keystroke explode just enough to make the work feel alive. It was silly, immediate, and strangely satisfying—because I was the one doing the work, with my hands on the keyboard.
 
-The first Codex prototype took that idea almost literally. A large patch became a burst of virtual typing; edits made sparks, tests charged the meter, and verified work earned a victory finish. It looked lively, but something felt off. Codex is not simply typing on your behalf. Much of the interesting work happens while it is understanding a request, inspecting a project, choosing a change, running tools, checking the result, waiting for approval, or recovering from failure.
+Then Codex quietly replaced VS Code as the place where much of my coding happens. Now I describe what I want, and Codex reads the repository, finds the right files, makes the change, and runs the tests. I still care about the code, but I no longer spend the whole time staring at every line. The editor slipped into the background. The one doing most of the typing was no longer me.
 
-So the question changed: **what would Power Mode look like if it reacted to the work itself, not just the keyboard?**
+That made the old Power Mode loop feel oddly stranded. If the work had moved from VS Code to Codex—and from my fingers to an agent—then Power Mode had to move too.
 
-That question became this project. Keystrokes still have a place in **Classic Power Mode**, but the main HUD follows Codex's real lifecycle. Observe pulls energy inward. Act drives the mechanism forward. Verify locks the nodes. Failures visibly recover. Useful work builds Energy, while completion only gets the celebration it actually earned. It keeps the instant delight of the old editor effect, then gives it a visual language made for an agent.
+The first prototype simply turned Codex patches into fake high-speed typing. It had sparks and Combo, but it was pretending the old workflow had not changed. So I stopped animating the keyboard and started animating the worker: understanding, searching, editing, testing, waiting, failing, recovering, and finishing. You may not be watching the code anymore, but you can still feel the work moving.
+
+That is really all this project is: **Power Mode for the moment when the coder became the director and Codex became the one at the controls.** Classic mode keeps the old keystroke fireworks around for fun. The orb is what came next.
 
 ## See it move
 
