@@ -24,9 +24,9 @@ The latest installed Hook has not yet been exercised by a new trusted Codex desk
 
 The default Idle behavior hides the settled HUD after its configured delay. From the menu-bar bolt, choose the quiet-orb option to keep a neutral `0 / Idle` orb instead. Wait, Recover, and reconnect states remain visible.
 
-## Why is the HUD hidden or moved when Codex is not active?
+## How does HUD anchoring work?
 
-The **When Codex is inactive** setting has two policies: hide the HUD, or keep it at its last confirmed Codex position across apps and Spaces. It never re-anchors to an unrelated foreground app. This is independent from Focus, Global, and Mix, which decide which Codex desktop task supplies activity.
+The **HUD anchoring** setting has two mutually exclusive modes. **Codex window only** anchors the HUD inside the active Codex window and hides it immediately when Codex is not foreground. **Always on screen** uses screen coordinates at all times—even while Codex is foreground—and follows the active display across apps and Spaces without anchoring to any application window. This is independent from Focus, Global, and Mix, which decide which Codex desktop task supplies activity.
 
 ## What are Focus, Global, and Mix?
 

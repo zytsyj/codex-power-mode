@@ -207,14 +207,14 @@ All everyday controls live under the macOS menu-bar bolt.
 | Effect intensity | Low · Normal · High |
 | Cursor effect | Off plus 13 styles |
 | Idle | Hide · Quiet orb · 0/2/6 second delay |
-| Inactive Codex | Hide · Keep the last Codex position on screen |
+| HUD anchoring | Codex window only · Always on screen |
 | Accessibility | Typing Combo · permission guide · Reduce Motion |
 | Language and size | Automatic · English · 中文 · 90%–150% |
 | Position | Direct drag with edge snapping |
 
 ## Engineering confidence
 
-- **149 automated tests** covering state semantics, persistence, security, process control, settings, native contracts, and release hygiene.
+- **150 automated tests** covering state semantics, persistence, security, process control, settings, native contracts, and release hygiene.
 - **326 deterministic native frames** covering themes, modes, states, Energy tiers, completion outcomes, cursor samples, Typing Combo, and Reduced Motion.
 - Native compositor budgets capped at **96 live layers** and **88 animations** in a synthetic peak scenario.
 - Reproducible compatibility, stability, performance, security, archive, and interaction checks.

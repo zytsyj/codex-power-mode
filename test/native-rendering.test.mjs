@@ -86,6 +86,19 @@ test("native HUD is directly draggable while empty overlay space stays click-thr
   assert.doesNotMatch(source, /guard positioning, let panel = window, let view = panel\.contentView as\? PowerModeView else \{ return \}/);
 });
 
+test("inactive HUD uses the active screen instead of another app window", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /case screen/);
+  assert.match(source, /case "stay", "follow": return \.screen/);
+  assert.match(source, /default: return codexIsFrontmost \? \.codex : \.hidden/);
+  assert.match(source, /case \.screen:[\s\S]*frontmostScreenFrame\(\)/);
+  assert.match(source, /return screen\.frame/);
+  assert.match(source, /preferences\.text\("HUD anchoring", "悬浮球跟随模式"\)/);
+  assert.match(source, /preferences\.text\("Always on screen", "始终跟随屏幕"\)/);
+  assert.doesNotMatch(source, /targetFrame = frontmostWindowFrame\(\)/);
+});
+
 test("native settings menu avoids synchronous rebuilds and no longer exposes position controls", async () => {
   const source = await readFile(overlaySource, "utf8");
 

@@ -18,13 +18,13 @@ private func resolvedHudPlacementBounds(viewBounds: CGRect, visibleBounds: CGRec
 private enum TrackedWindowTarget: Equatable {
     case hidden
     case codex
+    case screen
 }
 
 private func trackedWindowTarget(codexIsFrontmost: Bool, inactiveBehavior: String) -> TrackedWindowTarget {
-    if codexIsFrontmost { return .codex }
     switch inactiveBehavior {
-    case "stay", "follow": return .codex
-    default: return .hidden
+    case "stay", "follow": return .screen
+    default: return codexIsFrontmost ? .codex : .hidden
     }
 }
 
@@ -81,8 +81,9 @@ private func runPlacementGeometrySelfTest() {
     )
     precondition(trackedWindowTarget(codexIsFrontmost: true, inactiveBehavior: "hide") == .codex)
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "hide") == .hidden)
-    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "stay") == .codex)
-    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .codex)
+    precondition(trackedWindowTarget(codexIsFrontmost: true, inactiveBehavior: "stay") == .screen)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "stay") == .screen)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .screen)
     let settledAt = Date(timeIntervalSince1970: 1_000)
     precondition(!idleGraceIsActive(now: settledAt, settledAt: settledAt, delay: 0))
     precondition(idleGraceIsActive(now: settledAt.addingTimeInterval(1.9), settledAt: settledAt, delay: 2))
@@ -6675,6 +6676,7 @@ private final class CodexWindowTracker {
     private var timer: Timer?
     private var lastFrame = CGRect.zero
     private var lastCodexFrame: CGRect?
+    private var lastScreenFrame: CGRect?
     private let bundleIdentifier = "com.openai.codex"
 
     init(panel: NSPanel, preferences: PowerModePreferences) {
@@ -6705,12 +6707,19 @@ private final class CodexWindowTracker {
             panel.orderOut(nil)
             return
         }
-        // While another app is active, freeze the last confirmed Codex frame.
-        // Re-querying the window list here can change front-to-back ordering and
-        // make the HUD jump between unrelated windows or Spaces.
         let currentCodexFrame = codexIsFrontmost ? codexWindowFrame() : nil
         if codexIsFrontmost, let currentCodexFrame { lastCodexFrame = currentCodexFrame }
-        let targetFrame = currentCodexFrame ?? lastCodexFrame
+        let targetFrame: CGRect?
+        switch windowTarget {
+        case .codex:
+            targetFrame = currentCodexFrame ?? lastCodexFrame
+        case .screen:
+            let screenFrame = frontmostScreenFrame()
+            if let screenFrame { lastScreenFrame = screenFrame }
+            targetFrame = screenFrame ?? lastScreenFrame ?? NSScreen.main?.frame
+        case .hidden:
+            targetFrame = nil
+        }
         guard let frame = targetFrame, frame.width > 400, frame.height > 300 else {
             panel.orderOut(nil)
             return
@@ -6731,6 +6740,23 @@ private final class CodexWindowTracker {
     private func codexWindowFrame() -> CGRect? {
         guard let application = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else { return nil }
         return windowFrame(for: application)
+    }
+
+    private func frontmostScreenFrame() -> CGRect? {
+        if let application = NSWorkspace.shared.frontmostApplication,
+           let applicationFrame = windowFrame(for: application),
+           let screen = NSScreen.screens.max(by: {
+               let left = $0.frame.intersection(applicationFrame)
+               let right = $1.frame.intersection(applicationFrame)
+               return left.width * left.height < right.width * right.height
+           }),
+           screen.frame.intersects(applicationFrame) {
+            return screen.frame
+        }
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+            return screen.frame
+        }
+        return NSScreen.main?.frame
     }
 
     private func windowFrame(for application: NSRunningApplication) -> CGRect? {
@@ -7101,10 +7127,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         reduced.state = preferences.settings.reducedMotion ? .on : .off
         menu.addItem(reduced)
         menu.addItem(submenu(
-            title: preferences.text("When Codex is inactive", "Codex 非前台时"),
+            title: preferences.text("HUD anchoring", "悬浮球跟随模式"),
             choices: [
-                ("hide", preferences.text("Hide outside Codex", "离开 Codex 时隐藏")),
-                ("stay", preferences.text("Keep on screen", "保持在屏幕"))
+                ("hide", preferences.text("Codex window only", "仅跟随 Codex 窗口")),
+                ("stay", preferences.text("Always on screen", "始终跟随屏幕"))
             ],
             selected: preferences.settings.inactiveBehavior,
             action: #selector(selectInactiveBehavior)
