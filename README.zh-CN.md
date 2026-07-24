@@ -13,15 +13,16 @@
 [![macOS](https://img.shields.io/badge/macOS-native-111827?style=flat-square&logo=apple&logoColor=white)](docs/INSTALLATION.md)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-1f6f4a?style=flat-square&logo=nodedotjs&logoColor=white)](package.json)
 [![运行时依赖](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
-[![版本](https://img.shields.io/badge/version-0.8.0-7c3aed?style=flat-square)](CHANGELOG.md)
-[![状态](https://img.shields.io/badge/status-private_preview-f59e0b?style=flat-square)](docs/RELEASE_CHECKLIST.md)
+[![版本](https://img.shields.io/badge/version-0.9.0-7c3aed?style=flat-square)](CHANGELOG.md)
+[![许可证：MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
+[![状态](https://img.shields.io/badge/status-public_beta-f59e0b?style=flat-square)](docs/RELEASE_CHECKLIST.md)
 
 [安装](#安装) · [显示模式](#三种显示模式) · [工作原理](#工作原理) · [隐私](#本地运行隐私优先) · [文档](#文档)
 
 </div>
 
-> [!IMPORTANT]
-> 当前仓库是私有候选版本，尚未正式开源。它可用于个人测试，但项目仍为私有且采用 `UNLICENSED`；目前不授权再分发或公开安装。
+> [!NOTE]
+> Power Mode `0.9.0` 是开源公开测试版。源码、文档和项目自制媒体采用 MIT 许可证；四组旧梗图素材单独分发，不包含在 MIT 授权内，详见[第三方声明](THIRD_PARTY_NOTICES.md)。
 
 ## 不只是转圈，而是看懂 Codex 在做什么
 
@@ -125,14 +126,15 @@ flowchart LR
 - macOS 与 Codex 桌面端
 - Node.js 20 或更高版本
 - macOS Swift 工具链
-- 只有 Typing Combo 和光标局部特效需要辅助功能权限
+- 只有 Typing Combo 和光标局部特效需要辅助功能权限；一键定位到系统设置，授权后无需重启即可生效
 
-### 私有预览版
+### 从 GitHub 安装
 
-项目所有者当前通过已配置的个人市场安装：
+先把本仓库添加为 Codex 插件市场，再安装 Power Mode：
 
 ```bash
-codex plugin add codex-power-mode@personal
+codex plugin marketplace add zytsyj/codex-power-mode
+codex plugin add codex-power-mode@codex-power-mode
 ```
 
 安装后新建一个 Codex 任务，检查并信任生命周期 Hook，然后验证运行状态：
@@ -181,7 +183,7 @@ npm run status
 - **原生合成器预算**，峰值合成场景最多 96 个活动图层和 88 个动画。
 - 可复现的兼容性、稳定性、性能、安全、归档与交互验收流程。
 
-合成检查不会被包装成真实 Hook 或人工体验证明。剩余发布门槛记录在[发布检查清单](docs/RELEASE_CHECKLIST.md)中。
+合成检查不会被包装成真实 Hook 或人工体验证明。公开测试版的后续验证项目记录在[发布检查清单](docs/RELEASE_CHECKLIST.md)中。
 
 ## 控制项
 
@@ -198,13 +200,13 @@ npm run status
 | Codex 不活跃时 | 隐藏 · 留在 Codex · 跟随前台应用 |
 | 辅助功能 | 减少动态效果 |
 | 语言 | 自动 · English · 中文 |
-| 位置 | 直接拖动 · 引导定位 · 重置 |
+| 位置 | 直接拖动并自动靠边吸附 |
 
 ## 平台与项目状态
 
 Power Mode 目前仅支持 macOS 上的 Codex 桌面端。Codex CLI、VS Code、子代理、Windows 与 Linux 不在当前产品边界内。
 
-原生二进制文件在本地编译，尚未作为签名或公证应用分发。公开安装渠道和开源许可证尚未批准。
+原生 HUD 会在本地打包成身份稳定的 **Codex Power Mode.app**。公开测试版默认使用本地编译和 ad-hoc 签名，尚未提供 Developer ID 签名与公证的预编译应用。当前构建目标为 macOS 13 或更高版本，最终测试支持矩阵仍保持保守。
 
 ## 文档
 
@@ -217,7 +219,7 @@ Power Mode 目前仅支持 macOS 上的 Codex 桌面端。Codex CLI、VS Code、
 
 ## 参与贡献
 
-私有孵化期间暂不接受外部贡献。如果未来开放仓库，现有贡献指南中的工程与隐私标准将继续适用。
+欢迎提交 Issue 和 Pull Request。示例与截图必须使用合成或脱敏内容；安全漏洞请通过 GitHub 私密漏洞报告提交，不要公开披露。
 
 参阅 [CONTRIBUTING.md](CONTRIBUTING.md)、[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) 和[常见问题](docs/FAQ.md)。
 

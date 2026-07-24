@@ -1,0 +1,21 @@
+{
+  "name": "codex-power-mode",
+  "interface": {
+    "displayName": "Codex Power Mode"
+  },
+  "plugins": [
+    {
+      "name": "codex-power-mode",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/zytsyj/codex-power-mode.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

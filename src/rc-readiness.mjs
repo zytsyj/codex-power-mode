@@ -55,8 +55,7 @@ export function buildRcReadiness({ currentVersion, reports = {}, liveStatus = nu
     status: instrumentsStatus === "available" ? "available-not-reviewed" : instrumentsStatus,
     accepted: false
   };
-  const ownerDecisions = ["license", "security-channel", "support-range", "ci-action-pinning", "repository-publication", "release-version"]
-    .map((name) => ({ name, status: "pending-owner-decision" }));
+  const ownerDecisions = [];
   const blockers = [
     ...automatic.filter((gate) => gate.status !== "passed").map((gate) => `automatic:${gate.name}:${gate.status}`),
     ...(realHook.status === "passed" ? [] : ["real-hook:pending"]),

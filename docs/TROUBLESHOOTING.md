@@ -7,7 +7,7 @@ Start with `npm run doctor` from the matching source checkout or the installed p
 - Confirm the local service and native HUD are running.
 - Check the idle behavior and the **When Codex is inactive** setting.
 - Bring Codex to the foreground and start a trusted desktop task.
-- Drag the visible orb directly to reposition it. Use the menu-bar bolt to reset the saved position, especially after display changes.
+- Drag the visible orb directly to reposition it; the position saves automatically and is kept inside the current display after screen changes.
 
 ## Hooks are waiting
 
@@ -15,11 +15,11 @@ The service can be healthy before it receives a trusted lifecycle event. Open a 
 
 ## Typing Combo works but cursor effects do not
 
-Grant Accessibility permission to the installed overlay, restart Power Mode, focus the Codex message field, and run `doctor` again. Deletion, navigation, Enter, and command/control shortcuts intentionally do not increase Typing Combo.
+Choose **Grant cursor access…** from the menu-bar bolt, turn on **Codex Power Mode** in the Accessibility panel that opens, focus the Codex message field, and run `doctor` again. Permission is detected automatically; no HUD restart or manual app dragging is needed. Deletion, navigation, Enter, and command/control shortcuts intentionally do not increase Typing Combo.
 
 ## Version mismatch or duplicate HUD
 
-Stop Power Mode, reinstall the plugin once from the configured marketplace, and start a new Codex task. Run `doctor` and confirm that the installed and running versions match and instance counts are one. Avoid starting scripts from multiple cached plugin versions.
+Stop Power Mode, run `codex plugin marketplace upgrade codex-power-mode`, reinstall the plugin once, and start a new Codex task. Run `doctor` and confirm that the installed and running versions match and instance counts are one. Avoid starting scripts from multiple cached plugin versions.
 
 ## Safe recovery
 

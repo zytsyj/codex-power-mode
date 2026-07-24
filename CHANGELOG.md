@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 - 2026-07-24
 
+- Opened the source code, documentation, and project-authored media under MIT; added a Git-backed Codex marketplace, public contribution and security workflows, immutable CI action pins, and an explicit separate-rights notice for the four retained legacy meme image sets.
+- Replaced the raw macOS overlay executable with a stable **Codex Power Mode.app** identity, added direct Accessibility onboarding and an in-menu recovery action, automatically activates cursor monitoring after permission is granted, and migrates a running legacy HUD without creating a duplicate.
+- Removed position controls and saved-position text from the settings menu, replaced synchronous menu reconstruction with lightweight status refreshes, and suspend HUD mouse hit-testing while the menu is open to eliminate interaction stutter.
 - Rebuilt the GitHub project landing page around the current three-mode experience, added complete English and Simplified Chinese READMEs with language switching, and replaced the legacy single-orb hero with a current Focus/Arcade/Classic overview.
 - Added Classic Power Mode, a no-orb display mode that keeps cursor effects and a centered Typing Combo, automatically enables input rhythm tracking, remains fully click-through while idle, and supports direct counter dragging.
 - Added six compact geometric cursor effects, a direct Chinese meme-word mode cycling through `典 / 急 / 孝 / 乐 / 绷 / 赢`, plus hands-behind-possum, fresh-cat, knife-shield-dog, and elegant-person stickers; repository-bundled transparent cutouts work offline, stay below the input baseline, and immediately replace their previous instance during rapid input.

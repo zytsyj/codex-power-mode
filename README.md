@@ -13,15 +13,16 @@ Understand what the agent is doing, watch useful work build Energy, and turn typ
 [![macOS](https://img.shields.io/badge/macOS-native-111827?style=flat-square&logo=apple&logoColor=white)](docs/INSTALLATION.md)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-1f6f4a?style=flat-square&logo=nodedotjs&logoColor=white)](package.json)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
-[![Version](https://img.shields.io/badge/version-0.8.0-7c3aed?style=flat-square)](CHANGELOG.md)
-[![Status](https://img.shields.io/badge/status-private_preview-f59e0b?style=flat-square)](docs/RELEASE_CHECKLIST.md)
+[![Version](https://img.shields.io/badge/version-0.9.0-7c3aed?style=flat-square)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
+[![Status](https://img.shields.io/badge/status-public_beta-f59e0b?style=flat-square)](docs/RELEASE_CHECKLIST.md)
 
 [Install](#installation) · [Modes](#three-display-modes) · [How it works](#how-it-works) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
-> [!IMPORTANT]
-> This repository is a private Release Candidate and is intentionally not open source yet. It is available for personal testing, but the project remains private and `UNLICENSED`; redistribution and public installation are not authorized.
+> [!NOTE]
+> Power Mode `0.9.0` is an open-source public beta. Source code, documentation, and project-authored media use the MIT license. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## See Codex work—not just spin
 
@@ -125,14 +126,15 @@ The overlay does not inject code into Codex and does not reward code volume. Ver
 - macOS with the Codex desktop app
 - Node.js 20 or newer
 - The macOS Swift toolchain
-- Accessibility permission only for Typing Combo and cursor-local effects
+- One-click macOS Accessibility onboarding only for Typing Combo and cursor-local effects; permission activates without a HUD restart
 
-### Private preview
+### Install from GitHub
 
-The current owner build is installed from a configured personal marketplace:
+Add this repository as a Codex plugin marketplace, then install Power Mode:
 
 ```bash
-codex plugin add codex-power-mode@personal
+codex plugin marketplace add zytsyj/codex-power-mode
+codex plugin add codex-power-mode@codex-power-mode
 ```
 
 Open a new Codex task, review and trust the lifecycle hooks, then verify the installation:
@@ -181,7 +183,7 @@ The current implementation is guarded by:
 - **Native compositor budgets** capped at 96 live layers and 88 animations under a synthetic peak scenario.
 - Reproducible compatibility, stability, performance, security, archive, and interaction checks.
 
-Synthetic checks are not presented as proof of real Hook or hands-on behavior. Remaining publication gates are tracked in the [release checklist](docs/RELEASE_CHECKLIST.md).
+Synthetic checks are not presented as proof of real Hook or hands-on behavior. Public-beta follow-up validation is tracked in the [release checklist](docs/RELEASE_CHECKLIST.md).
 
 ## Controls
 
@@ -198,13 +200,13 @@ All everyday settings live under the macOS menu-bar bolt.
 | Inactive Codex | Hide · Stay over Codex · Follow foreground app |
 | Accessibility | Reduce Motion |
 | Language | Automatic · English · 中文 |
-| Position | Direct drag · guided positioning · reset |
+| Position | Direct drag with edge snapping |
 
 ## Platform and project status
 
 Power Mode currently supports the Codex desktop app on macOS only. Codex CLI, VS Code, subagents, Windows, and Linux are outside the current product boundary.
 
-The native binary is compiled locally and is not yet distributed as a signed or notarized application. A public installation channel and open-source license have not been approved.
+The native HUD is packaged locally as a stable **Codex Power Mode.app** identity. The public beta compiles it locally and uses ad-hoc signing by default; a Developer ID-signed and notarized binary is not distributed yet. macOS 13 or newer is the current build target, while the final tested support matrix remains intentionally conservative.
 
 ## Documentation
 
@@ -217,7 +219,7 @@ The native binary is compiled locally and is not yet distributed as a signed or 
 
 ## Contributing
 
-External contributions are not accepted during private incubation. The contribution guide documents the engineering and privacy standards that will apply if the repository is opened later.
+Issues and pull requests are welcome. Keep examples synthetic or redacted, and report vulnerabilities through GitHub private vulnerability reporting rather than public issues.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and the [FAQ](docs/FAQ.md).
 

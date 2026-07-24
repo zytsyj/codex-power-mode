@@ -13,7 +13,7 @@ const passingReports = {
   compatibility: { environment: { pluginVersion: version }, automated: { passed: true } }
 };
 
-test("RC readiness separates current automation from human and owner gates", () => {
+test("RC readiness separates current automation from remaining hands-on gates", () => {
   const report = buildRcReadiness({
     currentVersion: version,
     reports: passingReports,
@@ -25,7 +25,7 @@ test("RC readiness separates current automation from human and owner gates", () 
   assert.equal(report.interaction.status, "passed");
   assert.equal(report.instruments.status, "available-not-reviewed");
   assert.equal(report.status, "not-ready");
-  assert.ok(report.blockers.includes("owner:license"));
+  assert.deepEqual(report.ownerDecisions, []);
   assert.ok(report.blockers.includes("instruments:available-not-reviewed"));
 });
 

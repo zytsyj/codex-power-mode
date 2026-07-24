@@ -1,6 +1,6 @@
 # Installation and maintenance
 
-Codex Power Mode is still a private incubation build. The commands below describe the owner's current personal-marketplace installation. A public installation channel will be documented only after the repository and first release are explicitly approved.
+Codex Power Mode `0.9.0` is an open-source public beta for the Codex desktop app on macOS.
 
 ## Requirements
 
@@ -9,12 +9,13 @@ Codex Power Mode is still a private incubation build. The commands below describ
 - The system Swift toolchain for compiling the native HUD locally.
 - macOS Accessibility permission only when the optional Typing Combo or cursor effects are enabled.
 
-## Private installation
+## Install from GitHub
 
-Install the current private build from the configured personal marketplace:
+Add the repository as a marketplace and install the plugin:
 
 ```bash
-codex plugin add codex-power-mode@personal
+codex plugin marketplace add zytsyj/codex-power-mode
+codex plugin add codex-power-mode@codex-power-mode
 ```
 
 Start a new Codex task after installation so Codex can load the plugin hooks and skill. Review and trust the hooks when Codex asks. The first trusted desktop task starts the authenticated local service and native HUD automatically.
@@ -39,7 +40,14 @@ The current release only reports a candidate policy: keep the newest eight runti
 
 ## Upgrade
 
-Private development upgrades use the plugin cachebuster helper and reinstall from the same personal marketplace. Do not edit marketplace configuration by hand. After reinstalling:
+Refresh the Git-backed marketplace and reinstall the plugin:
+
+```bash
+codex plugin marketplace upgrade codex-power-mode
+codex plugin add codex-power-mode@codex-power-mode
+```
+
+After reinstalling:
 
 1. Start a new Codex task so the updated hook and skill are loaded.
 2. Run `npm run doctor` from the matching source checkout or the installed control script.
@@ -50,7 +58,7 @@ If the running version is stale, stop Power Mode with the old installed control 
 
 ## Accessibility permission
 
-Typing Combo is opt-in. Enable it from the menu-bar bolt, then allow the installed `codex-power-mode-overlay` under **System Settings → Privacy & Security → Accessibility**. Restart Power Mode after changing permission.
+Typing Combo is opt-in. Enable it from the menu-bar bolt. Power Mode asks macOS for permission and opens **System Settings → Privacy & Security → Accessibility**; turn on **Codex Power Mode** once. If the system prompt was dismissed, choose **Grant cursor access…** from the bolt menu. Power Mode watches the permission state and starts input rhythm and cursor-local effects as soon as access is granted—there is no app dragging and no HUD restart.
 
 If `doctor` reports that permission is granted but the cursor is unavailable, bring Codex to the foreground and click its message input. Diagnostics report only capability state; they do not print the text or cursor coordinates. Disable Typing Combo to run without Accessibility permission.
 
@@ -59,15 +67,15 @@ If `doctor` reports that permission is granted but the cursor is unavailable, br
 - `npm run stop` stops the HUD and local service without deleting data.
 - `npm run reset:settings -- --yes` restores display defaults while preserving history and personal best.
 - `npm run purge:data -- --yes` stops Power Mode and deletes only a recognized Power Mode data directory. It removes settings, history, and the local token.
-- `codex plugin remove codex-power-mode@personal` removes the private plugin package.
+- `codex plugin remove codex-power-mode@codex-power-mode` removes the plugin package.
 
-For a complete removal, purge data first and then remove the plugin. Revoke Accessibility permission in System Settings if it is no longer needed. The purge command refuses filesystem roots and unrelated directory names.
+For a complete removal, purge data first, remove the plugin, and optionally remove the marketplace with `codex plugin marketplace remove codex-power-mode`. Revoke Accessibility permission in System Settings if it is no longer needed. The purge command refuses filesystem roots and unrelated directory names.
 
-## Known private-build limitations
+## Public-beta limitations
 
-- macOS and Codex compatibility ranges have not completed Release Candidate validation.
-- The native executable is compiled locally and is not yet signed or notarized as a distributed application.
-- A public installation source, public security-reporting channel, open-source license, and stable release version have not been chosen.
+- macOS 13 or newer is the build target, but the full macOS/Codex compatibility range has not completed broad public validation.
+- The native HUD is installed as a stable local **Codex Power Mode.app** bundle. Source builds use ad-hoc signing unless `CODEX_POWER_MODE_CODESIGN_IDENTITY` names an available signing identity. A Developer ID-signed and notarized binary is still required before claiming seamless permission continuity across every binary-changing upgrade.
+- Four optional legacy meme sticker sets are excluded from MIT; see `THIRD_PARTY_NOTICES.md`. Removing them leaves all semantic HUD behavior and the remaining cursor effects intact.
 - Existing tasks may retain the prior plugin skill until a new task is opened after an upgrade.
 
 ## Installation acceptance

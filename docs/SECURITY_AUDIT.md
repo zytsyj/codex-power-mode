@@ -22,4 +22,4 @@ The gate verifies:
 
 The ignored report is written to `.power-mode/security-rc.json` with mode `0600`. It contains only pass/fail evidence, platform/runtime versions, and the plugin version—never ports, process IDs, tokens, paths, task IDs, prompts, code, commands, key values, or cursor coordinates.
 
-This automated gate covers the local runtime boundary. Before a public release, the repository owner must still approve a private vulnerability-reporting channel, the license, the supported macOS/Codex range, and repository publication.
+This automated gate covers the local runtime boundary. It does not replace private vulnerability triage, hands-on permission testing, or compatibility testing across additional macOS and Codex versions.

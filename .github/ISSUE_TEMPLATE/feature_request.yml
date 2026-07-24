@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a focused product or visual improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is difficult or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Semantic HUD
+        - Energy or Combo
+        - Cursor effects
+        - Installation and permissions
+        - Privacy or security
+        - Documentation
+        - Other
+    validations:
+      required: true

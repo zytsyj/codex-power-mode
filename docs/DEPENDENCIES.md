@@ -1,6 +1,6 @@
 # Dependencies and licensing
 
-Codex Power Mode currently has no third-party runtime or development packages. This inventory is intentionally explicit so a future dependency cannot be added silently before a public release.
+Codex Power Mode currently has no third-party runtime or development packages. This inventory is intentionally explicit so a future dependency cannot be added silently.
 
 ## Runtime requirements
 
@@ -17,7 +17,7 @@ The optional first-party media build additionally uses the macOS ImageIO and Uni
 
 The lockfile contains only the root package. The repository does not bundle third-party JavaScript packages, copied source code, fonts, videos, native libraries, or precompiled executables. The small preview PNGs under `docs/media/` are first-party output generated from the project's native renderer; their provenance is recorded in `docs/MEDIA.md`.
 
-Four user-supplied meme images and their derived transparent cutouts are bundled under `assets/meme-stickers/` for cursor effects. Their origin and transformations are recorded at file level, and their unresolved redistribution status is called out in `THIRD_PARTY_NOTICES.md`. They must be reviewed or replaced before a public release.
+Four user-supplied meme images and their derived transparent cutouts are bundled under `assets/meme-stickers/` for cursor effects. They are explicitly excluded from the MIT license and documented in `THIRD_PARTY_NOTICES.md`. A redistributor can omit these optional PNG files to produce a code-only MIT package.
 
 The browser preview's CSS names `Inter` as an optional preferred local font, followed by operating-system fonts. No Inter font file is downloaded or distributed.
 
@@ -25,20 +25,15 @@ The browser preview's CSS names `Inter` as an optional preferred local font, fol
 
 GitHub Actions currently uses the following GitHub-maintained actions. They run in GitHub's CI environment and are not included in the plugin package:
 
-- `actions/checkout@v5` — MIT; source and license are maintained in the `actions/checkout` repository.
-- `actions/setup-node@v5` — MIT; source and license are maintained in the `actions/setup-node` repository.
+- `actions/checkout` commit `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` (`v5`) — MIT.
+- `actions/setup-node` commit `a0853c24544627f65ddf259abe73b1d18a591444` (`v5`) — MIT.
 
-Reconfirm the action versions and their upstream license files when preparing a release tag. Pin actions to immutable commit SHAs before the first public release if the chosen supply-chain policy requires it.
+Both actions are pinned to immutable commits. Reconfirm their upstream license and desired major version when updating either pin.
 
-## Project license decision
+## Project license
 
-The project remains `UNLICENSED`, private, and all rights reserved. The owner must explicitly choose the public license. Common candidates to evaluate include:
-
-- MIT for a short permissive grant.
-- Apache-2.0 for a permissive grant with an explicit patent license and notice obligations.
-
-This list is not a license selection. Do not replace `LICENSE`, change the manifest license, publish the repository, or create a public release without the owner's explicit approval.
+The source code, documentation, and project-authored media are available under the MIT license. The legacy meme PNG files are separately excluded as described above; no license grant is made for them.
 
 ## Updating this inventory
 
-Any change that introduces a package, copied snippet, font, image, animation asset, native library, generated bundle, or new CI action must update this document and any required notice file in the same change. Run `npm run check`; the dependency inventory test guards the current zero-package baseline, bundled-media disclosure, and private-license boundary.
+Any change that introduces a package, copied snippet, font, image, animation asset, native library, generated bundle, or new CI action must update this document and any required notice file in the same change. Run `npm run check`; the dependency inventory test guards the zero-package baseline, bundled-media disclosure, and license boundary.

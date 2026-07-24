@@ -5,7 +5,7 @@ import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
 
-test("public-release documentation exists while publication remains explicitly blocked", async () => {
+test("public-release documentation and marketplace metadata are complete", async () => {
   const required = [
     "README.md",
     "README.zh-CN.md",
@@ -28,33 +28,37 @@ test("public-release documentation exists while publication remains explicitly b
 
   const manifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+  const marketplace = JSON.parse(await readFile(path.join(root, ".agents/plugins/marketplace.json"), "utf8"));
   const readme = await readFile(path.join(root, "README.md"), "utf8");
   const chineseReadme = await readFile(path.join(root, "README.zh-CN.md"), "utf8");
   const checklist = await readFile(path.join(root, "docs/RELEASE_CHECKLIST.md"), "utf8");
-  assert.equal(manifest.license, "UNLICENSED");
+  assert.equal(manifest.license, "MIT");
   assert.equal(packageManifest.private, true);
-  assert.match(readme, /not open source yet/);
+  assert.equal(manifest.repository, "https://github.com/zytsyj/codex-power-mode");
+  assert.equal(marketplace.plugins[0].source.source, "url");
+  assert.equal(marketplace.plugins[0].source.url, "https://github.com/zytsyj/codex-power-mode.git");
+  assert.match(readme, /open-source public beta/);
   assert.match(readme, /\[简体中文\]\(README\.zh-CN\.md\)/);
   assert.match(chineseReadme, /\[English\]\(README\.md\)/);
-  assert.match(checklist, /Choose and approve an open-source license/);
-  assert.match(checklist, /owner explicitly authorizes publication/);
+  assert.match(checklist, /License source code, documentation, and project-authored media under MIT/);
+  assert.match(checklist, /GitHub private vulnerability reporting/);
 });
 
-test("README and FAQ describe the private RC without unsupported platform promises", async () => {
+test("README and FAQ describe the public beta without unsupported platform promises", async () => {
   const readme = await readFile(path.join(root, "README.md"), "utf8");
   const chineseReadme = await readFile(path.join(root, "README.zh-CN.md"), "utf8");
   const faq = await readFile(path.join(root, "docs/FAQ.md"), "utf8");
 
-  assert.match(readme, /private Release Candidate/);
+  assert.match(readme, /open-source public beta/);
   assert.match(readme, /Codex desktop app on macOS only/);
-  assert.match(readme, /project remains private and `UNLICENSED`/);
+  assert.match(readme, /legacy meme image sets are distributed separately and are not covered by MIT/);
   assert.match(readme, /\[FAQ\]\(docs\/FAQ\.md\)/);
   assert.match(readme, /Classic Power Mode/);
   assert.match(chineseReadme, /经典 Power Mode/);
   assert.doesNotMatch(readme, /Native overlays for Windows and Linux/);
   assert.match(faq, /does not persist prompts, code, key values, command text, authentication data, or cursor coordinates/i);
   assert.match(faq, /Demo, showcase, replay, direct HTTP requests, and synthetic tests intentionally do not satisfy this gate/);
-  assert.match(faq, /repository remains private and `UNLICENSED`/);
+  assert.match(faq, /MIT-licensed starting with `0\.9\.0`/);
 });
 
 test("security RC gate is isolated, privacy-safe, and documented", async () => {
@@ -69,18 +73,18 @@ test("security RC gate is isolated, privacy-safe, and documented", async () => {
   assert.match(runner, /The report contains no prompts, code, commands, key values, cursor coordinates, tokens, task identifiers, local paths, ports, or process identifiers/);
 });
 
-test("release archive drill is ephemeral, tracked-only, and blocks private metadata", async () => {
+test("release archive drill is ephemeral, tracked-only, and requires public metadata", async () => {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const pluginManifest = JSON.parse(await readFile(path.join(root, ".codex-plugin/plugin.json"), "utf8"));
   const archive = await readFile(path.join(root, "docs/RELEASE_ARCHIVE.md"), "utf8");
   const runner = await readFile(path.join(root, "scripts/archive-rc.mjs"), "utf8");
 
   assert.equal(packageManifest.scripts["archive:rc"], "node scripts/archive-rc.mjs --output .power-mode/archive-rc.json");
-  assert.equal(Object.hasOwn(pluginManifest, "repository"), false);
-  assert.equal(Object.hasOwn(pluginManifest, "homepage"), false);
+  assert.equal(pluginManifest.repository, "https://github.com/zytsyj/codex-power-mode");
+  assert.equal(pluginManifest.homepage, "https://github.com/zytsyj/codex-power-mode");
   assert.match(archive, /does not publish to npm, GitHub, a Codex marketplace, or any other destination/);
   assert.match(runner, /trackedFilesOnly: true/);
-  assert.match(runner, /privateRepositoryMetadataAbsent: true/);
+  assert.match(runner, /publicRepositoryMetadataPresent: true/);
   assert.match(runner, /retained: false/);
   assert.match(runner, /published: false/);
 });
@@ -169,23 +173,24 @@ test("checked-in media is generated, privacy-safe, and documented", async () => 
   );
 });
 
-test("installation guide preserves the private release and safe maintenance boundaries", async () => {
+test("installation guide documents the public GitHub marketplace and safe maintenance boundaries", async () => {
   const installation = await readFile(path.join(root, "docs/INSTALLATION.md"), "utf8");
   const troubleshooting = await readFile(path.join(root, "docs/TROUBLESHOOTING.md"), "utf8");
 
-  assert.match(installation, /codex plugin add codex-power-mode@personal/);
+  assert.match(installation, /codex plugin marketplace add zytsyj\/codex-power-mode/);
+  assert.match(installation, /codex plugin add codex-power-mode@codex-power-mode/);
   assert.match(installation, /Start a new Codex task after installation/);
   assert.match(installation, /reset:settings -- --yes/);
   assert.match(installation, /purge:data -- --yes/);
   assert.match(installation, /npm run audit:hook-runtimes/);
   assert.match(installation, /Automatic cleanup remains disabled/);
-  assert.match(installation, /codex plugin remove codex-power-mode@personal/);
-  assert.match(installation, /public installation channel.*explicitly approved/i);
+  assert.match(installation, /codex plugin remove codex-power-mode@codex-power-mode/);
+  assert.match(installation, /codex plugin marketplace remove codex-power-mode/);
   assert.match(troubleshooting, /Version mismatch or duplicate HUD/);
   assert.match(troubleshooting, /Neither command publishes, updates, or changes repository visibility/);
 });
 
-test("dependency inventory matches the zero-package private baseline", async () => {
+test("dependency inventory matches the zero-package public baseline", async () => {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const lockfile = JSON.parse(await readFile(path.join(root, "package-lock.json"), "utf8"));
   const inventory = await readFile(path.join(root, "docs/DEPENDENCIES.md"), "utf8");
@@ -203,10 +208,10 @@ test("dependency inventory matches the zero-package private baseline", async () 
   );
   assert.doesNotMatch(browserHtml, /(?:src|href)=["']https?:\/\//i);
   assert.match(inventory, /no third-party runtime or development packages/i);
-  assert.match(inventory, /actions\/checkout@v5/);
-  assert.match(inventory, /actions\/setup-node@v5/);
-  assert.match(inventory, /project remains `UNLICENSED`/);
+  assert.match(inventory, /actions\/checkout.*fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09/);
+  assert.match(inventory, /actions\/setup-node.*a0853c24544627f65ddf259abe73b1d18a591444/);
+  assert.match(inventory, /source code, documentation, and project-authored media are available under the MIT license/i);
   assert.match(inventory, /Four user-supplied meme images/i);
-  assert.match(notices, /User-supplied meme images/i);
-  assert.match(notices, /must be reviewed or replaced before any public release/i);
+  assert.match(notices, /Legacy meme image assets/i);
+  assert.match(notices, /excluded from the project's MIT license/i);
 });

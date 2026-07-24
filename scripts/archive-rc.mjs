@@ -39,10 +39,10 @@ const allowedBinary = /^(?:docs\/media\/[^/]+\.(?:png|gif)|assets\/meme-stickers
 try {
   const packageManifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const pluginManifest = JSON.parse(await readFile(path.join(root, ".codex-plugin", "plugin.json"), "utf8"));
-  assert.equal(packageManifest.private, true, "RC archive must remain private");
-  assert.equal(pluginManifest.license, "UNLICENSED", "RC archive must remain UNLICENSED");
-  assert.equal(Object.hasOwn(pluginManifest, "repository"), false, "Private repository metadata must not be packaged");
-  assert.equal(Object.hasOwn(pluginManifest, "homepage"), false, "Private homepage metadata must not be packaged");
+  assert.equal(packageManifest.private, true, "Source package must remain protected from accidental npm publication");
+  assert.equal(pluginManifest.license, "MIT", "Public source archive must declare MIT");
+  assert.equal(pluginManifest.repository, "https://github.com/zytsyj/codex-power-mode", "Public repository metadata is missing");
+  assert.equal(pluginManifest.homepage, "https://github.com/zytsyj/codex-power-mode", "Public homepage metadata is missing");
 
   const packed = spawnSync("npm", ["pack", "--json", "--pack-destination", temporaryRoot], {
     cwd: root,
@@ -60,10 +60,6 @@ try {
 
   const tracked = new Set(execFileSync("git", ["ls-files", "-z"], { cwd: root })
     .toString("utf8").split("\0").filter(Boolean));
-  const remote = spawnSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8" });
-  const privateRemoteMarkers = remote.status === 0
-    ? [remote.stdout.trim(), remote.stdout.trim().replace(/\.git$/, "")].filter(Boolean)
-    : [];
   const files = packResult.files.map((entry) => entry.path);
   for (const required of [
     ".codex-plugin/plugin.json", "hooks/hooks.json", "hooks/session-start.mjs",
@@ -82,7 +78,6 @@ try {
     const text = bytes.toString("utf8");
     assert.equal(personalPathPatterns.some((pattern) => pattern.test(text)), false, `Personal absolute path found in ${filename}`);
     assert.equal(privateKeyPattern.test(text), false, `Private key material found in ${filename}`);
-    assert.equal(privateRemoteMarkers.some((marker) => marker && text.includes(marker)), false, `Private repository URL found in ${filename}`);
   }
 
   const media = files.filter((filename) => /\.(?:png|gif)$/i.test(filename));
@@ -110,13 +105,13 @@ try {
       retained: false
     },
     checks: {
-      privatePackage: true,
-      unlicensed: true,
+      npmPublicationProtected: true,
+      mitLicensed: true,
       requiredPluginFiles: true,
       trackedFilesOnly: true,
       forbiddenArtifactsAbsent: true,
       personalPathsAbsent: true,
-      privateRepositoryMetadataAbsent: true,
+      publicRepositoryMetadataPresent: true,
       privateKeyMaterialAbsent: true,
       binariesLimitedToDeclaredMedia: true,
       mediaProvenanceComplete: true

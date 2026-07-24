@@ -4,6 +4,7 @@ import test from "node:test";
 
 const overlaySource = new URL("../native/macos/PowerModeOverlay.swift", import.meta.url);
 const controllerSource = new URL("../scripts/power-mode.mjs", import.meta.url);
+const nativeInfoSource = new URL("../native/macos/Info.plist", import.meta.url);
 
 test("native HUD uses compositor-driven orb layers instead of frame-by-frame drawing", async () => {
   const source = await readFile(overlaySource, "utf8");
@@ -79,6 +80,40 @@ test("native HUD is directly draggable while empty overlay space stays click-thr
   assert.match(source, /installStatusItem\(\)[\s\S]*installMouseMonitors\(\)[\s\S]*updateMouseCapture\(\)/);
   assert.match(source, /panel\.ignoresMouseEvents = !view\.hudContains\(windowPoint: windowPoint\)/);
   assert.doesNotMatch(source, /guard positioning, let panel = window, let view = panel\.contentView as\? PowerModeView else \{ return \}/);
+});
+
+test("native settings menu avoids synchronous rebuilds and no longer exposes position controls", async () => {
+  const source = await readFile(overlaySource, "utf8");
+
+  assert.match(source, /func menuWillOpen\(_ menu: NSMenu\) \{\s+statusMenuIsOpen = true\s+removeMouseMonitors\(\)\s+refreshStatusMenu\(\)/);
+  assert.match(source, /func menuDidClose\(_ menu: NSMenu\)[\s\S]*installMouseMonitors\(\)[\s\S]*if menuNeedsRebuild/);
+  assert.match(source, /private func requestMenuRebuild\(\)/);
+  assert.match(source, /DispatchQueue\.main\.async/);
+  assert.doesNotMatch(source, /func menuWillOpen\(_ menu: NSMenu\) \{ rebuildMenu\(\) \}/);
+  assert.doesNotMatch(source, /preferences\.text\("Position preset", "位置预设"\)/);
+  assert.doesNotMatch(source, /preferences\.text\("Adjust position…", "调整位置…"\)/);
+  assert.doesNotMatch(source, /preferences\.text\("Reset position", "重置位置"\)/);
+});
+
+test("Accessibility onboarding uses a stable app identity and activates without restarting", async () => {
+  const [overlay, controller, info] = await Promise.all([
+    readFile(overlaySource, "utf8"),
+    readFile(controllerSource, "utf8"),
+    readFile(nativeInfoSource, "utf8")
+  ]);
+
+  assert.match(info, /<string>Codex Power Mode<\/string>/);
+  assert.match(info, /<string>com\.codexpowermode\.overlay<\/string>/);
+  assert.match(info, /<key>LSUIElement<\/key>\s*<true\/>/);
+  assert.match(controller, /Codex Power Mode\.app/);
+  assert.match(controller, /CODEX_POWER_MODE_CODESIGN_IDENTITY/);
+  assert.match(controller, /legacyNativeBinary/);
+  assert.match(controller, /acceptedNativeBinaries/);
+  assert.match(overlay, /kAXTrustedCheckOptionPrompt/);
+  assert.match(overlay, /Privacy_Accessibility/);
+  assert.match(overlay, /startPermissionPolling/);
+  assert.match(overlay, /self\.startEventMonitoring\(\)/);
+  assert.match(overlay, /preferences\.text\("Grant cursor access…", "授权光标效果…"\)/);
 });
 
 test("classic Power Mode hides the orb and centers cursor-driven Typing Combo", async () => {

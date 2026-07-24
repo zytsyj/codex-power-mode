@@ -1,9 +1,17 @@
-# Security
+# Security policy
 
-Codex Power Mode is currently in private incubation. Do not open a public issue containing a vulnerability, token, local path, prompt, source code, or diagnostic archive. Report security issues privately to the repository owner. A public private-reporting channel must be approved before release.
+## Supported versions
 
-Include the affected version, macOS version, impact, reproduction steps, and whether Typing Combo was enabled. Remove prompt text, source content, command bodies, tokens, usernames, and absolute paths from reports.
+Security fixes are provided for the latest `0.x` release on the `main` branch. Older development snapshots and locally modified builds are not supported.
 
-The project has no telemetry. Runtime HTTP traffic is limited to the loopback interface and authenticated with a per-installation token. See [Privacy](docs/PRIVACY.md) and [Architecture](docs/ARCHITECTURE.md) for the data and trust boundaries.
+## Report a vulnerability
 
-Security fixes are supported for the current private stable line only. Public support and disclosure timelines will be defined before the first open-source release.
+Use [GitHub private vulnerability reporting](https://github.com/zytsyj/codex-power-mode/security/advisories/new). Do not open a public issue for a suspected vulnerability.
+
+Include the affected version, macOS version, impact, minimal reproduction steps, and whether Typing Combo was enabled. Remove prompts, source content, command bodies, tokens, usernames, absolute paths, and screenshots containing private Codex content.
+
+You should receive an acknowledgement within seven days. Fix timing depends on severity and reproducibility; no public disclosure timeline is promised before triage is complete.
+
+## Security boundary
+
+Power Mode has no telemetry. Runtime HTTP traffic is loopback-only and authenticated with a per-installation token. Accessibility access is optional and used only for input-rhythm counting and insertion-point placement while Codex is foreground. See [Privacy](docs/PRIVACY.md), [Architecture](docs/ARCHITECTURE.md), and the reproducible [security audit](docs/SECURITY_AUDIT.md).

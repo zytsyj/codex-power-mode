@@ -13,7 +13,7 @@ The sampler does not read or retain prompts, code, key values, commands, cursor 
 The native HUD also has a deterministic compositor budget self-test:
 
 ```sh
-CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST=1 /path/to/codex-power-mode-overlay
+CODEX_POWER_MODE_LAYER_BUDGET_SELF_TEST=1 "/path/to/Codex Power Mode.app/Contents/MacOS/codex-power-mode-overlay"
 ```
 
 It overlaps a high-tier Energy breakthrough, semantic transition, Typing Combo, cursor milestone, and prompt injection, then recursively counts live Core Animation layers and animations for Focus, Arcade, and Reduce Motion. macOS CI enforces ceilings of 96 layers and 88 animations. This is a regression guard for accidental layer growth, not a GPU benchmark.

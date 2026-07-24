@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, open, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, open, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,15 @@ const dataDir = powerModeDataDir();
 const command = process.argv[2] || "start";
 const endpoint = serviceEndpointFromEnvironment(process.env);
 const nativeDir = path.join(dataDir, "native");
-const nativeBinary = path.join(nativeDir, "codex-power-mode-overlay");
+const nativeApp = path.join(nativeDir, "Codex Power Mode.app");
+const nativeContentsDir = path.join(nativeApp, "Contents");
+const nativeExecutableDir = path.join(nativeContentsDir, "MacOS");
+const nativeBinary = path.join(nativeExecutableDir, "codex-power-mode-overlay");
+const legacyNativeBinary = path.join(nativeDir, "codex-power-mode-overlay");
+const nativeInfoSource = path.join(root, "native/macos/Info.plist");
+const nativeInfoPlist = path.join(nativeContentsDir, "Info.plist");
+const nativeBundleIdentifier = "com.codexpowermode.overlay";
+const acceptedNativeBinaries = [nativeBinary, legacyNativeBinary];
 const nativePidFile = path.join(nativeDir, "overlay.pid");
 const nativeConfigFile = path.join(nativeDir, "overlay-config.json");
 const nativeStartLockFile = path.join(nativeDir, "overlay-start.lock");
@@ -268,7 +276,8 @@ async function currentNativePid() {
 async function nativeProcessMatches(pid) {
   if (!(await processIsAlive(pid))) return false;
   const processInfo = spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" });
-  return processInfo.status === 0 && isNativeOverlayCommand(processInfo.stdout, nativeBinary);
+  return processInfo.status === 0 &&
+    acceptedNativeBinaries.some((binary) => isNativeOverlayCommand(processInfo.stdout, binary));
 }
 
 async function withNativeStartLock(operation) {
@@ -311,67 +320,81 @@ async function withNativeStartLock(operation) {
 
 async function buildNativeOverlay() {
   if (process.platform !== "darwin") throw new Error("The native overlay currently supports macOS only. Use `npm start` for the browser HUD.");
-  await mkdir(nativeDir, { recursive: true });
+  await mkdir(nativeExecutableDir, { recursive: true });
   const source = path.join(root, "native/macos/PowerModeOverlay.swift");
-  const sourceTime = (await stat(source)).mtimeMs;
+  const sourceTime = Math.max((await stat(source)).mtimeMs, (await stat(nativeInfoSource)).mtimeMs);
   const binaryTime = await stat(nativeBinary).then((info) => info.mtimeMs).catch(() => 0);
-  if (binaryTime >= sourceTime) return;
+  const plistTime = await stat(nativeInfoPlist).then((info) => info.mtimeMs).catch(() => 0);
+  if (binaryTime >= sourceTime && plistTime >= sourceTime) return;
   const result = spawnSync("xcrun", [
     "swiftc", "-swift-version", "5", "-parse-as-library", "-O", source,
     "-framework", "AppKit", "-framework", "Foundation", "-framework", "ApplicationServices",
     "-o", nativeBinary
   ], { cwd: root, encoding: "utf8" });
-  if (result.status === 0) return;
+  if (result.status !== 0) {
+    const firstError = result.stderr || result.stdout || "Unknown Swift compiler failure";
+    if (!/llbuild|code object is not signed|mapped file has no Team ID/i.test(firstError)) {
+      throw new Error(`Native overlay build failed:\n${firstError}`);
+    }
 
-  const firstError = result.stderr || result.stdout || "Unknown Swift compiler failure";
-  if (!/llbuild|code object is not signed|mapped file has no Team ID/i.test(firstError)) {
-    throw new Error(`Native overlay build failed:\n${firstError}`);
+    const compilerResult = spawnSync("xcrun", ["--find", "swiftc"], { encoding: "utf8" });
+    const sdkResult = spawnSync("xcrun", ["--show-sdk-path"], { encoding: "utf8" });
+    const compiler = compilerResult.stdout?.trim();
+    const sdk = sdkResult.stdout?.trim();
+    if (compilerResult.status !== 0 || sdkResult.status !== 0 || !compiler || !sdk) {
+      throw new Error(`Native overlay build failed:\n${firstError}`);
+    }
+
+    const swiftRoot = path.resolve(path.dirname(compiler), "..");
+    const llbuildSource = path.join(swiftRoot, "lib/swift/pm/llbuild/llbuild.framework");
+    const repairDir = await mkdtemp(path.join(tmpdir(), "codex-power-mode-swift-"));
+    const llbuildRepair = path.join(repairDir, "llbuild.framework");
+    try {
+      const copyResult = spawnSync("cp", ["-R", llbuildSource, llbuildRepair], { encoding: "utf8" });
+      if (copyResult.status !== 0) throw new Error(copyResult.stderr || copyResult.stdout);
+      const signResult = spawnSync("codesign", ["--force", "--deep", "--sign", "-", llbuildRepair], { encoding: "utf8" });
+      if (signResult.status !== 0) throw new Error(signResult.stderr || signResult.stdout);
+      const architecture = process.arch === "x64" ? "x86_64" : process.arch;
+      const repairedResult = spawnSync(compiler, [
+        "-sdk", sdk,
+        "-target", `${architecture}-apple-macosx13.0`,
+        "-swift-version", "5", "-parse-as-library", "-O", source,
+        "-framework", "AppKit", "-framework", "Foundation", "-framework", "ApplicationServices",
+        "-o", nativeBinary
+      ], {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, DYLD_FRAMEWORK_PATH: repairDir, DYLD_FALLBACK_FRAMEWORK_PATH: repairDir }
+      });
+      if (repairedResult.status !== 0) throw new Error(repairedResult.stderr || repairedResult.stdout);
+    } catch (error) {
+      throw new Error(`Native overlay build failed:\n${firstError}\nAutomatic llbuild repair also failed:\n${error.message}`);
+    } finally {
+      await rm(repairDir, { recursive: true, force: true });
+    }
   }
 
-  const compilerResult = spawnSync("xcrun", ["--find", "swiftc"], { encoding: "utf8" });
-  const sdkResult = spawnSync("xcrun", ["--show-sdk-path"], { encoding: "utf8" });
-  const compiler = compilerResult.stdout?.trim();
-  const sdk = sdkResult.stdout?.trim();
-  if (compilerResult.status !== 0 || sdkResult.status !== 0 || !compiler || !sdk) {
-    throw new Error(`Native overlay build failed:\n${firstError}`);
-  }
-
-  const swiftRoot = path.resolve(path.dirname(compiler), "..");
-  const llbuildSource = path.join(swiftRoot, "lib/swift/pm/llbuild/llbuild.framework");
-  const repairDir = await mkdtemp(path.join(tmpdir(), "codex-power-mode-swift-"));
-  const llbuildRepair = path.join(repairDir, "llbuild.framework");
-  try {
-    const copyResult = spawnSync("cp", ["-R", llbuildSource, llbuildRepair], { encoding: "utf8" });
-    if (copyResult.status !== 0) throw new Error(copyResult.stderr || copyResult.stdout);
-    const signResult = spawnSync("codesign", ["--force", "--deep", "--sign", "-", llbuildRepair], { encoding: "utf8" });
-    if (signResult.status !== 0) throw new Error(signResult.stderr || signResult.stdout);
-    const architecture = process.arch === "x64" ? "x86_64" : process.arch;
-    const repairedResult = spawnSync(compiler, [
-      "-sdk", sdk,
-      "-target", `${architecture}-apple-macosx13.0`,
-      "-swift-version", "5", "-parse-as-library", "-O", source,
-      "-framework", "AppKit", "-framework", "Foundation", "-framework", "ApplicationServices",
-      "-o", nativeBinary
-    ], {
-      cwd: root,
-      encoding: "utf8",
-      env: { ...process.env, DYLD_FRAMEWORK_PATH: repairDir, DYLD_FALLBACK_FRAMEWORK_PATH: repairDir }
-    });
-    if (repairedResult.status !== 0) throw new Error(repairedResult.stderr || repairedResult.stdout);
-  } catch (error) {
-    throw new Error(`Native overlay build failed:\n${firstError}\nAutomatic llbuild repair also failed:\n${error.message}`);
-  } finally {
-    await rm(repairDir, { recursive: true, force: true });
+  await copyFile(nativeInfoSource, nativeInfoPlist);
+  const signingIdentity = process.env.CODEX_POWER_MODE_CODESIGN_IDENTITY?.trim() || "-";
+  const signArguments = ["--force", "--sign", signingIdentity, "--identifier", nativeBundleIdentifier];
+  if (signingIdentity !== "-") signArguments.push("--options", "runtime", "--timestamp");
+  signArguments.push(nativeApp);
+  const signResult = spawnSync("codesign", signArguments, { cwd: root, encoding: "utf8" });
+  if (signResult.status !== 0) {
+    throw new Error(`Native app signing failed:\n${signResult.stderr || signResult.stdout || "Unknown codesign failure"}`);
   }
 }
 
 async function nativeOverlayBuildIsCurrent() {
   const source = path.join(root, "native/macos/PowerModeOverlay.swift");
-  const [sourceTime, binaryTime] = await Promise.all([
+  const [sourceTime, infoTime, binaryTime, plistTime] = await Promise.all([
     stat(source).then((info) => info.mtimeMs),
-    stat(nativeBinary).then((info) => info.mtimeMs).catch(() => 0)
+    stat(nativeInfoSource).then((info) => info.mtimeMs),
+    stat(nativeBinary).then((info) => info.mtimeMs).catch(() => 0),
+    stat(nativeInfoPlist).then((info) => info.mtimeMs).catch(() => 0)
   ]);
-  return binaryTime >= sourceTime;
+  const newestSource = Math.max(sourceTime, infoTime);
+  return binaryTime >= newestSource && plistTime >= newestSource;
 }
 
 async function startNative() {
@@ -489,7 +512,9 @@ function processCounts() {
   const commands = listing.status === 0 ? listing.stdout.split(/\r?\n/).filter(Boolean) : [];
   return {
     serverProcessCount: commands.filter(isPowerModeServerCommand).length,
-    nativeProcessCount: commands.filter((value) => isNativeOverlayCommand(value, nativeBinary)).length
+    nativeProcessCount: commands.filter((value) =>
+      acceptedNativeBinaries.some((binary) => isNativeOverlayCommand(value, binary))
+    ).length
   };
 }
 

@@ -59,7 +59,7 @@ if (process.argv.includes("--json")) {
     `[${report.interaction.status.toUpperCase()}] hands-on interaction (${report.interaction.counts.passed} passed, ${report.interaction.counts.pending} pending)`,
     `[${report.instruments.status.toUpperCase()}] Instruments GPU/Energy Log`,
     `${report.ownerDecisions.length} owner decisions remain`,
-    `${report.blockers.length} total blockers; no publication action was taken`
+    `${report.blockers.length} engineering follow-ups remain`
   ];
   process.stdout.write(`${lines.join("\n")}\n`);
 }

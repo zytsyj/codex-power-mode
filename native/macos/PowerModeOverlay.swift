@@ -4290,32 +4290,6 @@ private final class PowerModeView: NSView {
         return "\(preferences.text("Activity source", "动态来源")): \(source)"
     }
 
-    func positionSummary() -> String {
-        guard let x = preferences.settings.positionX, let y = preferences.settings.positionY else {
-            let labels = [
-                "smart": preferences.text("smart · avoids side panels", "智能 · 避让侧栏"),
-                "top-right": preferences.text("top right", "右上"),
-                "top-left": preferences.text("top left", "左上"),
-                "bottom-right": preferences.text("bottom right", "右下"),
-                "bottom-left": preferences.text("bottom left", "左下"),
-                "center": preferences.text("center", "中央")
-            ]
-            return "\(preferences.text("Position", "位置")): \(labels[preferences.settings.edge] ?? labels["smart"]!)"
-        }
-        let horizontal = x < 0.34
-            ? preferences.text("left", "左")
-            : x > 0.66 ? preferences.text("right", "右") : preferences.text("center", "中")
-        let vertical = y < 0.34
-            ? preferences.text("bottom", "下")
-            : y > 0.66 ? preferences.text("top", "上") : preferences.text("middle", "中")
-        if x >= 0.34, x <= 0.66, y >= 0.34, y <= 0.66 {
-            return preferences.text("Position: center · saved", "位置：中央 · 已保存")
-        }
-        return preferences.isChinese
-            ? "位置：\(horizontal)\(vertical) · 已保存"
-            : "Position: \(vertical) \(horizontal) · saved"
-    }
-
     func sessionSummary() -> (title: String, fullId: String?) {
         if preferences.settings.activitySource == "mix" {
             let count = state.mixedConversationCount ?? 0
@@ -6182,12 +6156,15 @@ private final class TypingComboMonitor {
     private var fallbackMonitor: Any?
     private var eventTap: CFMachPort?
     private var eventTapSource: CFRunLoopSource?
+    private var permissionTimer: Timer?
+    private var permissionPollsRemaining = 0
     private var count = 0
     private var lastHit = Date.distantPast
     private var cachedCaretElement: AXUIElement?
     private var requestedManualAccessibility = false
     private let comboWindow: TimeInterval = 2.0
     private let codexBundleIdentifier = "com.openai.codex"
+    var onPermissionChange: (() -> Void)?
 
     init(view: PowerModeView?, preferences: PowerModePreferences, startMonitoring: Bool = true) {
         self.view = view
@@ -6202,14 +6179,60 @@ private final class TypingComboMonitor {
 
     var permissionGranted: Bool { AXIsProcessTrusted() }
 
-    func preferencesChanged(promptForPermission: Bool = true) {
+    func preferencesChanged(promptForPermission: Bool = false) {
         stop()
         guard preferences.settings.typingCombo == true else { return }
         if promptForPermission, !AXIsProcessTrusted() {
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
         }
-        guard AXIsProcessTrusted() else { return }
+        guard AXIsProcessTrusted() else {
+            startPermissionPolling()
+            return
+        }
+        startEventMonitoring()
+    }
+
+    func requestAccessibilityPermission(openSettings: Bool = true) {
+        guard preferences.settings.typingCombo == true else { return }
+        if !AXIsProcessTrusted() {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            startPermissionPolling()
+            if openSettings,
+               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        } else {
+            preferencesChanged()
+            onPermissionChange?()
+        }
+    }
+
+    private func startPermissionPolling() {
+        permissionTimer?.invalidate()
+        permissionPollsRemaining = 120
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            Task { @MainActor in
+                guard let self else { timer.invalidate(); return }
+                self.permissionPollsRemaining -= 1
+                guard AXIsProcessTrusted() else {
+                    if self.permissionPollsRemaining <= 0 {
+                        timer.invalidate()
+                        self.permissionTimer = nil
+                    }
+                    return
+                }
+                timer.invalidate()
+                self.permissionTimer = nil
+                self.startEventMonitoring()
+                self.onPermissionChange?()
+            }
+        }
+    }
+
+    private func startEventMonitoring() {
+        guard eventTap == nil, fallbackMonitor == nil else { return }
         let eventMask = CGEventMask(1) << CGEventType.keyDown.rawValue
         eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -6243,6 +6266,9 @@ private final class TypingComboMonitor {
     }
 
     func stop() {
+        permissionTimer?.invalidate()
+        permissionTimer = nil
+        permissionPollsRemaining = 0
         if let fallbackMonitor { NSEvent.removeMonitor(fallbackMonitor) }
         fallbackMonitor = nil
         if let eventTapSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapSource, .commonModes) }
@@ -6734,6 +6760,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     private var positioning = false
     private var globalMouseMonitor: Any?
     private var localMouseMonitor: Any?
+    private var statusMenuIsOpen = false
+    private var menuNeedsRebuild = false
+    private var menuRebuildScheduled = false
+    private var historyMenuItem: NSMenuItem?
+    private var diagnosticMenuItems: [NSMenuItem] = []
+    private var sessionMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -6774,7 +6806,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             powerView?.preferencesChanged()
             self?.tracker?.preferencesChanged()
             self?.typingMonitor?.preferencesChanged()
-            self?.rebuildMenu()
+            self?.requestMenuRebuild()
         }
         installStatusItem()
         // Keep only the visible HUD hit target interactive. The rest of the
@@ -6797,6 +6829,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             client?.postTypingCharge(inputCombo: count, sessionId: sessionId)
         }
         typingMonitor = TypingComboMonitor(view: powerView, preferences: preferences)
+        typingMonitor?.onPermissionChange = { [weak self] in self?.requestMenuRebuild() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -6822,11 +6855,65 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         rebuildMenu()
     }
 
-    func menuWillOpen(_ menu: NSMenu) { rebuildMenu() }
+    func menuWillOpen(_ menu: NSMenu) {
+        statusMenuIsOpen = true
+        removeMouseMonitors()
+        refreshStatusMenu()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        statusMenuIsOpen = false
+        installMouseMonitors()
+        updateMouseCapture()
+        if menuNeedsRebuild {
+            menuNeedsRebuild = false
+            rebuildMenu()
+        }
+    }
+
+    private func requestMenuRebuild() {
+        if statusMenuIsOpen {
+            menuNeedsRebuild = true
+            return
+        }
+        guard !menuRebuildScheduled else { return }
+        menuRebuildScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.menuRebuildScheduled = false
+            if self.statusMenuIsOpen {
+                self.menuNeedsRebuild = true
+            } else {
+                self.rebuildMenu()
+            }
+        }
+    }
+
+    private func refreshStatusMenu() {
+        guard let view = window?.contentView as? PowerModeView else { return }
+        historyMenuItem?.title = view.historySummary()
+        let diagnosticTitles = [
+            view.displaySummary(),
+            view.rawStateSummary(),
+            view.connectionSummary(),
+            view.lastEventSummary(),
+            view.activitySourceSummary(),
+            view.sessionSourceSummary()
+        ]
+        for (item, title) in zip(diagnosticMenuItems, diagnosticTitles) {
+            item.title = title
+        }
+        let summary = view.sessionSummary()
+        sessionMenuItem?.title = summary.title
+        sessionMenuItem?.toolTip = summary.fullId
+    }
 
     private func rebuildMenu() {
         guard let menu = statusItem?.menu, let preferences else { return }
         menu.removeAllItems()
+        historyMenuItem = nil
+        diagnosticMenuItems.removeAll(keepingCapacity: true)
+        sessionMenuItem = nil
         let title = NSMenuItem(title: "Codex Power Mode", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
@@ -6834,6 +6921,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             let history = NSMenuItem(title: view.historySummary(), action: nil, keyEquivalent: "")
             history.isEnabled = false
             menu.addItem(history)
+            historyMenuItem = history
             let diagnostics = NSMenuItem(title: preferences.text("Status & connection", "状态与连接"), action: nil, keyEquivalent: "")
             let diagnosticsMenu = NSMenu()
             for diagnosticTitle in [
@@ -6847,17 +6935,16 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
                 let item = NSMenuItem(title: diagnosticTitle, action: nil, keyEquivalent: "")
                 item.isEnabled = false
                 diagnosticsMenu.addItem(item)
+                diagnosticMenuItems.append(item)
             }
             let summary = view.sessionSummary()
             let session = NSMenuItem(title: summary.title, action: nil, keyEquivalent: "")
             session.toolTip = summary.fullId
             session.isEnabled = false
             diagnosticsMenu.addItem(session)
+            sessionMenuItem = session
             diagnostics.submenu = diagnosticsMenu
             menu.addItem(diagnostics)
-            let position = NSMenuItem(title: view.positionSummary(), action: nil, keyEquivalent: "")
-            position.isEnabled = false
-            menu.addItem(position)
         }
         menu.addItem(.separator())
 
@@ -6916,6 +7003,15 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             ? preferences.text("Counts input rhythm only; never stores text", "只统计输入节奏，不保存文字")
             : preferences.text("Requires macOS Accessibility permission", "需要 macOS 辅助功能权限")
         menu.addItem(typing)
+        if (preferences.settings.typingCombo ?? false), typingMonitor?.permissionGranted != true {
+            let permission = NSMenuItem(
+                title: preferences.text("Grant cursor access…", "授权光标效果…"),
+                action: #selector(requestAccessibility),
+                keyEquivalent: ""
+            )
+            permission.target = self
+            menu.addItem(permission)
+        }
         let cursorEffects = submenu(
             title: preferences.text("Cursor effects", "光标特效"),
             choices: [
@@ -6984,30 +7080,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             action: #selector(selectScale),
             numericSelected: preferences.settings.scale
         ))
-        menu.addItem(submenu(
-            title: preferences.text("Position preset", "位置预设"),
-            choices: [
-                ("smart", preferences.text("Smart · avoid side panels", "智能 · 避让侧栏")),
-                ("top-right", preferences.text("Top right", "右上")),
-                ("top-left", preferences.text("Top left", "左上")),
-                ("bottom-right", preferences.text("Bottom right", "右下")),
-                ("bottom-left", preferences.text("Bottom left", "左下")),
-                ("center", preferences.text("Center", "中央"))
-            ],
-            selected: preferences.settings.positionX == nil ? preferences.settings.edge : "custom",
-            action: #selector(selectEdge)
-        ))
-
-        menu.addItem(.separator())
-        let adjust = NSMenuItem(title: positioning ? preferences.text("Finish positioning", "完成位置调整") : preferences.text("Adjust position…", "调整位置…"), action: #selector(togglePositioning), keyEquivalent: "p")
-        adjust.keyEquivalentModifierMask = [.command, .option]
-        adjust.target = self
-        adjust.state = positioning ? .on : .off
-        menu.addItem(adjust)
-        let reset = NSMenuItem(title: preferences.text("Reset position", "重置位置"), action: #selector(resetPosition), keyEquivalent: "")
-        reset.target = self
-        menu.addItem(reset)
-
         let reduced = NSMenuItem(title: preferences.text("Reduce motion", "减少动态效果"), action: #selector(toggleReducedMotion), keyEquivalent: "")
         reduced.target = self
         reduced.state = preferences.settings.reducedMotion ? .on : .off
@@ -7048,7 +7120,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
 
     @objc private func toggleEnabled() { preferences?.toggleEnabled() }
-    @objc private func selectPreset(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setPreset(value) } }
+    @objc private func selectPreset(_ sender: NSMenuItem) {
+        if let value = sender.representedObject as? String {
+            preferences?.setPreset(value)
+            if value == "classic" { typingMonitor?.requestAccessibilityPermission() }
+        }
+    }
     @objc private func selectEffectIntensity(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEffectIntensity(value) } }
     @objc private func selectEnergyGainMultiplier(_ sender: NSMenuItem) {
         if let value = sender.representedObject as? String, let multiplier = Double(value) {
@@ -7056,7 +7133,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         }
     }
     @objc private func toggleCombo() { preferences?.toggleCombo() }
-    @objc private func toggleTypingCombo() { preferences?.toggleTypingCombo() }
+    @objc private func toggleTypingCombo() {
+        preferences?.toggleTypingCombo()
+        if preferences?.settings.typingCombo == true { typingMonitor?.requestAccessibilityPermission() }
+    }
+    @objc private func requestAccessibility() { typingMonitor?.requestAccessibilityPermission() }
     @objc private func selectCursorEffect(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setCursorEffect(value) } }
     @objc private func selectActivitySource(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setActivitySource(value) } }
     @objc private func selectIdleBehavior(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setIdleBehavior(value) } }
@@ -7065,16 +7146,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
     }
     @objc private func selectLanguage(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setLanguage(value) } }
     @objc private func selectScale(_ sender: NSMenuItem) { if let value = sender.representedObject as? String, let scale = Double(value) { preferences?.setScale(scale) } }
-    @objc private func selectEdge(_ sender: NSMenuItem) { if let value = sender.representedObject as? String { preferences?.setEdge(value) } }
     @objc private func toggleReducedMotion() { preferences?.toggleReducedMotion() }
     @objc private func selectInactiveBehavior(_ sender: NSMenuItem) {
         if let value = sender.representedObject as? String { preferences?.setInactiveBehavior(value) }
     }
-    @objc private func resetPosition() {
-        if positioning { setPositioning(false) }
-        preferences?.resetPosition()
-    }
-    @objc private func togglePositioning() { setPositioning(!positioning) }
     @objc private func quitOverlay() { NSApp.terminate(nil) }
 
     private func setPositioning(_ active: Bool) {
@@ -7089,7 +7164,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             panel.ignoresMouseEvents = false
             updateMouseCapture()
         }
-        rebuildMenu()
+        requestMenuRebuild()
     }
 
     private func installMouseMonitors() {

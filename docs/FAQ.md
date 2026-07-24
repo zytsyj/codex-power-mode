@@ -48,9 +48,9 @@ No. The automated report measures CPU, memory, macOS `top` POWER, threads, conte
 
 ## Is the project open source yet?
 
-No. The repository remains private and `UNLICENSED`. Documentation and release gates are being prepared for a possible public release, but publication, repository visibility, license choice, supported versions, and the first release number all require explicit owner approval.
+Yes. The source code, documentation, and project-authored media are MIT-licensed starting with `0.9.0`. Four legacy meme image sets are explicitly excluded from MIT and documented in `THIRD_PARTY_NOTICES.md`; omit those PNGs for a code-only MIT redistribution.
 
-Run `npm run readiness:rc` for a conservative snapshot. `passed` means evidence matches the current cachebuster build; `stale` means an older build passed and must be rerun. Synthetic rendering never satisfies the trusted-Hook or hands-on-interaction gates, and even complete automation cannot resolve owner decisions or authorize publication.
+Run `npm run readiness:rc` for a conservative engineering snapshot. `passed` means evidence matches the current plugin version; `stale` means an older build passed and must be rerun. Synthetic rendering never substitutes for trusted-Hook, hands-on, or Instruments checks.
 
 ## Where should I start when something looks wrong?
 

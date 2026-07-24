@@ -1,18 +1,18 @@
 # Third-party notices
 
-Codex Power Mode distributes no third-party packages, copied source code, fonts, native libraries, or precompiled binaries.
+Codex Power Mode has no third-party runtime or development packages, copied source code, fonts, native libraries, or precompiled binaries.
 
-## User-supplied meme images
+## Legacy meme image assets
 
-The repository includes four source meme images supplied by the project owner for use as cursor-effect stickers:
+Four user-supplied meme images and their transparent derivatives are distributed under `assets/meme-stickers/`:
 
 - Hands-behind Possum
 - Fresh Cat
 - Knife-shield Dog
 - Elegant Person
 
-Transparent runtime cutouts were derived from those supplied images. File-level provenance, transformations, dimensions, and source hashes are recorded in [assets/meme-stickers/README.md](assets/meme-stickers/README.md).
+These files are excluded from the project's MIT license. No ownership claim or additional license grant is made for the original images, depicted characters, or derivatives. Rights remain with their respective owners. Their provenance, transformations, and hashes are recorded in [assets/meme-stickers/README.md](assets/meme-stickers/README.md).
 
-No ownership claim is made over the depicted characters or original images. Rights remain with their respective owners, and downstream users are responsible for confirming that their use is permitted. These assets must be reviewed or replaced before any public release or redistribution.
+Redistributors are responsible for determining whether their use of these optional assets is permitted in their jurisdiction. To create a code-only redistribution, omit `assets/meme-stickers/*.png`; the four sticker effects then fall back without affecting the semantic HUD, Energy, Combo, or other cursor effects.
 
-Platform prerequisites, first-party generated media, and CI-only tooling are documented in [Dependencies and licensing](docs/DEPENDENCIES.md) and [Media provenance](docs/MEDIA.md).
+Platform prerequisites, generated project media, and CI-only tooling are documented in [Dependencies and licensing](docs/DEPENDENCIES.md) and [Media provenance](docs/MEDIA.md).
