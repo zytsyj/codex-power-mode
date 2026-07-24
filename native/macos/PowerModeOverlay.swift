@@ -6196,19 +6196,20 @@ private final class TypingComboMonitor {
         startEventMonitoring()
     }
 
-    func requestAccessibilityPermission(openSettings: Bool = true) {
+    func requestAccessibilityPermission(openSettings: Bool = true, alwaysOpenSettings: Bool = false) {
         guard preferences.settings.typingCombo == true else { return }
-        if !AXIsProcessTrusted() {
+        let wasTrusted = AXIsProcessTrusted()
+        if !wasTrusted {
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
             startPermissionPolling()
-            if openSettings,
-               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
         } else {
             preferencesChanged()
             onPermissionChange?()
+        }
+        if openSettings, (!wasTrusted || alwaysOpenSettings),
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -7210,7 +7211,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         case .alertSecondButtonReturn:
             preferences.enableTypingCombo()
             preferences.completeOnboarding()
-            typingMonitor?.requestAccessibilityPermission()
+            typingMonitor?.requestAccessibilityPermission(alwaysOpenSettings: true)
         default:
             break
         }

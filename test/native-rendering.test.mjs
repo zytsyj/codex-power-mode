@@ -120,6 +120,8 @@ test("Accessibility onboarding uses a stable app identity and activates without 
   assert.match(overlay, /macOS Accessibility \(optional\)/);
   assert.match(overlay, /preferences\.completeOnboarding\(\)/);
   assert.match(overlay, /preferences\.enableTypingCombo\(\)/);
+  assert.match(overlay, /requestAccessibilityPermission\(alwaysOpenSettings: true\)/);
+  assert.match(overlay, /!wasTrusted \|\| alwaysOpenSettings/);
 });
 
 test("classic Power Mode hides the orb and centers cursor-driven Typing Combo", async () => {
