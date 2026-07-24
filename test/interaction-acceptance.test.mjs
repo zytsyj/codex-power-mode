@@ -14,7 +14,7 @@ const configuration = {
   edge: "top-right",
   scale: 1.3,
   reducedMotion: false,
-  inactiveBehavior: "follow",
+  inactiveBehavior: "stay",
   autoHideDelay: 2,
   enabled: true,
   idleBehavior: "hide",

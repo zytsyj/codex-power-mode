@@ -79,6 +79,10 @@ test("native HUD is directly draggable while empty overlay space stays click-thr
   assert.match(source, /if !positioning \{ beginPositioning\(\) \}/);
   assert.match(source, /installStatusItem\(\)[\s\S]*installMouseMonitors\(\)[\s\S]*updateMouseCapture\(\)/);
   assert.match(source, /panel\.ignoresMouseEvents = !view\.hudContains\(windowPoint: windowPoint\)/);
+  assert.match(source, /override func menu\(for event: NSEvent\) -> NSMenu\?/);
+  assert.match(source, /override func acceptsFirstMouse\(for event: NSEvent\?\) -> Bool \{ true \}/);
+  assert.match(source, /settingsMenuProvider\?\(\)/);
+  assert.match(source, /powerView\.settingsMenuProvider = \{ \[weak self\] in self\?\.statusItem\?\.menu \}/);
   assert.doesNotMatch(source, /guard positioning, let panel = window, let view = panel\.contentView as\? PowerModeView else \{ return \}/);
 });
 
@@ -174,7 +178,7 @@ test("native HUD settings self-test exercises isolated persistence and validatio
   assert.match(source, /let persisted = reloaded\(\)/);
   assert.match(source, /persisted\.settings\.activitySource == "mix"/);
   assert.match(source, /persisted\.settings\.preset == "classic"/);
-  assert.match(source, /persisted\.settings\.inactiveBehavior == "follow"/);
+  assert.match(source, /persisted\.settings\.inactiveBehavior == "stay"/);
   assert.match(source, /persisted\.settings\.cursorEffect == "elegant"/);
   assert.match(source, /reset\.settings\.positionX == nil/);
 });

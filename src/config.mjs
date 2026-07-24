@@ -5,7 +5,7 @@ const ACTIVITY_SOURCES = new Set(["focused", "global", "mix"]);
 const EFFECT_INTENSITIES = new Set(["low", "normal", "high"]);
 const PRESETS = new Set(["focus", "arcade", "classic"]);
 const CURSOR_EFFECTS = new Set(["off", "spark", "neon", "orbit", "ripple", "prism", "wormhole", "glitch", "tentacle", "meme", "possum", "freshcat", "knifeshield", "elegant"]);
-const INACTIVE_BEHAVIORS = new Set(["hide", "stay", "follow"]);
+const INACTIVE_BEHAVIORS = new Set(["hide", "stay"]);
 const AUTO_HIDE_DELAYS = new Set([0, 2, 6]);
 const ENERGY_GAIN_MULTIPLIERS = new Set([0.3, 0.4, 0.5, 0.6, 0.72, 0.85, 1, 1.15, 1.3, 1.5]);
 const LEGACY_ENERGY_GAIN_MULTIPLIERS = new Map([[0.55, 0.5], [0.9, 0.85], [1.1, 1.15]]);
@@ -49,12 +49,15 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const reducedMotion = hasValue(environment, "CODEX_POWER_MODE_REDUCED_MOTION")
     ? environment.CODEX_POWER_MODE_REDUCED_MOTION === "1"
     : settings.reducedMotion === true;
-  const storedInactiveBehavior = INACTIVE_BEHAVIORS.has(settings.inactiveBehavior)
-    ? settings.inactiveBehavior
+  const storedInactiveBehavior = settings.inactiveBehavior === "follow"
+    ? "stay"
+    : INACTIVE_BEHAVIORS.has(settings.inactiveBehavior)
+      ? settings.inactiveBehavior
     : settings.followWhenInactive === true ? "stay" : "hide";
-  const inactiveBehavior = hasValue(environment, "CODEX_POWER_MODE_INACTIVE_BEHAVIOR")
+  const requestedInactiveBehavior = hasValue(environment, "CODEX_POWER_MODE_INACTIVE_BEHAVIOR")
     ? environment.CODEX_POWER_MODE_INACTIVE_BEHAVIOR
     : storedInactiveBehavior;
+  const inactiveBehavior = requestedInactiveBehavior === "follow" ? "stay" : requestedInactiveBehavior;
   const requestedAutoHideDelay = Number(hasValue(environment, "CODEX_POWER_MODE_AUTO_HIDE_DELAY")
     ? environment.CODEX_POWER_MODE_AUTO_HIDE_DELAY
     : settings.autoHideDelay);

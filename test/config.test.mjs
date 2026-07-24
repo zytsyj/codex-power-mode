@@ -53,7 +53,7 @@ test("native config normalizes environment overrides", () => {
     edge: "bottom-left",
     scale: 1.6,
     reducedMotion: true,
-    inactiveBehavior: "follow",
+    inactiveBehavior: "stay",
     autoHideDelay: 6,
     enabled: false,
     idleBehavior: "orb",
@@ -133,6 +133,16 @@ test("native config migrates the old inactive-window toggle into an explicit pol
   assert.equal(visible.inactiveBehavior, "stay");
   assert.equal(hidden.inactiveBehavior, "hide");
   assert.equal(Object.hasOwn(visible, "followWhenInactive"), false);
+});
+
+test("native config migrates foreground-app following into a fixed on-screen HUD", () => {
+  assert.equal(nativeConfigFromEnvironment({}, {
+    schemaVersion: 1,
+    inactiveBehavior: "follow"
+  }).inactiveBehavior, "stay");
+  assert.equal(nativeConfigFromEnvironment({
+    CODEX_POWER_MODE_INACTIVE_BEHAVIOR: "follow"
+  }).inactiveBehavior, "stay");
 });
 
 test("native config deliberately resets pre-schema development settings", () => {

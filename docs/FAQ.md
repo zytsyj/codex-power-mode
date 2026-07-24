@@ -26,7 +26,7 @@ The default Idle behavior hides the settled HUD after its configured delay. From
 
 ## Why is the HUD hidden or moved when Codex is not active?
 
-The **When Codex is inactive** setting has three policies: hide it, keep it at the last Codex anchor, or follow the foreground app. This is independent from Focus, Global, and Mix, which decide which Codex desktop task supplies activity.
+The **When Codex is inactive** setting has two policies: hide the HUD, or keep it at its last confirmed Codex position across apps and Spaces. It never re-anchors to an unrelated foreground app. This is independent from Focus, Global, and Mix, which decide which Codex desktop task supplies activity.
 
 ## What are Focus, Global, and Mix?
 

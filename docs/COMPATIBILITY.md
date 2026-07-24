@@ -30,7 +30,7 @@ It also records aggregate installed-service health, HUD connection, Accessibilit
 | Semantic and Energy states | Six states, five tiers, four completion outcomes | Real lifecycle ordering from a trusted Codex desktop task |
 | Typing feedback | Static Spark/Neon and Combo palette frames; Accessibility health | Effects following the real insertion point; real `UserPromptSubmit` injection |
 | Floating behavior | Direct-drag hit-target/click-through tests plus isolated position save, reload, and reset | Drag gesture, multiple-display attach/detach, Dock and visible-frame changes |
-| Foreground and idle policy | Isolated save/reload coverage for hide/stay/follow and hide/quiet-orb settings | Policy timing and behavior in the live app |
+| Foreground and idle policy | Isolated save/reload coverage for hide/stay and hide/quiet-orb settings | Policy timing and behavior in the live app |
 | Language | English/Chinese strings compile; automatic/English/Chinese preference persistence | English, Chinese, and automatic selection reviewed in the live menu/HUD |
 | Lifecycle maintenance | Isolated install/upgrade and real service-reconnect checks | Clean install, upgrade, stop, permission revocation, and uninstall on the final support range |
 

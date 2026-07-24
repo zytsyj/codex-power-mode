@@ -18,14 +18,12 @@ private func resolvedHudPlacementBounds(viewBounds: CGRect, visibleBounds: CGRec
 private enum TrackedWindowTarget: Equatable {
     case hidden
     case codex
-    case frontmost
 }
 
 private func trackedWindowTarget(codexIsFrontmost: Bool, inactiveBehavior: String) -> TrackedWindowTarget {
     if codexIsFrontmost { return .codex }
     switch inactiveBehavior {
-    case "stay": return .codex
-    case "follow": return .frontmost
+    case "stay", "follow": return .codex
     default: return .hidden
     }
 }
@@ -84,7 +82,7 @@ private func runPlacementGeometrySelfTest() {
     precondition(trackedWindowTarget(codexIsFrontmost: true, inactiveBehavior: "hide") == .codex)
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "hide") == .hidden)
     precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "stay") == .codex)
-    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .frontmost)
+    precondition(trackedWindowTarget(codexIsFrontmost: false, inactiveBehavior: "follow") == .codex)
     let settledAt = Date(timeIntervalSince1970: 1_000)
     precondition(!idleGraceIsActive(now: settledAt, settledAt: settledAt, delay: 0))
     precondition(idleGraceIsActive(now: settledAt.addingTimeInterval(1.9), settledAt: settledAt, delay: 2))
@@ -389,6 +387,10 @@ private final class PowerModePreferences {
             settings = OverlaySettings(endpoint: environment["CODEX_POWER_MODE_URL"] ?? "http://127.0.0.1:4737/api/stream")
         }
         if settings.idleBehavior == "always" { settings.idleBehavior = "orb" }
+        if settings.inactiveBehavior == "follow" {
+            settings.inactiveBehavior = "stay"
+            save()
+        }
     }
 
     var reduceMotionEnabled: Bool {
@@ -439,7 +441,7 @@ private final class PowerModePreferences {
     func toggleEnabled() { mutate { $0.enabled.toggle() } }
     func toggleReducedMotion() { mutate { $0.reducedMotion.toggle() } }
     func setInactiveBehavior(_ value: String) {
-        guard ["hide", "stay", "follow"].contains(value) else { return }
+        guard ["hide", "stay"].contains(value) else { return }
         mutate { $0.inactiveBehavior = value }
     }
     func toggleCombo() { mutate { $0.showCombo = !($0.showCombo ?? true) } }
@@ -510,7 +512,6 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     preferences.toggleReducedMotion()
     preferences.setInactiveBehavior("hide")
     preferences.setInactiveBehavior("stay")
-    preferences.setInactiveBehavior("follow")
     preferences.toggleCombo()
     preferences.toggleTypingCombo()
     preferences.setPreset("classic")
@@ -539,7 +540,7 @@ private func runSettingsPersistenceSelfTest(environment: [String: String]) {
     precondition(persisted.settings.scale == 1.6)
     precondition(!persisted.settings.enabled)
     precondition(persisted.settings.reducedMotion)
-    precondition(persisted.settings.inactiveBehavior == "follow")
+    precondition(persisted.settings.inactiveBehavior == "stay")
     precondition(persisted.settings.showCombo == false)
     precondition(persisted.settings.typingCombo == true)
     precondition(persisted.settings.cursorEffect == "elegant")
@@ -4147,6 +4148,7 @@ private final class PowerModeView: NSView {
     }()
     var onPositioningFinished: (() -> Void)?
     var onTypingCharge: ((Int, String) -> Void)?
+    var settingsMenuProvider: (() -> NSMenu?)?
     private var reducedMotion: Bool { preferences.reduceMotionEnabled }
     private var arcadeMode: Bool { preferences.settings.preset == "arcade" }
     private var classicMode: Bool { preferences.settings.preset == "classic" }
@@ -4391,6 +4393,15 @@ private final class PowerModeView: NSView {
         let local = convert(windowPoint, from: nil)
         return currentHudRect().insetBy(dx: -8, dy: -14).contains(local)
     }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let point = convert(event.locationInWindow, from: nil)
+        guard shouldShowHUD(now: Date()),
+              currentHudRect().insetBy(dx: -8, dy: -14).contains(point) else { return nil }
+        return settingsMenuProvider?()
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -6694,14 +6705,12 @@ private final class CodexWindowTracker {
             panel.orderOut(nil)
             return
         }
-        let currentCodexFrame = codexWindowFrame()
+        // While another app is active, freeze the last confirmed Codex frame.
+        // Re-querying the window list here can change front-to-back ordering and
+        // make the HUD jump between unrelated windows or Spaces.
+        let currentCodexFrame = codexIsFrontmost ? codexWindowFrame() : nil
         if codexIsFrontmost, let currentCodexFrame { lastCodexFrame = currentCodexFrame }
-        let targetFrame: CGRect?
-        if windowTarget == .codex {
-            targetFrame = currentCodexFrame ?? lastCodexFrame
-        } else {
-            targetFrame = frontmostWindowFrame()
-        }
+        let targetFrame = currentCodexFrame ?? lastCodexFrame
         guard let frame = targetFrame, frame.width > 400, frame.height > 300 else {
             panel.orderOut(nil)
             return
@@ -6722,11 +6731,6 @@ private final class CodexWindowTracker {
     private func codexWindowFrame() -> CGRect? {
         guard let application = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else { return nil }
         return windowFrame(for: application)
-    }
-
-    private func frontmostWindowFrame() -> CGRect? {
-        guard let application = NSWorkspace.shared.frontmostApplication else { return NSScreen.main?.frame }
-        return windowFrame(for: application) ?? NSScreen.main?.frame
     }
 
     private func windowFrame(for application: NSRunningApplication) -> CGRect? {
@@ -6798,6 +6802,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         panel.acceptsMouseMovedEvents = true
         let powerView = PowerModeView(frame: CGRect(origin: .zero, size: CGSize(width: 900, height: 700)), preferences: preferences)
         powerView.onPositioningFinished = { [weak self] in self?.setPositioning(false) }
+        powerView.settingsMenuProvider = { [weak self] in self?.statusItem?.menu }
         panel.contentView = powerView
         window = panel
         tracker = CodexWindowTracker(panel: panel, preferences: preferences)
@@ -7099,8 +7104,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
             title: preferences.text("When Codex is inactive", "Codex 非前台时"),
             choices: [
                 ("hide", preferences.text("Hide outside Codex", "离开 Codex 时隐藏")),
-                ("stay", preferences.text("Stay over the Codex window", "保持在 Codex 窗口位置")),
-                ("follow", preferences.text("Follow the active app", "跟随当前应用"))
+                ("stay", preferences.text("Keep on screen", "保持在屏幕"))
             ],
             selected: preferences.settings.inactiveBehavior,
             action: #selector(selectInactiveBehavior)
@@ -7235,10 +7239,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 
     private func installMouseMonitors() {
         removeMouseMonitors()
-        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] _ in
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in self?.updateMouseCapture() }
         }
-        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp, .rightMouseDown]) { [weak self] event in
             self?.updateMouseCapture()
             return event
         }
