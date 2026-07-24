@@ -96,6 +96,14 @@ test("native config preserves settings unless an environment override is provide
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_PRESET: "focus" }, stored).preset, "focus");
 });
 
+test("native config preserves completed permission onboarding across restarts", () => {
+  const restarted = nativeConfigFromEnvironment({}, {
+    schemaVersion: 1,
+    onboardingVersion: 1
+  });
+  assert.equal(restarted.onboardingVersion, 1);
+});
+
 test("native config accepts the shared Mix activity source", () => {
   assert.equal(nativeConfigFromEnvironment({ CODEX_POWER_MODE_ACTIVITY_SOURCE: "mix" }).activitySource, "mix");
 });

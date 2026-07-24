@@ -30,6 +30,9 @@ export function nativeStreamEndpointFromEnvironment(environment = {}) {
 
 export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
   const settings = stored.schemaVersion === 1 ? stored : {};
+  const onboardingVersion = Number.isInteger(settings.onboardingVersion) && settings.onboardingVersion >= 0
+    ? settings.onboardingVersion
+    : null;
   const parsedScale = Number.parseFloat(hasValue(environment, "CODEX_POWER_MODE_SCALE") ? environment.CODEX_POWER_MODE_SCALE : settings.scale);
   const preset = hasValue(environment, "CODEX_POWER_MODE_PRESET") ? environment.CODEX_POWER_MODE_PRESET : settings.preset;
   const normalizedPreset = PRESETS.has(preset) ? preset : "focus";
@@ -93,6 +96,7 @@ export function nativeConfigFromEnvironment(environment = {}, stored = {}) {
     typingCombo,
     cursorEffect: CURSOR_EFFECTS.has(cursorEffect) ? cursorEffect : "spark",
     positionX: storedNumber(settings.positionX),
-    positionY: storedNumber(settings.positionY)
+    positionY: storedNumber(settings.positionY),
+    ...(onboardingVersion === null ? {} : { onboardingVersion })
   };
 }
