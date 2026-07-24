@@ -127,6 +127,10 @@ test("Accessibility onboarding uses a stable app identity and activates without 
   assert.match(controller, /legacyNativeBinary/);
   assert.match(controller, /acceptedNativeBinaries/);
   assert.match(overlay, /kAXTrustedCheckOptionPrompt/);
+  assert.equal((overlay.match(/kAXTrustedCheckOptionPrompt/g) ?? []).length, 1);
+  assert.match(overlay, /if startMonitoring \{ preferencesChanged\(\) \}/);
+  assert.doesNotMatch(overlay, /preferencesChanged\(promptForPermission: true\)/);
+  assert.doesNotMatch(overlay, /func preferencesChanged\(promptForPermission:/);
   assert.match(overlay, /Privacy_Accessibility/);
   assert.match(overlay, /startPermissionPolling/);
   assert.match(overlay, /self\.startEventMonitoring\(\)/);

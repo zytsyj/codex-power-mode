@@ -1,6 +1,6 @@
 # Public beta release checklist
 
-Power Mode `0.9.1` is prepared as an open-source public beta. Source publication and production-grade signed binary distribution are separate milestones.
+Power Mode `0.9.2` is prepared as an open-source public beta. Source publication and production-grade signed binary distribution are separate milestones.
 
 ## Open-source decisions
 

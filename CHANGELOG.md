@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 - 2026-07-24
+
+- Stopped the native HUD from requesting macOS Accessibility permission automatically during startup. Existing authorization still activates Typing Combo immediately, while missing authorization is now requested only after an explicit onboarding or menu action, preventing duplicate prompts for upgrading users.
+
 ## 0.9.1 - 2026-07-24
 
 - Split HUD anchoring into two predictable modes: follow the Codex window and hide outside Codex, or remain fixed to the active screen across app and Space changes.

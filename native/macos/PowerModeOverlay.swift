@@ -6184,7 +6184,7 @@ private final class TypingComboMonitor {
     init(view: PowerModeView?, preferences: PowerModePreferences, startMonitoring: Bool = true) {
         self.view = view
         self.preferences = preferences
-        if startMonitoring { preferencesChanged(promptForPermission: true) }
+        if startMonitoring { preferencesChanged() }
     }
 
     static func accessibilityDiagnostic(preferences: PowerModePreferences) -> [String: Any] {
@@ -6194,13 +6194,9 @@ private final class TypingComboMonitor {
 
     var permissionGranted: Bool { AXIsProcessTrusted() }
 
-    func preferencesChanged(promptForPermission: Bool = false) {
+    func preferencesChanged() {
         stop()
         guard preferences.settings.typingCombo == true else { return }
-        if promptForPermission, !AXIsProcessTrusted() {
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
-        }
         guard AXIsProcessTrusted() else {
             startPermissionPolling()
             return
