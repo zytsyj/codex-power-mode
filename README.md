@@ -17,12 +17,15 @@ Watch it understand, inspect, edit, verify, recover, and finish—then add Energ
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
 
-[Why it moved to Codex](#when-vs-code-stopped-being-the-main-stage) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Visual system](#one-visual-system-not-a-loading-spinner) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
+[Why it moved to Codex](#when-vs-code-stopped-being-the-main-stage) · [Vibe-coding note](#built-with-codex-bugs-included) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
 > [!NOTE]
 > Power Mode `0.9.0` is an **open-source public beta**. Source code, documentation, and project-authored media use MIT. Four legacy meme image sets are distributed separately and are not covered by MIT; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+
+> [!WARNING]
+> **A small vibe-coding disclaimer:** this is coding candy, not mission-critical instrumentation. It may occasionally miss a Combo, read a state late, twitch, lose the screen, or go mysteriously quiet exactly when you want the fireworks. Power Mode is here to make working with Codex more visible and more fun; it does not know the model's thoughts or the real percentage of work completed. If the HUD has a bad day, Codex should keep working normally. Bugs, rough edges, and delightfully strange reports are welcome.
 
 ## When VS Code stopped being the main stage
 
@@ -37,6 +40,14 @@ The first prototype simply turned Codex patches into fake high-speed typing. It 
 But the human did not become a spectator. When you finish typing a request, the Typing Combo is pulled into the orb as a deliberately high-weight Energy charge. At the default setting, a `40+` input Combo injects `65` Energy—roughly the weight of three to six routine Codex state steps. Codex may perform dozens of actions, but your instruction decides which direction all of them should take, so it deserves more weight than any one mechanical step. Power Mode never reads what you typed; it gives weight to the fact that you shaped and submitted the intent.
 
 That is really all this project is: **Power Mode for the moment when the coder became the director and Codex became the one at the controls.** Classic mode keeps the old keystroke fireworks around for fun. The orb is what came next.
+
+## Built with Codex, bugs included
+
+Most of this project was vibe-coded with AI—mostly Codex. I brought the idea, the taste, the final decisions, and many rounds of “still not quite right.” Codex wrote a large part of the implementation, refactors, tests, and documentation. So yes: this is a HUD for watching Codex work, largely built by Codex itself. The recursion is part of the fun.
+
+There are automated tests, deterministic visual checks, privacy boundaries, and CI. There may still be bugs. A Codex or macOS update may surprise it; an animation may behave strangely in a corner case; a permission flow may decide today is the day to become performance art. This is an open-source public beta, not critical infrastructure or a trustworthy progress meter.
+
+Treat it like the old Power Mode: something made because coding is allowed to be fun. If it breaks, please open an issue with a reproducible example—and feel free to let Codex help fix the thing Codex helped write.
 
 ## See it move
 
