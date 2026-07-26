@@ -46,6 +46,8 @@ The six PNG files in `docs/media/static-gallery/` are editorial layouts composed
 
 They add project-authored headings, captions, dark panels, and spacing around the unchanged captured HUD frames. The semantic-state layout deliberately uses the transient full editing arrow, while the Combo layout uses a frame where the Typing charge trail is visibly entering the orb. These static summaries follow the same privacy boundary as the source recordings and contain no additional runtime data.
 
+The matching `*-en.png` files form a separate English README set. They are composed from deterministic native QA renders rather than the Chinese screen recordings, so both the editorial text and the HUD's internal labels remain English. The English injection panel combines the project-rendered English orb with a project-authored dotted charge path; it does not depict external or personal data.
+
 ## Reproduce the QA set
 
 On macOS with the system Swift toolchain:
