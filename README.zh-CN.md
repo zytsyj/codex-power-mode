@@ -17,7 +17,7 @@ Codex 都认真干活了，当然不能只配一个转圈圈。<br>
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![运行时依赖](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
 
-[为什么从 VS Code 搬到 Codex](#当-vs-code-退到后台) · [Vibe Coding 声明](#大部分也是-codex-写的bug-可能也是) · [动态预览](#动态预览) · [快速安装](#快速安装) · [隐私](#本地运行隐私优先) · [文档](#文档)
+[为什么从 VS Code 搬到 Codex](#当-vs-code-退到后台) · [静态总览](#四张图先看懂整套逻辑) · [动态预览](#动态预览) · [快速安装](#快速安装) · [隐私](#本地运行隐私优先) · [文档](#文档)
 
 </div>
 
@@ -48,6 +48,37 @@ Codex 都认真干活了，当然不能只配一个转圈圈。<br>
 项目有自动化测试、确定性画面检查、隐私边界和 CI，但当然还是可能有 Bug。Codex 或 macOS 一更新，它可能突然没跟上；某个边缘状态里的动画可能抽风；权限流程也可能临时决定表演一下行为艺术。这是一个开源公开测试版，不是关键基础设施，也不是值得拿来盯项目进度的精密仪表。
 
 把它当成以前的 Power Mode 就好：做它首先是因为写代码也可以好玩。如果真坏了，欢迎带着可复现过程提 Issue——也欢迎继续让 Codex 修复这个由 Codex 参与写出来的东西。
+
+## 四张图先看懂整套逻辑
+
+后面的 GIF 负责展示动作，这几张真实录屏截图先把整套系统讲清楚。
+
+<p align="center">
+  <img src="docs/media/static-gallery/energy-evolution.png" width="92%" alt="唤醒、充能、驱动、临界和巅峰五档能量实机截图">
+</p>
+
+能量不是简单换颜色。同一套机械结构会随着有效工作逐步获得节点、连线、方向、锁点，最后在最高档完成整体同步。
+
+<p align="center">
+  <img src="docs/media/static-gallery/semantic-states.png" width="92%" alt="包含完整修改箭头在内的八种 Codex 状态实机截图">
+</p>
+
+小球给 Codex 一套能看懂的身体语言：理解、搜索、修改、执行、验证、等待、恢复、完成。修改中的大箭头只是动作瞬间，不会常驻挡住其他状态。
+
+<table>
+  <tr>
+    <th width="50%">两种 Combo，然后注入</th>
+    <th width="50%">四种诚实的结尾</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/static-gallery/combos-and-injection.png" width="100%" alt="Agent Combo、输入 Combo 与可见的能量注入轨迹"></td>
+    <td><img src="docs/media/static-gallery/completion-outcomes.png" width="100%" alt="已验证、未验证、已取消和无修改四种完成结果"></td>
+  </tr>
+  <tr>
+    <td>Codex 的连续行动积累 Agent Combo；人的输入积累独立 Combo，提交后沿着可见轨迹注入小球，获得更高权重。</td>
+    <td>验证通过才庆祝。未验证、已取消和无修改都有自己的收束方式，不会借用同一套胜利动画。</td>
+  </tr>
+</table>
 
 ## 动态预览
 
@@ -203,6 +234,19 @@ Mix 中每个对话结束都会短暂显示“已验证、未验证、已取消�
 ## 认真工作，也可以不那么正经
 
 有时候安静冒个火花就够了；有时候则需要液态虫洞、新鲜猫，或者让背手负鼠站在旁边默默监督这次改动。
+
+<table>
+  <tr>
+    <th width="50%">八种几何效果，放大看细节</th>
+    <th width="50%">五种让输入框不再正经的方法</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/static-gallery/cursor-geometric.png" width="100%" alt="八种几何光标效果静态细节图"></td>
+    <td><img src="docs/media/static-gallery/cursor-memes.png" width="100%" alt="典急孝乐绷赢、背手负鼠、新鲜猫、刀盾狗和高雅人士静态细节图"></td>
+  </tr>
+</table>
+
+当然，它们真的会动：
 
 <table>
   <tr>

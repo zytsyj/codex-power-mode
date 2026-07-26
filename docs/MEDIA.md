@@ -33,6 +33,19 @@ README overview recordings:
 
 The thirteen files in `cursor-gallery/` are the corresponding individual cursor-effect recordings. The legacy meme images visible in four of those recordings retain the separate rights status described in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
+## Static README gallery
+
+The six PNG files in `docs/media/static-gallery/` are editorial layouts composed only from stable frames of the real README recordings above:
+
+- `energy-evolution.png`
+- `semantic-states.png`
+- `combos-and-injection.png`
+- `completion-outcomes.png`
+- `cursor-geometric.png`
+- `cursor-memes.png`
+
+They add project-authored headings, captions, dark panels, and spacing around the unchanged captured HUD frames. The semantic-state layout deliberately uses the transient full editing arrow, while the Combo layout uses a frame where the Typing charge trail is visibly entering the orb. These static summaries follow the same privacy boundary as the source recordings and contain no additional runtime data.
+
 ## Reproduce the QA set
 
 On macOS with the system Swift toolchain:

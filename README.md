@@ -17,7 +17,7 @@ Watch it understand, inspect, edit, verify, recover, and finish—then add Energ
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?style=flat-square&logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![Runtime dependencies](https://img.shields.io/badge/runtime_deps-0-2563eb?style=flat-square)](docs/DEPENDENCIES.md)
 
-[Why it moved to Codex](#when-vs-code-stopped-being-the-main-stage) · [Vibe-coding note](#built-with-codex-bugs-included) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
+[Why it moved to Codex](#when-vs-code-stopped-being-the-main-stage) · [Visual tour](#the-whole-idea-in-four-frames) · [See it move](#see-it-move) · [Quick start](#quick-start) · [Privacy](#local-and-private-by-design) · [Documentation](#documentation)
 
 </div>
 
@@ -48,6 +48,37 @@ Most of this project was vibe-coded with AI—mostly Codex. I brought the idea, 
 There are automated tests, deterministic visual checks, privacy boundaries, and CI. There may still be bugs. A Codex or macOS update may surprise it; an animation may behave strangely in a corner case; a permission flow may decide today is the day to become performance art. This is an open-source public beta, not critical infrastructure or a trustworthy progress meter.
 
 Treat it like the old Power Mode: something made because coding is allowed to be fun. If it breaks, please open an issue with a reproducible example—and feel free to let Codex help fix the thing Codex helped write.
+
+## The whole idea in four frames
+
+The GIFs below show the motion, but these real captured frames explain the system at a glance.
+
+<p align="center">
+  <img src="docs/media/static-gallery/energy-evolution.png" width="92%" alt="Five captured Energy tiers: Wake, Charge, Drive, Critical, and Peak">
+</p>
+
+Energy does not merely change color. One connected mechanism gains nodes, links, direction, locks, and finally a synchronized crown as useful work accumulates.
+
+<p align="center">
+  <img src="docs/media/static-gallery/semantic-states.png" width="92%" alt="Eight captured Codex states including the full editing arrow">
+</p>
+
+The HUD gives Codex a readable body language: understand, search, edit, execute, verify, wait, recover, and complete. The large editing arrow is a transient action—not permanent decoration.
+
+<table>
+  <tr>
+    <th width="50%">Two Combos, then injection</th>
+    <th width="50%">Four honest endings</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/static-gallery/combos-and-injection.png" width="100%" alt="Agent Combo, Typing Combo, and visible Energy injection trail"></td>
+    <td><img src="docs/media/static-gallery/completion-outcomes.png" width="100%" alt="Verified, unverified, cancelled, and no-change completion outcomes"></td>
+  </tr>
+  <tr>
+    <td>Codex builds Agent Combo. Your input builds a separate Typing Combo, then visibly streams into the orb as a higher-weight Energy charge.</td>
+    <td>Verified work celebrates. Unverified, cancelled, and no-change turns each close differently instead of borrowing the same victory animation.</td>
+  </tr>
+</table>
 
 ## See it move
 
@@ -203,6 +234,19 @@ In Mix, each conversation gets a brief verified/unverified/cancelled/no-change s
 ## Serious work, unserious cursor effects
 
 Some days call for a quiet spark. Other days call for a liquid wormhole, a judgmental orange cat, or a possum silently supervising the pull request.
+
+<table>
+  <tr>
+    <th width="50%">Eight geometric effects, captured up close</th>
+    <th width="50%">Five ways to make the input box less respectable</th>
+  </tr>
+  <tr>
+    <td><img src="docs/media/static-gallery/cursor-geometric.png" width="100%" alt="Static detail gallery of eight geometric cursor effects"></td>
+    <td><img src="docs/media/static-gallery/cursor-memes.png" width="100%" alt="Static detail gallery of Chinese meme words, possum, cat, dog, and elegant person effects"></td>
+  </tr>
+</table>
+
+And yes, they actually move:
 
 <table>
   <tr>
